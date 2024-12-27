@@ -1,0 +1,16 @@
+build
+node_modules
+.env
+bin
+out
+test
+obj
+.vs
+.idea
+mono_crash.*.blob
+mono_crash.*.json
+
+.DS_Store
+*.DS_Store
+.meta
+*.meta

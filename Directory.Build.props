@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <BaseOutputPath>..\out\$(MSBuildProjectName)\bin</BaseOutputPath>
+    <IntermediateOutputPath>..\out\$(MSBuildProjectName)\obj</IntermediateOutputPath>
+    <LangVersion>10</LangVersion>
+    <Nullable>enable</Nullable>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\*.meta</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>inzania.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>
