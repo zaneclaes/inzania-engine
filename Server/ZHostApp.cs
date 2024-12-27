@@ -23,13 +23,13 @@ using Tuneality.Core;
 
 namespace IZ.Server;
 
-public abstract class TunealityHostApp : TunealityApp {
+public abstract class ZHostApp : ZApp {
   protected WebApplication? WebApp { get; private set; } = default!;
 
   private readonly WebApplicationBuilder _builder;
 
-  protected TunealityHostApp(WebApplicationBuilder builder) :
-    base(Enum.Parse<IZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!), new SerilogLogBuilder()
+  protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) :
+    base(productName, domainName, Enum.Parse<IZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!), new SerilogLogBuilder()
         .WithTuneData()
         // .WithTuneXmlLogging()
         .ReadFrom(c => c.Configuration(builder.Configuration, new ConfigurationReaderOptions(

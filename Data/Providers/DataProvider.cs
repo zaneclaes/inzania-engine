@@ -4,6 +4,7 @@ using System;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
+using IZ.Core.Data.Seeds;
 using IZ.Core.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

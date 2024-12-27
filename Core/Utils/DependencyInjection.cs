@@ -15,7 +15,7 @@ public static class DependencyInjection {
     this IServiceCollection sc, TApp app, TRoot? rootSingleton = null
   ) where TApp : ZApp where TRoot : class, ITuneRootContext {
     if (rootSingleton != null) sc.AddSingleton<ITuneRootContext>(rootSingleton);
-    else sc.AddScoped<ITuneRootContext, TRoot>();
+    else sc.AddTransient<ITuneRootContext, TRoot>();
 
     // Fallback data-cache
     // sc.TryAddTransient<ITuneDataRepository, DataCacheRepository>();

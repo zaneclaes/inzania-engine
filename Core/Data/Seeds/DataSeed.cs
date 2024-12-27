@@ -11,18 +11,19 @@ using IZ.Core.Observability.Logging;
 
 #endregion
 
-namespace IZ.Core.Data;
-
-public abstract class DataStub { }
+namespace IZ.Core.Data.Seeds;
 
 public abstract class DataSeed : IHaveContext {
+  public static ITuneContext DataContext => _dataContext ??= IZEnv.SpawnRootContext();
+  private static ITuneContext? _dataContext;
+
   public ITuneContext Context { get; set; } = default!;
   public ITuneLogger Log { get; set; } = default!;
 
   public virtual bool ReSeed => false;
 
   public async Task SeedDatabase(ITuneContext context) {
-    Context = context;
+    _dataContext = Context = context;
     Log = context.Log.ForContext(GetType());
     var sw = Stopwatch.StartNew();
     await Exec();
@@ -48,7 +49,7 @@ public abstract class DataSeed : IHaveContext {
 }
 
 public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
-  protected abstract List<TD> GetStubs();
+  protected abstract List<DataStub<TD>> GetStubs();
 
   // protected List<TD> Models { get; set; } = new List<TD>();
 
@@ -80,35 +81,34 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
     return ret;
   }
 
-  private async Task<List<TD>> SeedModelIds(List<TD> seeds, List<TD>? existing = null) {
-    var seedIds = seeds.Select(p => p.Id).ToArray();
+  private async Task<List<TD>> SeedModelIds(List<DataStub<TD>> stubs, List<TD>? existing = null) {
+    var seedIds = stubs.Select(p => p.Data.Id).ToArray();
     existing ??= await GetQuery()
       .Filter(p => seedIds.Contains(p.Id))
       .LoadDataModelsAsync();
     List<TD> models = existing.ToList();
 
     await ProcessExisting(existing);
-    int added = 0;
-    foreach (var seed in seeds) {
-      var e = existing.FirstOrDefault(e => e.Id.Equals(seed.Id));
-      if (e != null) {
-        SetModel(e);
+    foreach (var stub in stubs) {
+      var e = existing.FirstOrDefault(e => e.Id.Equals(stub.Data.Id));
+      if (e == null) {
+        await Context.Data.AddAsync(stub.Data);
+        models.Add(stub.Data);
       } else {
-        await Context.Data.AddAsync(seed);
-        added++;
-        models.Add(seed);
+        stub.Update(e);
       }
+      SetModel(e ?? stub.Data);
     }
-    if (added > 0) await Context.Data.SaveAsync();
+    await Context.Data.SaveIfNeededAsync();
     return models;
   }
 
-  private List<TD> PrepareStubs() {
-    List<TD> stubs = GetStubs();
+  private List<DataStub<TD>> PrepareStubs() {
+    List<DataStub<TD>> stubs = GetStubs();
     HashSet<string> ids = new HashSet<string>();
     foreach (var s in stubs)
-      if (!ids.Add(s.Id))
-        throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.Id}");
+      if (!ids.Add(s.Data.Id))
+        throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.Data.Id}");
     return stubs;
   }
 

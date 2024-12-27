@@ -7,5 +7,7 @@ public interface ITuneUser : IStringKeyData, ICreatedAt, IAmOwned {
 
   public string Username { get; }
 
+  public string UsernameLower { get; }
+
   public string Email { get; }
 }
