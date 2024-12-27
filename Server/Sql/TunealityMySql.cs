@@ -24,6 +24,8 @@ public static class TunealityMySql {
     return options
       // .UseLazyLoadingProxies()
       .UseMySql(settings.ToConnectionString(options), settings.Version, opts => {
+        opts.EnablePrimitiveCollectionsSupport();
+        opts.TranslateParameterizedCollectionsToConstants();
         opts.MigrationsAssembly(typeof(TAsm).Assembly.FullName);
         opts.EnableRetryOnFailure(3);
         opts.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);

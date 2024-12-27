@@ -25,7 +25,16 @@ public class GraphResult<TData> : GraphResult {
       Log.Warning("[DOC] {@data}", doc.ContextData);
       throw new NullReferenceException(nameof(doc.Body));
     }
-    var res = doc.Body.RootElement.GetProperty("data").GetProperty("result");
+    if (doc.Body.RootElement.ValueKind != JsonValueKind.Object) {
+      Log.Warning("[DOC] {@data}", doc.Body);
+      throw new NullReferenceException("Root: " + doc.Body.RootElement.ValueKind.ToString());
+    }
+    var data = doc.Body.RootElement.GetProperty("data");
+    if (data.ValueKind != JsonValueKind.Object) {
+      Log.Warning("[DOC] data: {data}", doc.Body.ToString());
+      throw new NullReferenceException("Data: " + data.ValueKind.ToString());
+    }
+    var res = data.GetProperty("result");
     Result = res.Deserialize<TData>(SystemJson.DeserializeOptionsForContext(Context)) ??
              throw new ArgumentException("Failed to deserialize graph result");
   }

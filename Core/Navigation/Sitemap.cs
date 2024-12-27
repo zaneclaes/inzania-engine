@@ -18,11 +18,11 @@ public abstract class Sitemap : LogicBase {
 
   protected List<SitePage> Pages { get; }
 
-  public Sitemap(string fqdn, params SitePage[] pages) {
+  public Sitemap(ZApp app, params SitePage[] pages) {
     Pages = pages.ToList();
-    Fqdn = fqdn;
+    Fqdn = app.Fqdn;
     Map = GetRouteTypeMap(Pages);
-    Xml = Generate(fqdn, Map);
+    Xml = Generate(app.Fqdn, Map);
   }
 
   private Dictionary<string, SitePage> Map { get; }

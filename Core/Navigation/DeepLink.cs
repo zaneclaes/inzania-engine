@@ -5,6 +5,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 using IZ.Core.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
@@ -30,7 +31,7 @@ public class DeepLink : TransientObject {
 
     _path = path.Split("://").Last().Split("#").First().Split("?").First().Trim('/').ToLower();
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
-    Page = context.App.Sitemap.GetPage(string.Join("/", Parts));
+    Page = context.ServiceProvider.GetRequiredService<Sitemap>().GetPage(string.Join("/", Parts));
     if (!IsValid) {
       Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
     }

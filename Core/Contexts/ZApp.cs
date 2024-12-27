@@ -43,12 +43,6 @@ public abstract class ZApp : IGetLogged {
     IZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
   }
 
-  public void AddSitemap(Sitemap s) {
-    Sitemap = s;
-  }
-
-  public Sitemap? Sitemap { get; protected set; }
-
   public TuneTarget Target { get; }
 
   public string TargetName => Target.ToString();
