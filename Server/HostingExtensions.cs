@@ -85,7 +85,7 @@ public static class HostingExtensions {
         }
       }
     }
-    context.Response.Headers.Append("X-Chordzy-Env", context.RequestServices.GetRootContext().App.Env.ToString());
+    context.Response.Headers.Append("X-App-Env", context.RequestServices.GetRootContext().App.Env.ToString());
   }
 
   public static TOpts GetSectionOptions<TOpts>(this IConfiguration section, string name) where TOpts : new() {

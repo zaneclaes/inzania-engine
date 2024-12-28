@@ -35,7 +35,7 @@ public static class TimeStampData {
     return data.OrderBy(d => d.UpdatedAt ?? d.CreatedAt);
   }
 
-  public static void OnModelCreating(ChangeTracker changes) {
+  public static void OnModelChanging(ChangeTracker changes) {
     List<EntityEntry>? updates = changes.Entries()
       .Where(e => e.State is EntityState.Modified && e.Entity is IUpdatedAt).ToList();
 

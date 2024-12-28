@@ -14,6 +14,7 @@ public static class TunealityMySql {
   public static IServiceCollection AddTunealityMySql<TData>(this IServiceCollection services, MySqlOptions settings) where TData : ZDbContext {
     return services
       .AddScoped<ITuneDataRepository, TuneEfCoreDataRepository<TData>>()
+      .AddScoped<ITuneDataFactory, TuneEfCoreDataFactory<TData>>()
       .AddScoped<ZDbContext, TData>()
       .AddScoped<TData>()
       .AddPooledDbContextFactory<TData>((sp, opts) =>

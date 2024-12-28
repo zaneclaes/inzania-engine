@@ -27,6 +27,7 @@ public static class TunealitySqlite {
   private static IServiceCollection AddTunealitySqlite<TDc>(this IServiceCollection services, string connStr) where TDc : ZDbContext {
     return services
       .AddScoped<ITuneDataRepository, TuneEfCoreDataRepository<TDc>>()
+      .AddScoped<ITuneDataFactory, TuneEfCoreDataFactory<TDc>>()
       .AddScoped<TDc>()
       .AddDbContext<TDc>((sp, opts) =>
         opts.UseSqlite(connStr, o => ConfigureSqlite<TDc>(sp, o)))

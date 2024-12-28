@@ -91,6 +91,10 @@ public static class Tasks {
     return block;
   }
 
+  public static WorkContext ScopeWork(this IServiceScope scope) {
+    return new WorkContext(scope.ServiceProvider.GetRequiredService<ZApp>(), scope.ServiceProvider);
+  }
+
   public static CancellationTokenSource ForeverLoop<TTask>(
     this IServiceScopeFactory factory, TimeSpan interval
   ) where TTask : ContextualObject, IForeverTask, new() {
@@ -103,9 +107,10 @@ public static class Tasks {
         if (active) return; // skip loop while active
         active = true;
         using var scope = factory.CreateScope();
-        var context = scope.ServiceProvider.GetCurrentContext();
+        using var context = scope.ScopeWork();
         try {
           context.CancellationToken = wtoken.Token;
+          // context.Log.Information("TASK start");
           await new TTask {
             Context = context
           }.RunTask(dt);

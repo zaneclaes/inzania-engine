@@ -59,7 +59,7 @@ public class ZDbContext : DbContext, IHaveContext {
   }
 
   private void UpdateChanges() {
-    TimeStampData.OnModelCreating(ChangeTracker);
+    TimeStampData.OnModelChanging(ChangeTracker);
     string? errorId = this.Sanitize(Context);
     if (errorId != null) throw new ArgumentException($"[DB] creation error: {errorId}");
 

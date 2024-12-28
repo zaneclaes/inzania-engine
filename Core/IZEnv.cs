@@ -36,7 +36,7 @@ public static class IZEnv {
   public static ZApp App { get; internal set; } = default!;
 
   public static ITuneRootContext SpawnRootContext() {
-    Log.Information("[ROOT] {stack}", new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[ROOT] {stack}", new TuneTrace(new StackTrace().ToString()).ToString());
     return _defaultContextBuilder?.Invoke() ??
       throw new SystemException("IZEnv defaultContextBuilder does not exist");
   }

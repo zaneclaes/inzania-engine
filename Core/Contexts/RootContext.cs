@@ -44,7 +44,7 @@ public abstract class BaseContext : ITuneContext, IEventEnricher {
 
   protected void Init() {
     Span = IZEnv.SpanBuilder.Invoke(this);
-    Log.Information("[ROOT] create {context}", ToString());//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[ROOT] create {context}", ToString());//, new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
   [ApiIgnore] public ITuneContext Context => this;
@@ -65,7 +65,7 @@ public abstract class BaseContext : ITuneContext, IEventEnricher {
 
   public virtual ITuneIdentity? CurrentIdentity => Parent?.CurrentIdentity;
 
-  public virtual ITuneDataRepository Data => _data ??= ServiceProvider.GetRequiredService<ITuneDataRepository>();
+  public virtual ITuneDataRepository Data => Parent?.Data ?? (_data ??= ServiceProvider.GetRequiredService<ITuneDataFactory>().GetDataRepository(this));
   private ITuneDataRepository? _data;
 
   public virtual ITuneResolver Resolver => Parent?.Resolver ?? throw new NullReferenceException(nameof(Resolver));
@@ -91,8 +91,10 @@ public abstract class BaseContext : ITuneContext, IEventEnricher {
   public virtual ITuneChildContext ScopeAction(Type? t, string? reason = null, ITuneLogger? logger = null) => new ActionContext(this, t, reason, logger);
 
   public virtual void Dispose() {
+    _data?.Dispose();
+    _data = null;
     Span.Dispose();
-    Log.Information("[ROOT] dispose {context}", ToString());//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[ROOT] dispose {context}", ToString());//, new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
   public override string ToString() => $"{GetType().Name}#{_uuid}<{Resource}>{Action}()";

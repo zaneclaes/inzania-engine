@@ -27,13 +27,18 @@ using Type = System.Type;
 
 namespace IZ.Data.Storage;
 
+public class TuneEfCoreDataFactory<TDb> : ITuneDataFactory where TDb : ZDbContext {
+  public ITuneDataRepository GetDataRepository(ITuneContext context) =>
+    new TuneEfCoreDataRepository<TDb>(context);
+}
+
 public class TuneEfCoreDataRepository<TDb> : DataRepositoryBase, ITuneDataRepository where TDb : ZDbContext {
   private DbContextOptions<TDb> _options;
 
-  public TuneEfCoreDataRepository(ITuneRootContext context) : base(context) {
+  public TuneEfCoreDataRepository(ITuneContext context) : base(context) {
     // Db = db;
     _options = Context.ServiceProvider.GetRequiredService<DbContextOptions<TDb>>();
-    Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
   public TDb Db {
@@ -50,7 +55,7 @@ public class TuneEfCoreDataRepository<TDb> : DataRepositoryBase, ITuneDataReposi
   private TDb? _db;
 
   public override void Dispose() {
-    Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new TuneTrace(new StackTrace().ToString()).ToString());
     _db?.Dispose();
     _db = null;
     base.Dispose();

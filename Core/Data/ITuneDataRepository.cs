@@ -14,7 +14,7 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Data;
 
-public interface ITuneDataRepository : IHaveContext {
+public interface ITuneDataRepository : IHaveContext, IDisposable {
   public string Uuid { get; }
 
   [ApiDocs("Migrate, etc.")]
