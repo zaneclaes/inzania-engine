@@ -78,7 +78,7 @@ public class TuneObjectDescriptor : IAmInternal {
     if (IsFile) {
       IsScalar = false;
       InputTypeName = "Upload";
-    } else if (t.HasAssignableType<ApiObject>() || t.HasAssignableType<TuneRequestBase>()) {
+    } else if (t.HasAssignableType<ApiObject>() || t.HasAssignableType<ZRequestBase>()) {
       IsScalar = false;
       InputTypeName = TypeName + "Input";
       List<PropertyInfo> props = t.GetProperties().Where(p => p.CanRead).ToList();

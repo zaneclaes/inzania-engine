@@ -13,7 +13,7 @@ namespace IZ.Core.Utils;
 public static class StringUtils {
   private static readonly Regex regexAlphaNumeric = new Regex("[^a-zA-Z0-9 ]");
 
-  public static string UrlToShopId(this string url) => url.ToSnakeCase();
+  public static string UrlToShopId(this string url) => url.Split("//").Last().ToSnakeCase();
 
   public static string Slugify(this string name) => regexAlphaNumeric.Replace( // lowercase string separated by spaces, so we can strip punct.
     name.ToSnakeCase().Replace('_', ' '), string.Empty

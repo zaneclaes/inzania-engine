@@ -68,7 +68,7 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
       foreach (var fn in functionNodes) {
         string funcName = fn.Name.Value.ToFieldName();
 
-        var mi = TuneApi.GetMethod(Enum.Parse<ApiExecutionType>(opNode.Operation.ToString()), funcName);
+        var mi = ZApi.GetMethod(Enum.Parse<ApiExecutionType>(opNode.Operation.ToString()), funcName);
         if (mi == null) continue;
 
         Dictionary<string, ApiVariableValueOrLiteral>? inputs = TuneInputTypes.ResolveInputVariables(context,

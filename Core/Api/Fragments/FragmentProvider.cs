@@ -115,7 +115,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
       return;
     }
     Log.Information("[FRAGMENT] loading files from {dir}", dir);
-    TuneApi.EnsureSchema();
+    ZApi.EnsureSchema();
     string[] files = Directory.GetFiles(dir, "*.graphql", SearchOption.AllDirectories);
     List<string> dependencies = new List<string>();
     foreach (string fn in files) {

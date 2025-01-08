@@ -56,7 +56,7 @@ public class ExecutionPlan {
   private ExecutionPlan(
     IFragmentProvider fragmentProvider, ApiExecutionType op, string operationName, ResultSet? resultSet = null
   ) {
-    _method = TuneApi.GetRequiredMethodByMethodName(op, operationName);
+    _method = ZApi.GetRequiredMethodByMethodName(op, operationName);
     OperationType = op;
     FieldName = _method.FieldName;
     ReturnType = TuneTypeDescriptor.FromType(_method.FieldType);
@@ -91,8 +91,8 @@ public class ExecutionPlan {
   }
 
   private static ApiExecutionType GetClassExecutionType(Type parent) {
-    if (parent.IsSubclassOf(typeof(TuneQueryBase))) return ApiExecutionType.Query;
-    if (parent.IsSubclassOf(typeof(TuneMutationBase))) return ApiExecutionType.Mutation;
+    if (parent.IsSubclassOf(typeof(ZQueryBase))) return ApiExecutionType.Query;
+    if (parent.IsSubclassOf(typeof(ZMutationBase))) return ApiExecutionType.Mutation;
     throw new ArgumentException($"{parent.Name} is neither query nor mutation");
   }
 

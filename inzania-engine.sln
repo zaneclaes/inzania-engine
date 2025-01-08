@@ -16,6 +16,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schema", "Schema\Schema.csproj", "{9747B493-7886-44BD-A141-4BCBE78EEB48}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonNewtonsoft", "JsonNewtonsoft\JsonNewtonsoft.csproj", "{0CE9EDD2-1466-434E-B39B-D117A31E4AF4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,5 +56,9 @@ Global
 		{9747B493-7886-44BD-A141-4BCBE78EEB48}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9747B493-7886-44BD-A141-4BCBE78EEB48}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9747B493-7886-44BD-A141-4BCBE78EEB48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0CE9EDD2-1466-434E-B39B-D117A31E4AF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0CE9EDD2-1466-434E-B39B-D117A31E4AF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0CE9EDD2-1466-434E-B39B-D117A31E4AF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0CE9EDD2-1466-434E-B39B-D117A31E4AF4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

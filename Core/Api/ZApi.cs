@@ -13,7 +13,7 @@ using IZ.Core.Utils;
 
 namespace IZ.Core.Api;
 
-public static class TuneApi {
+public static class ZApi {
   private static readonly Dictionary<Type, Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>> ApiMethods =
     new Dictionary<Type, Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>>();
 
@@ -32,7 +32,7 @@ public static class TuneApi {
   }
 
   // Gets TOP LEVEL Api methods
-  private static Dictionary<Type, Dictionary<string, TuneMethodDescriptor>> CacheApiMethods<TRequest>() where TRequest : TuneRequestBase {
+  private static Dictionary<Type, Dictionary<string, TuneMethodDescriptor>> CacheApiMethods<TRequest>() where TRequest : ZRequestBase {
     List<Assembly> assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
     /*new List<Assembly?> {
       typeof(TRequest).Assembly,
@@ -50,14 +50,14 @@ public static class TuneApi {
     Dictionary<string, TuneMethodDescriptor> methodNames = new Dictionary<string, TuneMethodDescriptor>();
 
     if (!queryTypes.Any()) {
-      IZEnv.Log.Warning("[API] no {type} types found in {@assemblies}",
-        typeof(TRequest), assemblies.Select(a => a.ToString()));
+      IZEnv.Log.Warning("[API] no {type} types found in {assemblies}",
+        typeof(TRequest), string.Join("\n", assemblies.Select(a => a.ToString())));
       return ret;
     }
 
     foreach (var t in queryTypes) {
       List<MethodInfo> methods = t.GetMethods()
-        .Where(m => m.IsPublic && m.ReturnType.HasAssignableType(typeof(ITuneResult))).ToList();
+        .Where(m => m.IsPublic && m.ReturnType.HasAssignableType(typeof(IZResult))).ToList();
       Dictionary<string, TuneMethodDescriptor>? dict = methods.Select(m => new TuneMethodDescriptor(m))
         .ToDictionary(m => m.FieldName, m => m);
       ret.Add(t, dict);
@@ -77,12 +77,12 @@ public static class TuneApi {
 
   internal static void EnsureSchema() {
     if (_hasSchema) return;
-    IZEnv.Log.Debug("[SCHEMA] loading...");
-    CacheApiMethods<TuneQueryBase>();
-    IZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(TuneQueryBase)].Keys);
+    IZEnv.Log.Information("[SCHEMA] loading...");
+    CacheApiMethods<ZQueryBase>();
+    IZEnv.Log.Information("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
 
-    CacheApiMethods<TuneMutationBase>();
-    IZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(TuneMutationBase)].Keys);
+    CacheApiMethods<ZMutationBase>();
+    IZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
 
     TuneTypeDescriptor.ExpandTypeTree();
     IZEnv.Log.Debug("[SCHEMA] object types: {@types}", TuneObjectDescriptor.ObjectTypes.Keys);
@@ -92,11 +92,11 @@ public static class TuneApi {
     if (!_hasSchema) IZEnv.Log.Warning("[SCHEMA] failed {trace}", new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
-  public static Dictionary<string, TuneMethodDescriptor> GetObjectMethods(Type parentClass) {
-    EnsureSchema();
-    Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>? res = ApiMethods.Values.FirstOrDefault(m => m.ContainsKey(parentClass));
-    return res == null ? new Dictionary<string, TuneMethodDescriptor>() : res[parentClass];
-  }
+  // public static Dictionary<string, TuneMethodDescriptor> GetObjectMethods(Type parentClass) {
+  //   EnsureSchema();
+  //   Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>? res = ApiMethods.Values.FirstOrDefault(m => m.ContainsKey(parentClass));
+  //   return res == null ? new Dictionary<string, TuneMethodDescriptor>() : res[parentClass];
+  // }
 
   public static TuneMethodDescriptor GetRequiredMethodByMethodName(ApiExecutionType opType, string methodName) {
     EnsureSchema();
@@ -111,16 +111,16 @@ public static class TuneApi {
     return names.GetValueOrDefault(methodName);
   }
 
-  public static Dictionary<string, TuneMethodDescriptor> GetMethodFieldNames(ApiExecutionType opType) {
+  private static Dictionary<string, TuneMethodDescriptor> GetMethodFieldNames(ApiExecutionType opType) {
     EnsureSchema();
-    if (opType == ApiExecutionType.Query) return ApiMethodNames[typeof(TuneQueryBase)];
-    if (opType == ApiExecutionType.Mutation) return ApiMethodNames[typeof(TuneMutationBase)];
+    if (opType == ApiExecutionType.Query) return ApiMethodNames[typeof(ZQueryBase)];
+    if (opType == ApiExecutionType.Mutation) return ApiMethodNames[typeof(ZMutationBase)];
     throw new ArgumentException($"{opType} not recognized");
   }
 
   public static Dictionary<Type, Dictionary<string, TuneMethodDescriptor>> GetMethodImplementor(ApiExecutionType opType) {
-    if (opType == ApiExecutionType.Query) return ApiMethods[typeof(TuneQueryBase)];
-    if (opType == ApiExecutionType.Mutation) return ApiMethods[typeof(TuneMutationBase)];
+    if (opType == ApiExecutionType.Query) return ApiMethods[typeof(ZQueryBase)];
+    if (opType == ApiExecutionType.Mutation) return ApiMethods[typeof(ZMutationBase)];
     throw new ArgumentException($"{opType} not recognized");
   }
 

@@ -49,7 +49,7 @@ public class TuneObjectType<TData> : ObjectType<TData> where TData : ApiObject {
         object? ret = resolver.Services.GetCurrentContext()
           .ExecuteOptional(() => method.Invoke(resolver.Parent<object>(), args));
         IZEnv.Log.Verbose("[EXEC] {name} done", method.OperationName);
-        if (ret is ITuneResult res) {
+        if (ret is IZResult res) {
           ret = await res.ExecuteObject();
         }
         if (ret is Task task) {

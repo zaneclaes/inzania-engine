@@ -156,7 +156,7 @@ public static class DataModelLoader {
 
   public static ITuneQueryable<TModel> QueryForModelId<TModel, TKey>(
     this ITuneContext context, TKey id
-  ) where TModel : ModelKey<TKey>, new() {
+  ) where TModel : ModelKey<TKey> {
     ITuneQueryable<TModel> q = context.QueryFor<TModel>();
     return q.Where(m => m.Id != null && m.Id.Equals(id)).AsTuneQueryable(q.QueryProvider);
   }

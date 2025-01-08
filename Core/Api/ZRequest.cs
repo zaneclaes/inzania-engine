@@ -18,20 +18,20 @@ public interface ITuneRequest : IHaveContext {
   ) => new TuneResult<TData>(Context, parentClass, name, action, args);
 }*/
 
-public abstract class TuneRequestBase : LogicBase {
+public abstract class ZRequestBase : LogicBase {
   // (ITuneServerConnection?) ServiceProvider.GetService(typeof(ITuneServerConnection))
 
   // private ITuneRequest Request { get; }
 
-  protected TuneRequestBase(ITuneContext context) : base(context) {
+  protected ZRequestBase(ITuneContext context) : base(context) {
     // Request = context;
   }
 
-  protected ITuneResult<TData> Result<TData>(string name, Func<ExecutionPlan, TData> action, params object?[] args) =>
-    new TuneResult<TData>(Context, GetType(), name, action, args);
+  protected IZResult<TData> Result<TData>(string name, Func<ExecutionPlan, TData> action, params object?[] args) =>
+    new ZResult<TData>(Context, GetType(), name, action, args);
     // Request.Result(GetType(), name, action, args);
 
-  protected ITuneResult<TData> Result<TData>(string name, Func<ExecutionPlan, Task<TData>> action, params object?[] args) =>
-    new TuneResult<TData>(Context, GetType(), name, action, args);
+  protected IZResult<TData> Result<TData>(string name, Func<ExecutionPlan, Task<TData>> action, params object?[] args) =>
+    new ZResult<TData>(Context, GetType(), name, action, args);
   //Request.Result(GetType(), name, action, args);
 }

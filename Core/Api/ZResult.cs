@@ -12,15 +12,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Core.Api;
 
-public interface ITuneResult {
+public interface IZResult {
   public Task<object> ExecuteObject(ResultSet? selectionSet = null);
 }
 
-public interface ITuneResult<TData> : ITuneResult {
+public interface IZResult<TData> : IZResult {
   public Task<TData> ExecuteData(ResultSet? selectionSet = null);
 }
 
-public class TuneResult<TData> : TransientObject, ITuneResult<TData> {
+public class ZResult<TData> : TransientObject, IZResult<TData> {
   private readonly Func<ExecutionPlan, TData>? _data;
 
   public List<object?> Args { get; }
@@ -29,7 +29,7 @@ public class TuneResult<TData> : TransientObject, ITuneResult<TData> {
 
   public Type ParentClass { get; }
 
-  public TuneResult(ITuneContext context, Type parentClass, string name, Func<ExecutionPlan, TData> data, params object?[] args) : base(context) {
+  public ZResult(ITuneContext context, Type parentClass, string name, Func<ExecutionPlan, TData> data, params object?[] args) : base(context) {
     _data = data;
     Args = args.ToList();
     MethodName = name;
@@ -38,7 +38,7 @@ public class TuneResult<TData> : TransientObject, ITuneResult<TData> {
 
   private readonly Func<ExecutionPlan, Task<TData>>? _task;
 
-  public TuneResult(ITuneContext context, Type parentClass, string name, Func<ExecutionPlan, Task<TData>> dataTask, params object?[] args) : base(context) {
+  public ZResult(ITuneContext context, Type parentClass, string name, Func<ExecutionPlan, Task<TData>> dataTask, params object?[] args) : base(context) {
     _task = dataTask;
     Args = args.ToList();
     MethodName = name;

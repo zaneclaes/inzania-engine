@@ -185,7 +185,7 @@ public static class TuneContexts {
   public static ITuneQueryProvider GetQueryProvider<TData>(this ITuneContext context) where TData : DataObject
     => context.Data.QueryFor<TData>(context).QueryProvider; // we create a new Query to ensure it's attached to the PASSED context
 
-  public static TReq BeginRequest<TReq>(this ITuneContext context) where TReq : TuneRequestBase =>
+  public static TReq BeginRequest<TReq>(this ITuneContext context) where TReq : ZRequestBase =>
     context.ServiceProvider.GetService<IApiRequestFactory>()?.CreateApiRequest<TReq>(context) ??
     (Activator.CreateInstance(typeof(TReq), context) as TReq)!;
 

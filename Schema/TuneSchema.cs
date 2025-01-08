@@ -160,8 +160,8 @@ public static class TuneSchema {
     field.Resolve(async resolver => await resolve(resolver, mi, resolver.ResolveInputVariables(mi.Parameters)), doReturn);
   }
 
-  public static void AddTuneRequestDescriptors<TRequest>(this IObjectTypeDescriptor descriptor, ApiExecutionType et) where TRequest : TuneRequestBase {
-    Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>? apiMethods = TuneApi.GetMethodImplementor(et);
+  public static void AddTuneRequestDescriptors<TRequest>(this IObjectTypeDescriptor descriptor, ApiExecutionType et) where TRequest : ZRequestBase {
+    Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>? apiMethods = ZApi.GetMethodImplementor(et);
 
     foreach (var t in apiMethods.Keys) {
       List<TuneMethodDescriptor> methods = apiMethods[t].Values.ToList();
@@ -170,7 +170,7 @@ public static class TuneSchema {
           var context = resolver.Services.GetCurrentContext();
           object queryObj = Activator.CreateInstance(t, context)!; // .BeginRequest()
           return await context.ExecuteRequiredTask(async () => {
-            var result = (method.Invoke(queryObj, args) as ITuneResult)!;
+            var result = (method.Invoke(queryObj, args) as IZResult)!;
             return await result.ExecuteObject();
           });
         }, mi);

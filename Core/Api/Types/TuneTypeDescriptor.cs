@@ -75,7 +75,7 @@ public class TuneTypeDescriptor {
     if (t.Name == "Task`1") { // ISAssignableTo(Task<>) seems to not work
       t = t.GenericTypeArguments[0];
     }
-    if (t.HasAssignableType(typeof(ITuneResult))) {
+    if (t.HasAssignableType(typeof(IZResult))) {
       // IZEnv.Log.Information("T {old} -> {new}", t.Name, t.GenericTypeArguments[0].Name);
       t = t.GenericTypeArguments[0];
     }

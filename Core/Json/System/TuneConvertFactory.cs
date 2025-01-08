@@ -62,12 +62,16 @@ public class TuneConvertFactory : EnumConvertFactory, IHaveContext {
     if (typeToConvert.IsArray) {
       var innerType = typeToConvert.GetElementType()!;
       if (innerType.HasAssignableType<ContextualObject>()) {
+        Log.Information("LIST ? {type}", innerType);
         return GetArrayConverter(innerType);
       }
+      Log.Information("NO LIST ? {type}", innerType);
     }
     if (typeToConvert.HasAssignableType<ContextualObject>()) {
+      Log.Information("OBJ ? {type}", typeToConvert);
       return _contextConverter;
     }
+    Log.Information("NONE ? {type}", typeToConvert);
     return base.CreateConverter(typeToConvert, options);
   }
 }

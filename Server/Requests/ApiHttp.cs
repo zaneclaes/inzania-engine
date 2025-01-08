@@ -28,7 +28,7 @@ public static class ApiHttp {
     context.Items.TryGetValue("Root", out object? obj) ? obj as RootScope : null;
 
   public static IScope? RootSpan(this HttpContext context) =>
-    context.Items.TryGetValue("Root", out object? obj) ? obj as IScope : null;
+    context.RootScope()?.Scope;
 
   public static bool IsWebSocket(this HttpContext context) => context.RootSpan()?.Span.OperationName?.Equals(WebSocketOp) ?? false;
 
@@ -50,7 +50,7 @@ public static class ApiHttp {
       }
       if (noun != null) scope.Span.ResourceName = noun;
       context.Items["Root"] = rootScope = new RootScope(context.RequestServices.GetRequiredService<ITuneRootContext>(), scope);
-      rootScope.Context.Log.Information("[CTXT] HTTP context created");
+      rootScope.Context.Log.Information("[CTXT] HTTP context created for {v} {n} {ctxt}", verb, noun, context.Request.Path);
     }
     return rootScope;
   }
