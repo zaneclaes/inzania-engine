@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>IZ.Server</AssemblyName>
+    <RootNamespace>IZ.Server</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZCore\ZCore.csproj" />
+    <ProjectReference Include="..\DataDog\DataDog.csproj" />
+    <ProjectReference Include="..\Data\Data.csproj" />
+    <ProjectReference Include="..\ZDataDog\ZDataDog.csproj" />
+    <ProjectReference Include="..\ZData\ZData.csproj" />
+    <ProjectReference Include="..\ZSchema\ZSchema.csproj" />
+    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HotChocolate.AspNetCore" Version="14.3.0" />
+    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="14.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.2.0"/>
+    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2"/>
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
+    <PackageReference Include="IdentityModel" Version="7.0.0"/>
+  </ItemGroup>
+
+
+</Project>
