@@ -7,8 +7,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ZCore\ZCore.csproj" />
-    <ProjectReference Include="..\DataDog\DataDog.csproj" />
-    <ProjectReference Include="..\Data\Data.csproj" />
+    <ProjectReference Include="..\ZDataDog\ZDataDog.csproj" />
+    <ProjectReference Include="..\ZData\ZData.csproj" />
     <ProjectReference Include="..\ZDataDog\ZDataDog.csproj" />
     <ProjectReference Include="..\ZData\ZData.csproj" />
     <ProjectReference Include="..\ZSchema\ZSchema.csproj" />

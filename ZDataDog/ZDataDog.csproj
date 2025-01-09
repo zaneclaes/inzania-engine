@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ZCore\ZCore.csproj"/>
-    <ProjectReference Include="..\LoggingSerilog\LoggingSerilog.csproj" />
+    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj" />
     <ProjectReference Include="..\ZSerilog\ZSerilog.csproj" />
   </ItemGroup>
 
