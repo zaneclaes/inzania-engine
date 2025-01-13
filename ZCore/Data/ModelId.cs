@@ -49,7 +49,7 @@ public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey> {
 }
 
 public abstract class ModelNumber : ModelKey<long>, IModelChildren<long> {
-  [Key] public override long Id { get; set; } = default!;
+  [Key] public override long Id { get; set; }
 }
 
 public abstract class ModelId : ModelKey<string>, IStringKeyData, IModelChildren<string> {
@@ -60,7 +60,7 @@ public abstract class ModelId : ModelKey<string>, IStringKeyData, IModelChildren
     if (id != null) Id = id;
   }
 
-  [Key] [MaxLength(MaxIdLength)] public override string Id { get; set; } = default!;
+  [Key] [MaxLength(MaxIdLength)] public override string Id { get; set; } = null!;
 
   public static string CreateChildId(string parent, string child, string spacer = "-") => $"{child}{spacer}{parent}";
 

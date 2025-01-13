@@ -7,7 +7,7 @@ using IZ.Core.Data;
 namespace IZ.Core.Auth.Args;
 
 public class VerifyUserCodeArgs : TransientObject {
-  public string UserId { get; set; } = default!;
+  public string UserId { get; set; } = null!;
 
-  public string Code { get; set; } = default!;
+  public string Code { get; set; } = null!;
 }

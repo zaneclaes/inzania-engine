@@ -33,10 +33,10 @@ public static class HttpClientExtensions {
         throw new RemoteZException(context, $"{origUrl} -> {href}");
       }
     }
-    if (!response.IsSuccessStatusCode) {
-      context.Log.Error("[URL] {url} = {res}", href, await response.Content.ReadAsStringAsync());
-      response.EnsureSuccessStatusCode();
-    }
+    // if (!response.IsSuccessStatusCode) {
+    //   context.Log.Error("[URL] {url} = {res}", href, await response.Content.ReadAsStringAsync());
+    //   response.EnsureSuccessStatusCode();
+    // }
     // context.Log.Information("[URL] RES {href}", href);
     return response;
   }

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using IZ.Client.Networking.Sockets;
+using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -34,12 +35,12 @@ public static class TuneQueries {
   public static Dictionary<string, string> GetHeaders(IZContext context) {
     Dictionary<string, string>? ret = new Dictionary<string, string> {
       ["GraphQL-preflight"] = "1",
-      ["InstallId"] = (context.App as ZClientApp)!.InstallId!,
-      ["X-Request-ID"] = ModelId.GenerateId()
+      [ZHeaders.InstallId] = (context.App as ZClientApp)!.InstallId!,
+      [ZHeaders.RequestId] = ModelId.GenerateId()
     };
 
     var at = context.ServiceProvider.GetService<IStoredUserSession>();
-    if (at?.AccessToken != null) ret["Authorization"] = "bearer " + at.AccessToken;
+    if (at?.AccessToken != null) ret[ZHeaders.Authorization] = "bearer " + at.AccessToken;
     else {
       context.Log.Information("No token in {at}", at?.GetType()?.Name);
     }

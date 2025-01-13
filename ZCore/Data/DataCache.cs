@@ -45,5 +45,5 @@ public class DataCache<T> : DataCache, IZQueryable<T> {
     }
   }
   public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = new CancellationToken()) => throw new NotImplementedException();
-  public IZQueryProvider QueryProvider { get; } = default!;
+  public IZQueryProvider QueryProvider { get; } = null!;
 }

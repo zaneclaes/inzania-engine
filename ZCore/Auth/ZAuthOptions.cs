@@ -6,18 +6,18 @@ namespace IZ.Core.Auth;
 public class ZAuthOptions {
   public const string Auth = "Auth";
 
-  public string PublicUrl { get; set; } = default!;
+  public string PublicUrl { get; set; } = null!;
 
-  public string PrivateUrl { get; set; } = default!;
-
-  [ApiIgnore]
-  public string AdminSecret { get; set; } = default!;
+  public string PrivateUrl { get; set; } = null!;
 
   [ApiIgnore]
-  public ZClientOptions ApiClient { get; set; } = default!;
+  public string AdminSecret { get; set; } = null!;
 
   [ApiIgnore]
-  public ZClientOptions WebClient { get; set; } = default!;
+  public ZClientOptions ApiClient { get; set; } = null!;
+
+  [ApiIgnore]
+  public ZClientOptions WebClient { get; set; } = null!;
 
   public virtual List<ZClientOptions> AllClients => new List<ZClientOptions> {
     ApiClient,

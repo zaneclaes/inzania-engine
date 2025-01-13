@@ -58,14 +58,14 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   private object? ReadArray(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
-    Log.Information("ARR START {idx}", string.Join("", breadcrumbs));
+    Log.Debug("ARR START {idx}", string.Join("", breadcrumbs));
     var list = (IList) Activator.CreateInstance(type)!; // typeof(List<>).MakeGenericType(type)
-    // Context.Log.Information("ARR {key} {type}", reader.TokenType, type);
+    // Context.Log.Debug("ARR {key} {type}", reader.TokenType, type);
     var typeDescriptor = ZTypeDescriptor.FromType(type);
     if (reader.TokenType == JsonTokenType.StartArray) reader.Read();
     int p = 0;
     while (reader.TokenType != JsonTokenType.EndArray) {
-      Context.Log.Information("ARR ITEM {idx} {type}", string.Join("", breadcrumbs), reader.TokenType);
+      Context.Log.Debug("ARR ITEM {idx} {type}", string.Join("", breadcrumbs), reader.TokenType);
       if (reader.TokenType == JsonTokenType.StartObject) {
         list.Add(ReadObject(ref reader, typeDescriptor.ObjectDescriptor.ObjectType, AddBreadcrumb($"[{p}]", breadcrumbs)));
       } else {
@@ -74,9 +74,9 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       }
       p++;
     }
-    Context.Log.Information("ARR END 1 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
+    Context.Log.Debug("ARR END 1 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
     reader.Read();
-    Context.Log.Information("ARR END 2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
+    Context.Log.Debug("ARR END 2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
     return list;
   }
 
@@ -90,10 +90,10 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   private object? ReadObject(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
-    Log.Information("OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
+    Log.Debug("OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
 
     object ret = Activator.CreateInstance(type)!;
-    // Context.Log.Information("OBJ {key} {type}", reader.TokenType, type);
+    // Context.Log.Debug("OBJ {key} {type}", reader.TokenType, type);
     var co = ret as ContextualObject;
     // if (!(ret is ContextualObject co)) throw new ArgumentException($"Read non-object {type}");
     if (co != null) co.Context = Context;
@@ -133,30 +133,30 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         }
         reader.Read();
 
-        Context.Log.Information("SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, reader.TokenType);
+        Context.Log.Debug("SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, reader.TokenType);
       }
       if (prop != null) {
         if (!prop.IsJsonIgnored) {
-          // Context.Log.Information("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
+          // Context.Log.Debug("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
           prop.SetValue(ret, val);
         } else {
           Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {ret}", propName, val, val?.GetType(), ret.GetType());
         }
       }
     }
-    // Context.Log.Information("OBJ END1 {idx} {key} {type}", n,reader.TokenType, type);
+    // Context.Log.Debug("OBJ END1 {idx} {key} {type}", n,reader.TokenType, type);
     reader.Read();
     // if (reader.TokenType == JsonTokenType.EndArray) reader.Read();
-    Context.Log.Information("OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs),reader.TokenType, type);
+    Context.Log.Debug("OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs),reader.TokenType, type);
 
     return co;
   }
 
   public override object? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
     if (reader.TokenType == JsonTokenType.StartArray) {
-      Log.Information("ARR {type} {t2}", typeToConvert, typeToConvert.GenericTypeArguments);
+      Log.Debug("ARR {type} {t2}", typeToConvert, typeToConvert.GenericTypeArguments);
       var ret = ReadArray(ref reader, typeToConvert, ModelId.GenerateId());
-      Log.Information("ARR RET {ret} {type} {token}", ret, ret?.GetType(), reader.TokenType);
+      Log.Debug("ARR RET {ret} {type} {token}", ret, ret?.GetType(), reader.TokenType);
       return ret;
     }
     return ReadObject(ref reader, typeToConvert, ModelId.GenerateId());

@@ -30,7 +30,7 @@ using Serilog.Sinks.SystemConsole.Themes;
 namespace IZ.Server;
 
 public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
-  protected WebApplication? WebApp { get; private set; } = default!;
+  protected WebApplication? WebApp { get; private set; } = null!;
 
   private readonly WebApplicationBuilder _builder;
 

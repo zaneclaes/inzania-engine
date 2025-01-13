@@ -7,7 +7,7 @@ using IZ.Core.Data;
 namespace IZ.Core.Auth.Args;
 
 public class LoginArgs : TransientObject {
-  public string Username { get; set; } = default!;
+  public string Username { get; set; } = null!;
 
-  public string Password { get; set; } = default!;
+  public string Password { get; set; } = null!;
 }

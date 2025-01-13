@@ -38,7 +38,7 @@ public class ZMethodDescriptor : ZFieldDescriptor {
       .ToList();
     ApiMethod = methodInfo.GetCustomAttribute<ApiMethodAttribute>();
 
-    string name = methodInfo.Name;
+    string name = Name = methodInfo.Name;
     bool isSet = name.StartsWith("Set");
     bool isGet = name.StartsWith("Get");
     if (isSet || isGet) name = name.Substring(3);

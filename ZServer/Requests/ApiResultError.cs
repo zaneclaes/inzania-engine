@@ -29,7 +29,7 @@ public class ApiResultError {
   public string? Code { get; }
   public IDictionary? Data { get; }
 
-  public IReadOnlyDictionary<string, object?>? Extensions { get; } = default!;
+  public IReadOnlyDictionary<string, object?>? Extensions { get; } = null!;
   // public IReadOnlyList<Location>? Locations { get; private set; }
   // public Path? Path { get; set; }
   public Exception? Exception { get; set; }

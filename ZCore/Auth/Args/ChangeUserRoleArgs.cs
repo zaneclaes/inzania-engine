@@ -7,7 +7,7 @@ using IZ.Core.Data;
 namespace IZ.Core.Auth.Args;
 
 public class ChangeUserRoleArgs : TransientObject {
-  public string UserId { get; set; } = default!;
+  public string UserId { get; set; } = null!;
 
-  public ZUserRole Role { get; set; } = default!;
+  public ZUserRole Role { get; set; }
 }

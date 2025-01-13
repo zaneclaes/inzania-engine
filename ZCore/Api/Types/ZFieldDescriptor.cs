@@ -11,7 +11,9 @@ using IZ.Core.Data.Attributes;
 namespace IZ.Core.Api.Types;
 
 public abstract class ZFieldDescriptor : IAmInternal {
-  public string FieldName { get; protected set; } = default!;
+  public string Name { get; protected set; } = null!;
+
+  public string FieldName { get; protected set; } = null!;
 
   public abstract Type FieldType { get; }
 

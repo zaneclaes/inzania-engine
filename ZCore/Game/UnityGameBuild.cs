@@ -30,11 +30,11 @@ public class UnityGameBuild : ModelNumber {
   public ushort VersionPatch { get; set; }
 
   [ApiDocs("The web app's data unityweb file")]
-  [MaxLength(128)] public string WebDataFileHash { get; set; } = default!;
+  [MaxLength(128)] public string WebDataFileHash { get; set; } = null!;
 
   [ApiDocs("The web app's code unityweb file")]
-  [MaxLength(128)] public string WebCodeFileHash { get; set; } = default!;
+  [MaxLength(128)] public string WebCodeFileHash { get; set; } = null!;
 
   [ApiDocs("The web app's framework unityweb file")]
-  [MaxLength(128)] public string WebFrameworkFileHash { get; set; } = default!;
+  [MaxLength(128)] public string WebFrameworkFileHash { get; set; } = null!;
 }

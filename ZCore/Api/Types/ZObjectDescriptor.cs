@@ -81,10 +81,12 @@ public class ZObjectDescriptor : IAmInternal {
     } else if (t.HasAssignableType<ApiObject>() || t.HasAssignableType<ZRequestBase>()) {
       IsScalar = false;
       InputTypeName = TypeName + "Input";
+      List<PropertyInfo> parentProps = t.BaseType?.GetProperties().Where(p => p.CanRead).ToList() ?? new List<PropertyInfo>();
       List<PropertyInfo> props = t.GetProperties().Where(p => p.CanRead).ToList();
 
       foreach (var prop in props) {
-        _properties[prop.Name] = new ZPropertyDescriptor(prop);
+        var parentProp = parentProps.FirstOrDefault(p => p.Name == prop.Name);
+        _properties[prop.Name] = new ZPropertyDescriptor(prop, parentProp);
         _methodInfos.Add(prop.GetGetMethod()!);
         if (prop.CanWrite) {
           _methodInfos.Add(prop.GetSetMethod()!);

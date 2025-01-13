@@ -131,6 +131,18 @@ public static class DataModelLoader {
     return ret;
   }
 
+  public static Task<T> LoadRequiredDataModelAsync<T>(
+    this IQueryable<T> queryable, IZContext? context = null
+  ) where T : DataObject => queryable.LoadDataModelAsync($"NotFound: {typeof(T)}");
+
+  public static Task<TModel?> LoadModelId<TModel>(
+    this IZContext context, string id
+  ) where TModel : ModelKey<string> => context.QueryForId<TModel>(id).LoadDataModelAsync(context);
+
+  public static Task<TModel> LoadRequiredModelId<TModel>(
+    this IZContext context, string id
+  ) where TModel : ModelKey<string> => context.QueryForId<TModel>(id).LoadDataModelAsync($"NotFound: {typeof(TModel)}#{id}", context);
+
   public static async Task<T> LoadDataModelAsync<T>(
     this IQueryable<T> queryable, string missingException, IZContext? context = null
   ) where T : DataObject {
@@ -138,6 +150,10 @@ public static class DataModelLoader {
     var ret = await queryable.LoadDataModelAsync(context);
     return ret ?? throw new KeyNotFoundException(missingException);
   }
+
+  public static Task<TModel> LoadModelId<TModel>(
+    this IZContext context, string id, string errorMessage
+  ) where TModel : ModelKey<string> => context.QueryForId<TModel>(id).LoadDataModelAsync(errorMessage, context);
 
   // public static Task<TModel> UpsertModelId<TModel>(
   //   this IZContext context, string id, Func<TModel, DataState, Task>? creator = null
@@ -160,6 +176,10 @@ public static class DataModelLoader {
     IZQueryable<TModel> q = context.QueryFor<TModel>();
     return q.Where(m => m.Id != null && m.Id.Equals(id)).AsTuneQueryable(q.QueryProvider);
   }
+
+  public static IZQueryable<TModel> QueryForId<TModel>(
+    this IZContext context, string id
+  ) where TModel : ModelKey<string> => context.QueryForModelId<TModel, string>(id);
 
   public static IZQueryable<TModel> AsTuneQueryable<TModel>(this IQueryable<TModel> q, IZQueryProvider provider) where TModel : DataObject {
     if (q is IZQueryable<TModel> tq) return tq;

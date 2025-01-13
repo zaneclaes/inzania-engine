@@ -34,7 +34,7 @@ public static class HostingExtensions {
     .AddTransient<IProvideRootContext, HttpRootContextAccessor>()
     .AddSerilog();
 
-  public static IServiceCollection AddTuneServerHttp(this IServiceCollection collection, ZApp app) {
+  public static IServiceCollection AddZServerHttp(this IServiceCollection collection, ZApp app) {
     return collection
       .Configure<StaticFileOptions>(opts => {
         opts.ServeUnknownFileTypes = true;
@@ -58,7 +58,7 @@ public static class HostingExtensions {
       });
   }
 
-  public static IServiceCollection AddTuneServerGraphQl<TAuth>(this IServiceCollection collection, ZApp app) where TAuth : class, IZAuthenticator, new() => collection
+  public static IServiceCollection AddZServerGraphQl<TAuth>(this IServiceCollection collection, ZApp app) where TAuth : class, IZAuthenticator, new() => collection
     .AddScoped<IZAuthenticator, TAuth>()
     .AddGraphQLServer()
     // .AddType<WorkMutation>()
@@ -83,7 +83,7 @@ public static class HostingExtensions {
         }
       }
     }
-    context.Response.Headers.Append("X-App-Env", context.RequestServices.GetRootContext().App.Env.ToString());
+    context.Response.Headers.Append(ZHeaders.Env, context.RequestServices.GetRootContext().App.Env.ToString());
   }
 
   public static TOpts GetSectionOptions<TOpts>(this IConfiguration section, string name) where TOpts : new() {
@@ -92,7 +92,7 @@ public static class HostingExtensions {
     return ret;
   }
 
-  public static IServiceCollection AddTuneServerHealthChecks(this IServiceCollection collection) => collection
+  public static IServiceCollection AddZServerHealthChecks(this IServiceCollection collection) => collection
     .AddHealthChecks()
     .AddCheck<ProcessHealth>("process", tags: new[] {
       "liveness"

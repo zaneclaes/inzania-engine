@@ -11,12 +11,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IZ.Server;
 
-public abstract class TuneController : Controller, IHaveContext {
+public abstract class ZController : Controller, IHaveContext {
 
   private IZLogger? _logger;
 
-  protected TuneController(IZContext furContext) {
-    Context = furContext;
+  protected ZController(IZContext context) {
+    Context = context;
   }
   public IZContext Context { get; }
   public IZLogger Log => _logger ??= Context.Log.ForContext(GetType());
@@ -27,11 +27,11 @@ public abstract class TuneController : Controller, IHaveContext {
   }
 }
 
-public abstract class TuneControllerBase : ControllerBase, IHaveContext {
+public abstract class ZControllerBase : ControllerBase, IHaveContext {
 
   private IZLogger? _logger;
 
-  protected TuneControllerBase(IZContext furContext) {
+  protected ZControllerBase(IZContext furContext) {
     Context = furContext;
   }
   public IZContext Context { get; }

@@ -13,7 +13,7 @@ namespace IZ.Core.Api.Types;
 
 // Describes wrapping type around a TuneObjectDescriptor (nullable, list, etc.)
 public class ZTypeDescriptor {
-  public Type OrigType { get; set; } = default!;
+  public Type OrigType { get; set; } = null!;
 
   public bool HasInner => IsList;
 
@@ -23,7 +23,7 @@ public class ZTypeDescriptor {
 
   public bool IsNullableInner { get; set; }
 
-  public ZObjectDescriptor ObjectDescriptor { get; set; } = default!;
+  public ZObjectDescriptor ObjectDescriptor { get; set; } = null!;
 
   public string ToObjectTypeName(bool asInput, string optionalIndicator = "") {
     string ret = asInput ? ObjectDescriptor.InputTypeName : ObjectDescriptor.TypeName;

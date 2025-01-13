@@ -34,7 +34,7 @@ public class ZError : TransientObject {
 
   [JsonPropertyName("stackTrace")] public List<string> StackTrace { get; set; } = new List<string>();
 
-  [ApiIgnore] [JsonIgnore] public IDictionary Data { get; } = default!;
+  [ApiIgnore] [JsonIgnore] public IDictionary Data { get; } = null!;
 
   [JsonPropertyName("innerException")] public ZError? InnerException { get; set; }
 

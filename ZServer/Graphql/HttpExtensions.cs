@@ -21,13 +21,13 @@ public static class HttpExtensions {
   }
 
   public static string? GetAuthToken(this HttpContext http) {
-    string? auth = http.Request.Headers["Authorization"].ToString();
+    string? auth = http.Request.Headers[ZHeaders.Authorization].ToString();
     string? authPre = "bearer ";
     return auth.StartsWith(authPre, true, CultureInfo.InvariantCulture) ? auth.Substring(authPre.Length).Trim() : null;
   }
 
   public static string? GetInstallId(this HttpContext http) {
-    string? auth = http.Request.Headers["InstallId"].ToString();
+    string? auth = http.Request.Headers[ZHeaders.InstallId].ToString();
     return string.IsNullOrWhiteSpace(auth) ? null : auth;
   }
 

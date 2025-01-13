@@ -17,8 +17,8 @@ public abstract class DataSeed : IHaveContext {
   public static IZContext DataContext => _dataContext ??= ZEnv.SpawnRootContext();
   private static IZContext? _dataContext;
 
-  public IZContext Context { get; set; } = default!;
-  public IZLogger Log { get; set; } = default!;
+  public IZContext Context { get; set; } = null!;
+  public IZLogger Log { get; set; } = null!;
 
   public virtual bool ReSeed => false;
 

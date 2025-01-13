@@ -15,8 +15,6 @@ using Microsoft.AspNetCore.Http;
 namespace IZ.Server.Graphql;
 
 public class ZHttpInterceptor<TAuth> : DefaultHttpRequestInterceptor where TAuth : IZAuthenticator, new() {
-  public static Func<IZContext, Task<IZIdentity>> Authenticator = default!;
-
   public override async ValueTask OnCreateAsync(
     HttpContext http, IRequestExecutor executor, OperationRequestBuilder builder, CancellationToken cancellationToken
   ) {

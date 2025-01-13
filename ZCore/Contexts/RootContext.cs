@@ -20,7 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Core.Contexts;
 
 public abstract class BaseContext : IZContext, IEventEnricher {
-  public IZSpan Span { get; protected set; } = default!;
+  public IZSpan Span { get; protected set; } = null!;
 
   public virtual Dictionary<string, object> EventProperties => _eventProperties ??= BuildEventProperties();
   private Dictionary<string, object>? _eventProperties;
