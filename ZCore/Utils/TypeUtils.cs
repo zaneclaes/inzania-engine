@@ -21,10 +21,12 @@ public static class TypeUtils {
 
   public static bool IsListType<T>(this Type t) => t.IsListType(typeof(T));
 
-  public static bool HasAssignableType(this Type t, Type toType) {
+  public static bool HasAssignableType(this Type? t, Type? toType) {
     if (t == toType) return true;
-    t = Nullable.GetUnderlyingType(t) != null ? Nullable.GetUnderlyingType(t)! : t;
-    string? k = $"{t}_{toType}";
+    if (t == null || toType == null) return false;
+    var ut = Nullable.GetUnderlyingType(t);
+    t = ut ?? t;
+    string k = $"{t}_{toType}";
     return _assignableTypes.GetOrAdd(k, t2 => t.IsAssignable(toType) || t.IsEnumerableType(toType));
   }
 

@@ -31,8 +31,8 @@ public class ZInputType<TData> : InputObjectType<TData> where TData : ApiObject 
       var t = ZSchema.GetTuneSchemaType(prop.FieldType, typeof(ZInputType<>));
       // if (!TuneApi.GetTuneObjectDescriptor(prop.PropertyType).IsScalar)
       //   t = typeof(InputObjectType<>).MakeGenericType(t);
-
-      descriptor.Field(inputName).Type(t);
+      // if (prop.IsOptional && t.IsListType()) t = typeof(Nullable<>).MakeGenericType(t);
+      var d = descriptor.Field(inputName).Type(t);
     }
     base.Configure(descriptor);
   }

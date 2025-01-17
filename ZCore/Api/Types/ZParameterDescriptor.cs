@@ -24,7 +24,7 @@ public class ZParameterDescriptor : IAmInternal {
     FieldName = member.Name!.ToFieldName();
     ParameterType = member.ParameterType;
     ApiType = ZTypeDescriptor.FromType(ParameterType, member.IsOptional);
-    IsOptional = member.IsOptional;
+    IsOptional = member.IsOptional || ParameterType.IsListType() || ParameterType.IsArray;
     DefaultValue = member.DefaultValue;
   }
 }

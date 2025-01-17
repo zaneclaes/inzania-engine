@@ -58,14 +58,14 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   private object? ReadArray(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
-    Log.Debug("ARR START {idx}", string.Join("", breadcrumbs));
+    Log.Debug("[JSON] ARR START {idx}", string.Join("", breadcrumbs));
     var list = (IList) Activator.CreateInstance(type)!; // typeof(List<>).MakeGenericType(type)
     // Context.Log.Debug("ARR {key} {type}", reader.TokenType, type);
     var typeDescriptor = ZTypeDescriptor.FromType(type);
     if (reader.TokenType == JsonTokenType.StartArray) reader.Read();
     int p = 0;
     while (reader.TokenType != JsonTokenType.EndArray) {
-      Context.Log.Debug("ARR ITEM {idx} {type}", string.Join("", breadcrumbs), reader.TokenType);
+      Context.Log.Debug("[JSON] ARR ITEM {idx} {type}", string.Join("", breadcrumbs), reader.TokenType);
       if (reader.TokenType == JsonTokenType.StartObject) {
         list.Add(ReadObject(ref reader, typeDescriptor.ObjectDescriptor.ObjectType, AddBreadcrumb($"[{p}]", breadcrumbs)));
       } else {
@@ -74,9 +74,9 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       }
       p++;
     }
-    Context.Log.Debug("ARR END 1 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
+    Context.Log.Debug("[JSON] ARR END 1 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
     reader.Read();
-    Context.Log.Debug("ARR END 2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
+    Context.Log.Debug("[JSON] ARR END 2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
     return list;
   }
 
@@ -90,7 +90,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   private object? ReadObject(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
-    Log.Debug("OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
+    Log.Debug("[JSON] OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
 
     object ret = Activator.CreateInstance(type)!;
     // Context.Log.Debug("OBJ {key} {type}", reader.TokenType, type);
@@ -108,18 +108,28 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       //   reader.Read();
       //   continue;
       // }
-      string? fieldName = propName.ToFieldName();
+      string fieldName = propName.ToFieldName();
       reader.Read();
       var prop = typeDescriptor.ObjectDescriptor.GetProperty(fieldName);
+      // Log.Information("[JSON] READ {type}.{field} {token}", type, fieldName, reader.TokenType);
 
       object? val = null;
       if (reader.TokenType == JsonTokenType.StartObject) {
         if (prop?.FieldType.IsAssignableToBaseType(typeof(IDictionary)) ?? false) {
-          Log.Warning("PROP {p} ON {type} INVALID", prop, type);
+          Log.Warning("[JSON] PROP {p} ON {type} INVALID", prop, type);
           while (reader.TokenType != JsonTokenType.EndObject) reader.Read();
           reader.Read();
         } else {
-          val = ReadObject(ref reader, prop?.FieldType ?? typeof(object), AddBreadcrumb(propName, breadcrumbs));
+          bool isList = prop?.FieldType.IsListType() ?? false;
+          var ft = isList ? (prop!.FieldType.GetListType()!) : (prop?.FieldType ?? typeof(object));
+          val = ReadObject(ref reader, ft, AddBreadcrumb(propName, breadcrumbs));
+
+          if (isList) { // The server gave a single object, but the datatype is a list
+            var list = (IList) Activator.CreateInstance(prop!.FieldType)!;
+            list.Add(val);
+            val = list;
+            // Log.Information("[JSON] READ {type}.{field} now {type}", type, fieldName, prop.FieldType);
+          }
         }
       } else if (reader.TokenType == JsonTokenType.StartArray) {
         val = ReadArray(ref reader, prop?.FieldType ?? typeof(List<object>), AddBreadcrumb(propName, breadcrumbs));
@@ -127,13 +137,13 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         if (prop != null && !prop.IsJsonIgnored) {
           if (reader.TokenType != JsonTokenType.Number && reader.TokenType != JsonTokenType.String && reader.TokenType != JsonTokenType.Null
               && reader.TokenType != JsonTokenType.True && reader.TokenType != JsonTokenType.False)
-            Context.Log.Warning("READ JSON {token}", reader.TokenType);
+            Context.Log.Warning("[JSON] READ JSON {token}", reader.TokenType);
           if (reader.TokenType != JsonTokenType.Null)
             val = JsonSerializer.Deserialize(ref reader, prop.FieldType, SystemJson.DeserializeOptionsForContext(Context)); // reader.GetDouble();
         }
         reader.Read();
 
-        Context.Log.Debug("SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, reader.TokenType);
+        Context.Log.Debug("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, reader.TokenType);
       }
       if (prop != null) {
         if (!prop.IsJsonIgnored) {
@@ -147,7 +157,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     // Context.Log.Debug("OBJ END1 {idx} {key} {type}", n,reader.TokenType, type);
     reader.Read();
     // if (reader.TokenType == JsonTokenType.EndArray) reader.Read();
-    Context.Log.Debug("OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs),reader.TokenType, type);
+    Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs),reader.TokenType, type);
 
     return co;
   }

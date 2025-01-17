@@ -1,5 +1,7 @@
 #region
 
+using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -7,10 +9,11 @@ using System.Text;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Exceptions;
+using IZ.Core.Json;
 
 #endregion
 
-namespace IZ.Core.Http;
+namespace IZ.Core.Utils.Http;
 
 public static class HttpClientExtensions {
   public static async Task<HttpResponseMessage> LoadUrl(this HttpClient client, string href, IZContext context, HttpMethod? method = null, string? body = null, string? mediaType = null) {
