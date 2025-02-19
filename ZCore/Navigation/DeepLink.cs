@@ -27,7 +27,7 @@ public class DeepLink : TransientObject {
   private DeepLink(IZContext context, string path) : base(context) {
     _path = path.Split("://").Last().Split("#").First().Split("?").First().Trim('/').ToLower();
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
-    Page = context.ServiceProvider.GetRequiredService<Sitemap>().GetPage(string.Join("/", Parts));
+    Page = context.GetRequiredService<Sitemap>().GetPage(string.Join("/", Parts));
     if (!IsValid) {
       Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
     }

@@ -37,7 +37,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
 
   public ZEfCoreDataRepository(IZContext context) : base(context) {
     // Db = db;
-    _options = Context.ServiceProvider.GetRequiredService<DbContextOptions<TDb>>();
+    _options = Context.GetRequiredService<DbContextOptions<TDb>>();
     // Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new ZTrace(new StackTrace().ToString()).ToString());
   }
 

@@ -177,6 +177,24 @@ public static class ZContexts {
     }
   }
 
+  public static T GetRequiredService<T>(this IZContext context) where T : notnull {
+    try {
+      return context.ServiceProvider.GetRequiredService<T>();
+    } catch (Exception ex) {
+      context.Log.Error(ex, "[CTXT] failed to get service {type} on {context}", typeof(T), context);
+      throw;
+    }
+  }
+
+  public static T? GetService<T>(this IZContext context) {
+    try {
+      return context.ServiceProvider.GetService<T>();
+    } catch (Exception ex) {
+      context.Log.Error(ex, "[CTXT] failed to get service {type} on {context}", typeof(T), context);
+      throw;
+    }
+  }
+
   public static IZQueryable<TData> QueryFor<TData>(
     this IZContext context, ResultSet? set = null
   ) where TData : DataObject => context.Data.QueryFor<TData>(context, set);
@@ -185,7 +203,7 @@ public static class ZContexts {
     => context.Data.QueryFor<TData>(context).QueryProvider; // we create a new Query to ensure it's attached to the PASSED context
 
   public static TReq BeginRequest<TReq>(this IZContext context) where TReq : ZRequestBase =>
-    context.ServiceProvider.GetService<IApiRequestFactory>()?.CreateApiRequest<TReq>(context) ??
+    context.GetService<IApiRequestFactory>()?.CreateApiRequest<TReq>(context) ??
     (Activator.CreateInstance(typeof(TReq), context) as TReq)!;
 
   public static void Verbose(this IZLogger log, string template, params object?[] args) =>

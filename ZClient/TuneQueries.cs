@@ -39,7 +39,7 @@ public static class TuneQueries {
       [ZHeaders.RequestId] = ModelId.GenerateId()
     };
 
-    var at = context.ServiceProvider.GetService<IStoredUserSession>();
+    var at = context.GetService<IStoredUserSession>();
     if (at?.AccessToken != null) ret[ZHeaders.Authorization] = "bearer " + at.AccessToken;
     else {
       context.Log.Information("No token in {at}", at?.GetType()?.Name);

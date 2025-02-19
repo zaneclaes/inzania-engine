@@ -47,7 +47,7 @@ public class ZResult<TData> : TransientObject, IZResult<TData> {
 
   public async Task<TData> ExecuteData(ResultSet? selectionSet = null) {
     var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
-    var serverConnection = Context.ServiceProvider.GetService<IServerConnection>();
+    var serverConnection = Context.GetService<IServerConnection>();
     if (serverConnection != null) {
       var result = new ExecutionResult(Context, plan, Args);
       return await Context.ExecuteRequiredTask(() => serverConnection.ExecuteApiRequest<TData>(result));

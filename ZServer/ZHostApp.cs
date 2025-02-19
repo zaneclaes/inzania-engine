@@ -36,20 +36,26 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
 
   protected abstract DataSeed[] DataSeeds { get; }
 
-  protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) :
-    base(productName, domainName, Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!), new SerilogLogBuilder()
-        .WithZData()
-        .ReadFrom(c => c.Configuration(builder.Configuration, new ConfigurationReaderOptions(
-          Assembly.GetExecutingAssembly(), typeof(DatadogSink).Assembly, typeof(ConsoleTheme).Assembly)))
-        .BuildToSingleton(),
-      ZTarget.PublicApp,
-      builder.Configuration.GetSection("Dir").ToZApplicationDirectories(productName),
-      builder.Configuration.GetSection("Auth").Get<ZAuthOptions>()) {
+  protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) : base(
+    productName,
+    domainName,
+    Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!),
+    CreateLogger(builder.Configuration),
+    ZTarget.PublicApp,
+    builder.Configuration.GetSection("Dir").ToZApplicationDirectories(productName),
+    builder.Configuration.GetSection("Auth").Get<ZAuthOptions>()
+  ) {
     DataDogTracing.Enable();
 
     _builder = builder;
     builder.Services.AddZServerCore(this);
   }
+
+  private static IZLogger CreateLogger(IConfiguration config) => new SerilogLogBuilder()
+    .WithZData()
+    .ReadFrom(c => c.Configuration(config, new ConfigurationReaderOptions(
+      Assembly.GetExecutingAssembly(), typeof(DatadogSink).Assembly, typeof(ConsoleTheme).Assembly)))
+    .BuildToSingleton();
 
   public override IServiceProvider CreateServices() => WebApp?.Services ?? _builder.Services.BuildServiceProvider();
 

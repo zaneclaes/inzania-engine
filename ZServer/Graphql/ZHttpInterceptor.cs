@@ -27,7 +27,7 @@ public class ZHttpInterceptor<TAuth> : DefaultHttpRequestInterceptor where TAuth
       var identity = await auth.Authenticate(ctxt, installId, authToken, http.User);
       builder.SetGlobalState(nameof(ClaimsPrincipal), identity.Principal);
       http.ClaimZIdentity(identity);
-      ctxt.Log.Information("[AUTH] session is now {@id}", identity.UserSession);
+      ctxt.Log.Debug("[AUTH] session is now {@id}", identity.UserSession);
     } catch (Exception e) {
       ctxt.Log.Error(e, "Auth Error");
     }

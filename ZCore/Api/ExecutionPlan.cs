@@ -49,7 +49,7 @@ public class ExecutionPlan {
   }
 
   public static ExecutionPlan Load(IZContext context, ApiExecutionType op, string operationName, ResultSet resultSet) =>
-    Load(context.ServiceProvider.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
+    Load(context.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
 
   private ExecutionPlan(
     IFragmentProvider fragmentProvider, ApiExecutionType op, string operationName, ResultSet? resultSet = null
