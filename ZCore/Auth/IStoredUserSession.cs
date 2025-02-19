@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 namespace IZ.Core.Auth;
 
@@ -9,4 +10,6 @@ public interface IStoredUserSession {
   public string? AccessToken { get; }
 
   public void LoadUserSession(IZSession? session);
+
+  public Task<IZIdentity> RestoreUserSession(); // Only called if there's a token
 }

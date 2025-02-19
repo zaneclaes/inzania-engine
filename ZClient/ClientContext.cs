@@ -9,8 +9,6 @@ using IZ.Core.Contexts;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
-using Tuneality.Core;
-using Tuneality.Core.Auth;
 
 #endregion
 
@@ -25,11 +23,6 @@ public class ClientContext : RootContext {
   private IZIdentity? _userIdentity;
 
   public IZUser? CurrentUser => _userIdentity?.IZUser;
-  public TuneUserState? CurrentUserState => _currentUserState ??=
-    _userIdentity == null ? null : CreateUserState(_userIdentity.IZUser);
-  private TuneUserState? _currentUserState;
-
-  protected virtual TuneUserState? CreateUserState(IZUser user) => null;
 
   public override IZAnalytics? Analytics => _analytics ??= new IzGoogleAnalytics(this);
   private IZAnalytics? _analytics;
@@ -80,18 +73,15 @@ public class ClientContext : RootContext {
       return;
     }
     try {
-      var session = await Context.BeginRequest<AuthQuery>().CurrentSession().Execute();
-      _userIdentity = new TuneUserIdentity(this, session);
-      storedSession.LoadUserSession(session);
+      _userIdentity = await storedSession.RestoreUserSession();
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       Logout();
     }
   }
 
-  protected void Logout() {
+  protected virtual void Logout() {
     _userIdentity = null;
-    _currentUserState = null;
     ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(null);
   }
 

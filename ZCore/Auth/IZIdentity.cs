@@ -13,7 +13,7 @@ public interface IZIdentity : IIdentity {
   [ApiDocs("If in user mode, who, if anybody?")]
   public IZSession? UserSession { get; }
 
-  public IZUser IZUser { get; }
+  public IZUser? IZUser { get; }
 
   [ApiDocs("A principal representing this identity")]
   public ClaimsPrincipal Principal { get; }

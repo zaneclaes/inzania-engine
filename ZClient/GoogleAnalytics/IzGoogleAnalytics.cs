@@ -10,7 +10,6 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
-using Tuneality.Core.Auth;
 
 #endregion
 
@@ -32,13 +31,13 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
 
   private string? _path;
 
-  private TuneVisitorIdentity? _visitor;
+  private ZVisitorIdentity? _visitor;
 
   public async Task Configure(IAnalyticsSink sink, IZIdentity? identity = null) {
     if (identity == null) {
       if (_visitor == null) {
         Log.Warning("[ANALYTICS] falling back on auto-generated identity");
-        _visitor = new TuneVisitorIdentity(Context, ModelId.GenerateId());
+        _visitor = new ZVisitorIdentity(Context, ModelId.GenerateId());
       }
       identity = _visitor;
     }
