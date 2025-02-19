@@ -71,29 +71,28 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
         var mi = ZApi.GetMethod(Enum.Parse<ApiExecutionType>(opNode.Operation.ToString()), funcName);
         if (mi == null) continue;
 
-        Dictionary<string, ApiVariableValueOrLiteral>? inputs = ZInputTypes.ResolveInputVariables(context,
-          s => req.VariableValues?.TryGetValue(s, out object? v) ?? false ? v as IValueNode : null,
-          mi.Parameters);
+        Dictionary<string, ApiVariableValueOrLiteral> inputs = ZInputTypes.ResolveInputVariables(context, req.VariableValues);
 
-        foreach (var node in opNode.GetNodes()) {
-          if (!(node is VariableDefinitionNode def)) continue;
-          string fieldName = def.Variable.Name.Value.ToFieldName();
-          if (!(req.VariableValues?.ContainsKey(fieldName) ?? false)) {
+        var nodes = opNode.GetNodes().ToList();
+        var variableNodes = nodes.Where(n => n is VariableDefinitionNode).Cast<VariableDefinitionNode>().ToList();
+        // Log.Information("[INPUT] func: {funcName} x{count} {vars}", funcName, nodes.Count, variableNodes.Count);
+        foreach (var def in variableNodes) {
+          string paramName = def.Variable.Name.Value;
+          if (!(req.VariableValues?.ContainsKey(paramName) ?? false)) {
             // Might be used in next operation/function
-            Log.Debug("[VARS] {name} requested, not found amount {@names}",
-              fieldName, req.VariableValues?.Select(v => v.Key));
+            Log.Debug("[INPUT] {name} requested, not found amount {@names}",
+              paramName, req.VariableValues?.Select(v => v.Key));
             continue;
           }
           // object? val = reqContext.Request.VariableValues[fieldName];
           // Log.Information("[COERCE] {@node} => {@kind}",
           //   def.Variable.Name.Value.ToFieldName(), objs);
-          string paramName = def.Variable.Name.Value.ToFieldName();
-          if (inputs != null && inputs.TryGetValue(paramName, out var argVal)) {
+          if (inputs.TryGetValue(paramName, out var argVal)) {
             Log.Debug("[INPUT] {key} = {arg}", paramName, argVal.Value);
             coercedValueNodes[paramName] = argVal;
             coercedValues[paramName] = argVal.Value;
           } else {
-            Log.Warning("[INPUT] missing {key}", paramName);
+            Log.Warning("[INPUT] missing {key} among {keys}", paramName, inputs.Keys);
           }
         }
       }

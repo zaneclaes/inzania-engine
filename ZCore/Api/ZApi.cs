@@ -77,9 +77,9 @@ public static class ZApi {
 
   internal static void EnsureSchema() {
     if (_hasSchema) return;
-    ZEnv.Log.Information("[SCHEMA] loading...");
+    ZEnv.Log.Debug("[SCHEMA] loading...");
     CacheApiMethods<ZQueryBase>();
-    ZEnv.Log.Information("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
+    ZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
 
     CacheApiMethods<ZMutationBase>();
     ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);

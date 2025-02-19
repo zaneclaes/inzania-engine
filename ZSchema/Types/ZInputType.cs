@@ -74,6 +74,24 @@ public static class ZInputTypes {
     return ret;
   }
 
+  public static Dictionary<string, ApiVariableValueOrLiteral> ResolveInputVariables(
+    IZContext context, IReadOnlyDictionary<string, object?>? variables
+  ) {
+    var ret = new Dictionary<string, ApiVariableValueOrLiteral>();
+    if (variables == null) return ret;
+    foreach (var name in variables.Keys) {
+      var node = variables[name] as IValueNode;
+      if (node == null) {
+        context.Log.Warning("[PARAM] {name} not a value node: {type}", name, variables[name]?.GetType());
+        continue;
+      }
+      var value = node.Value;
+      var apiVar = new ApiVariableValueOrLiteral(new ApiInputType(TypeKind.Object, value?.GetType() ?? typeof(DBNull)), value, node);
+      ret.Add(name, apiVar);
+    }
+    return ret;
+  }
+
   public static Dictionary<string, ApiVariableValueOrLiteral>? ResolveInputVariables(
     IZContext context, Func<string, IValueNode?> getValue, List<ZParameterDescriptor> pars
   ) {
@@ -85,7 +103,7 @@ public static class ZInputTypes {
         // var node = resolver.ArgumentLiteral<IValueNode>(parameterInfo.Name!.ToFieldName());
         var node = getValue(parameterInfo.FieldName);
         if (node == null) {
-          context.Log.Verbose("[PAR] NULL {pt}", parameterInfo.FieldName);
+          context.Log.Debug("[PAR] NULL {pt}", parameterInfo.FieldName);
           continue;
         }
 

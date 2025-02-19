@@ -126,7 +126,6 @@ public static class ZSchema {
     List<ZObjectDescriptor> types = ZObjectDescriptor.ObjectTypes.Values.ToList();
     foreach (var t in types) {
       if (t.ObjectType == typeof(IFileUpload)) continue;
-      ZEnv.Log.Information("[TYPE] {t}", t);
       descriptor = descriptor.AddType(GetZSchemaType(t.ObjectType, typeof(ZObjectType<>)));
     }
     return descriptor;

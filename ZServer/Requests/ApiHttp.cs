@@ -51,7 +51,7 @@ public static class ApiHttp {
       if (noun != null) scope.Span.ResourceName = noun;
       var rootContext = new HostContext(context.RequestServices.GetRequiredService<ZApp>(), context.RequestServices, context); // context.RequestServices.GetRequiredService<IZRootContext>()
       context.Items["Root"] = rootScope = new RootScope(rootContext, scope);
-      rootScope.Context.Log.Information("[CTXT] HTTP context created for {v} {n} {ctxt}: {context}", verb, noun, context.Request.Path, rootScope.Context);
+      rootScope.Context.Log.Debug("[CTXT] HTTP context created for {v} {n} {ctxt}: {context}", verb, noun, context.Request.Path, rootScope.Context);
     }
     return rootScope;
   }
