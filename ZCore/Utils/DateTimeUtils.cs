@@ -19,4 +19,6 @@ public static class DateTimeUtils {
   });
 
   public static double GetUnixTimestampSec(this DateTime dt) => dt.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+
+  public static int GetSortableYMD(this DateTime dt) => dt.Year * 10000 + dt.Month * 100 + dt.Day;
 }

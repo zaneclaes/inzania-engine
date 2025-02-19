@@ -36,6 +36,9 @@ public static class HttpClientExtensions {
         throw new RemoteZException(context, $"{origUrl} -> {href}");
       }
     }
+
+    // context.Log.Information("[RES HEADERS] {headers}", string.Join("\n", response.Headers.Select(h => $"{h.Key}: {h.Value}")));
+
     // if (!response.IsSuccessStatusCode) {
     //   context.Log.Error("[URL] {url} = {res}", href, await response.Content.ReadAsStringAsync());
     //   response.EnsureSuccessStatusCode();

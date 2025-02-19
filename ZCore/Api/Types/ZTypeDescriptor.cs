@@ -11,7 +11,7 @@ using IZ.Core.Utils;
 
 namespace IZ.Core.Api.Types;
 
-// Describes wrapping type around a TuneObjectDescriptor (nullable, list, etc.)
+// Describes wrapping type around a ZObjectDescriptor (nullable, list, etc.)
 public class ZTypeDescriptor {
   public Type OrigType { get; set; } = null!;
 
@@ -65,7 +65,7 @@ public class ZTypeDescriptor {
       innerType = nt2;
       ret.IsNullableInner = true;
     }
-    ret.ObjectDescriptor = ZObjectDescriptor.LoadTuneObjectDescriptor(innerType);
+    ret.ObjectDescriptor = ZObjectDescriptor.LoadZObjectDescriptor(innerType);
     // if (task) t = typeof(Task<>).MakeGenericType(t);
     ApiTypes[key] = ret;
     return ret;

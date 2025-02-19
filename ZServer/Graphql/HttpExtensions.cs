@@ -32,12 +32,12 @@ public static class HttpExtensions {
   }
 
 
-  private static List<ZUserRole> GetTuneRoles(this ClaimsPrincipal curUser) =>
+  private static List<ZUserRole> GetZRoles(this ClaimsPrincipal curUser) =>
     ZRoles.AllRoles.Where(r => curUser.IsInRole(r.ToString())).ToList();
 
-  public static ZUserRole GetTuneRole(this ClaimsPrincipal curUser) {
+  public static ZUserRole GetZRole(this ClaimsPrincipal curUser) {
     var ret = ZUserRole.Visitor;
-    foreach (var role in GetTuneRoles(curUser)) {
+    foreach (var role in GetZRoles(curUser)) {
       if (role > ret) ret = role;
     }
     return ret;

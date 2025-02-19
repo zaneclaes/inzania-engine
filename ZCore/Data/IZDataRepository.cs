@@ -34,6 +34,8 @@ public interface IZDataRepository : IHaveContext, IDisposable {
 
   public Task<List<TData>> ExecuteListAsync<TData>(IZContext context, IQueryable<TData> q);
 
+  public Task<List<T>> GetMemoryModels<T>() where T : DataObject;
+
   IPreFetched<TEntity, TProperty> QueryInclude<TEntity, TProperty>(
     IZQueryable<TEntity> source,
     Expression<Func<TEntity, TProperty>> navigationPropertyPath)
@@ -57,6 +59,8 @@ public interface IZDataRepository : IHaveContext, IDisposable {
   public Task RemoveAsync<TData>(params TData[] data) where TData : DataObject;
 
   // public void SetChanged<TData>(params TData[] data) where TData : DataObject;
+
+  public void Rollback();
 
   public bool HasChanges { get; }
 }

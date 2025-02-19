@@ -4,7 +4,7 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Auth;
 
-[ApiDocs("Chordzy-specific IIdentity")]
+[ApiDocs("App-specific IIdentity")]
 public interface IZIdentity : IIdentity {
   public string InstallId { get; }
 

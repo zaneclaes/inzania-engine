@@ -19,7 +19,7 @@ public class SystemJson : IZJson {
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     IgnoreReadOnlyFields = true,
     IgnoreReadOnlyProperties = true,
-#if !TUNE_UNITY
+#if !Z_UNITY
     TypeInfoResolver = new DefaultJsonTypeInfoResolver {
       Modifiers = {
         DefaultValueModifier
@@ -41,7 +41,7 @@ public class SystemJson : IZJson {
     return JsonSerializer.Serialize(obj, o);
   }
 
-#if !TUNE_UNITY
+#if !Z_UNITY
   // Exclude empty arrays from response
   private static void DefaultValueModifier(JsonTypeInfo typeInfo) {
     foreach (var property in typeInfo.Properties) {

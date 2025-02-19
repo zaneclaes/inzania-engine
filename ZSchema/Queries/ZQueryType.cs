@@ -9,6 +9,6 @@ namespace IZ.Schema.Queries;
 
 public class ZQueryType : ObjectType {
   protected override void Configure(IObjectTypeDescriptor descriptor) {
-    descriptor.AddTuneRequestDescriptors<ZQueryBase>(ApiExecutionType.Query);
+    descriptor.AddZRequestDescriptors<ZQueryBase>(ApiExecutionType.Query);
   }
 }

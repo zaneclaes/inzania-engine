@@ -38,7 +38,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   public ZEfCoreDataRepository(IZContext context) : base(context) {
     // Db = db;
     _options = Context.ServiceProvider.GetRequiredService<DbContextOptions<TDb>>();
-    // Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new ZTrace(new StackTrace().ToString()).ToString());
   }
 
   public TDb Db {
@@ -55,7 +55,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   private TDb? _db;
 
   public override void Dispose() {
-    // Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
     _db?.Dispose();
     _db = null;
     base.Dispose();
@@ -69,6 +69,9 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   private static readonly ConcurrentDictionary<Type, PropertyInfo> DataProps =
     new ConcurrentDictionary<Type, PropertyInfo>();
 
+  public void Rollback() {
+    Db.RejectChanges();
+  }
 
   public DbSet<TData> GetDbSet<TData>(IZContext context) where TData : DataObject {
     return (DbSet<TData>) DataProps.GetOrAdd(typeof(TData), (t) => {
@@ -77,14 +80,6 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
                      throw new ParameterZException(context, $"No database models for {typeof(TData).Name}");
       return prop;
     }).GetValue(Db)!;
-    //
-    // var t = typeof(TData);
-    // if (!DataProps.ContainsKey(t)) {
-    //   var retType = typeof(DbSet<>).MakeGenericType(t);
-    //   DataProps[t] = Db.GetType().GetProperties().FirstOrDefault(p => p.PropertyType == retType) ??
-    //                  throw new ParameterTuneException(context, $"No database models for {typeof(TData).Name}");
-    // }
-    // return (DbSet<TData>) DataProps[t].GetValue(Db)!;
   }
 
   public IZQueryProvider CreateQueryProvider<TData>(IZContext context, DbSet<TData>? db = null) where TData : DataObject {
@@ -176,6 +171,9 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
 
   public bool HasChanges => Db?.ChangeTracker.HasChanges() ?? false; //_changed.Any();
 
+  public Task<List<T>> GetMemoryModels<T>() where T : DataObject =>
+    ExecuteLocked(() => Task.FromResult(Db.ChangeTracker.Entries<T>().Select(e => e.Entity).ToList()));
+
   public IPreFetched<TEntity, TProperty> QueryInclude<TEntity, TProperty>(
     IZQueryable<TEntity> source, Expression<Func<TEntity, TProperty>> navigationPropertyPath
   ) where TEntity : class => new ZEfCoreRelationshipInclude<TEntity, TProperty>(this, source.QueryProvider, source.Include(navigationPropertyPath));
@@ -185,7 +183,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   ) where TEntity : class {
     ZEfCoreRelationshipInclude<TEntity, TPreviousProperty>? src = source as ZEfCoreRelationshipInclude<TEntity, TPreviousProperty> ??
                                                                      throw new ArgumentException($"{source.GetType().Name} is not a " +
-                                                                                                 $"TunEfCoreRelationshipInclude<{typeof(TEntity).Name}, {typeof(TProperty).Name}>");
+                                                                                                 $"ZEfCoreRelationshipInclude<{typeof(TEntity).Name}, {typeof(TProperty).Name}>");
     IIncludableQueryable<TEntity, TPreviousProperty> q = src.EfQueryable;
     return new ZEfCoreRelationshipInclude<TEntity, TProperty>(this, source.QueryProvider, q.ThenInclude(navigationPropertyPath));
   }

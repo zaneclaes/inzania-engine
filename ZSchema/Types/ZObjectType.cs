@@ -35,13 +35,13 @@ public class ZObjectType<TData> : ObjectType<TData> where TData : ApiObject {
     ZEnv.Log.Debug("[PROPS] {desc}", zDescriptor);
     foreach (var desc in zDescriptor.ObjectDescriptor.FieldMap.Values) {
       if (!(desc is ZPropertyDescriptor prop)) continue;
-      ((IObjectTypeDescriptor) descriptor).AddTuneRequestProperty(prop);
+      ((IObjectTypeDescriptor) descriptor).AddZRequestProperty(prop);
     }
   }
 
   private void AddMethods(ZTypeDescriptor zDescriptor, IObjectTypeDescriptor<TData> descriptor) {
     foreach (var mi in zDescriptor.ObjectDescriptor.Methods.Values) {
-      ((IObjectTypeDescriptor) descriptor).AddTuneRequestMethod(async (resolver, method, args) => {
+      ((IObjectTypeDescriptor) descriptor).AddZRequestMethod(async (resolver, method, args) => {
         if (method.ExecutionType != ApiExecutionType.Query && (int) resolver.Operation.Type != (int) method.ExecutionType) {
           throw new ArgumentException($"{zDescriptor}.{method.OperationName}() is a {method.ExecutionType}");
         }

@@ -11,14 +11,11 @@ using ExecutionContext = IZ.Core.Contexts.ExecutionContext;
 namespace IZ.Core.Utils;
 
 public static class DependencyInjection {
-  public static IServiceCollection AddTunealityApp<TApp, TRoot>(
+  public static IServiceCollection AddZApp<TApp, TRoot>(
     this IServiceCollection sc, TApp app, TRoot? rootSingleton = null
   ) where TApp : ZApp where TRoot : class, IZRootContext {
     if (rootSingleton != null) sc.AddSingleton<IZRootContext>(rootSingleton);
     else sc.AddTransient<IZRootContext, TRoot>();
-
-    // Fallback data-cache
-    // sc.TryAddTransient<ITuneDataRepository, DataCacheRepository>();
 
     return sc
         .AddSingleton(app.Log)

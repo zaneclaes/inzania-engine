@@ -34,9 +34,9 @@ public static class ZSchema {
     // .AddTransient<IScoreProcessor, ScoreProcessor>()
     .AddSingleton<INamingConventions, ZNamingConventions>()
     .AddSingleton<IChangeTypeProvider, ZTypeConverter>()
-    // .AddSingleton<ITypeConverter, TuneTypeConverter>()
-    // .AddSingleton(new InputFormatter(new TuneTypeConverter()))
-    // .AddSingleton(new InputParser(new TuneTypeConverter()))
+    // .AddSingleton<ITypeConverter, ZTypeConverter>()
+    // .AddSingleton(new InputFormatter(new ZTypeConverter()))
+    // .AddSingleton(new InputParser(new ZTypeConverter()))
     .AddSingleton<ITypeInspector, ZDataTypeInspector>()
     .AddSingleton<DataLoaderRegistry>()
     .AddSingleton<ZQueryAccessor>()
@@ -50,7 +50,7 @@ public static class ZSchema {
           options.DefaultBindingBehavior = BindingBehavior.Explicit;
         })
         .AddDiagnosticEventListener<ApiExecutionEventListener>()
-        .AddTuneTypes()
+        .AddZTypes()
         // .AddProjections()
         .AddFiltering()
         .AddSorting()
@@ -83,18 +83,17 @@ public static class ZSchema {
     return field;
   }
 
-  public static Type GetTuneSchemaType(Type t, Type? generic, bool isOptional = false) =>
-    GetTuneSchemaType(ZTypeDescriptor.FromType(t, isOptional), generic);
+  public static Type GetZSchemaType(Type t, Type? generic, bool isOptional = false) =>
+    GetZSchemaType(ZTypeDescriptor.FromType(t, isOptional), generic);
 
-  public static Type GetTuneSchemaType(ZTypeDescriptor descriptor, Type? generic) {
-    // TuneTypeDescriptor descriptor = TuneApi.GetTuneApiType(t, isOptional);
+  private static Type GetZSchemaType(ZTypeDescriptor descriptor, Type? generic) {
     ZEnv.Log.Verbose("[TYPE] finalize {t}", descriptor);
     if (descriptor.ObjectDescriptor.ObjectType != typeof(string) && descriptor.ObjectDescriptor.ObjectType.IsEnum) {
       generic = typeof(ZEnumType<>);
     } else if (descriptor.ObjectDescriptor.IsScalar) return descriptor.OrigType;
     var schemaType = descriptor.ObjectDescriptor.ObjectType;
     if (descriptor.ObjectDescriptor.IsFile) {
-      if (generic != typeof(ZInputType<>)) throw new ArgumentException($"IFileUpload found on {generic} (not an input type)");
+      if (generic != typeof(ZInputType<>)) throw new ArgumentException($"{descriptor} found on {generic} (not an input type)");
       schemaType = typeof(UploadType);
     } else if (generic != null) {
       schemaType = generic.MakeGenericType(descriptor.ObjectDescriptor.ObjectType);
@@ -108,7 +107,7 @@ public static class ZSchema {
     return schemaType;
   }
 
-  public static IRequestExecutorBuilder AddTuneTypes(
+  public static IRequestExecutorBuilder AddZTypes(
     this IRequestExecutorBuilder descriptor
   ) {
     descriptor = descriptor
@@ -126,47 +125,49 @@ public static class ZSchema {
 
     List<ZObjectDescriptor> types = ZObjectDescriptor.ObjectTypes.Values.ToList();
     foreach (var t in types) {
-      descriptor = descriptor.AddType(GetTuneSchemaType(t.ObjectType, typeof(ZObjectType<>)));
+      if (t.ObjectType == typeof(IFileUpload)) continue;
+      ZEnv.Log.Information("[TYPE] {t}", t);
+      descriptor = descriptor.AddType(GetZSchemaType(t.ObjectType, typeof(ZObjectType<>)));
     }
     return descriptor;
   }
 
-  public static void AddTuneRequestProperty(
+  public static void AddZRequestProperty(
     this IObjectTypeDescriptor descriptor, ZPropertyDescriptor prop
   ) {
     var field = descriptor.Field(prop.FieldName)
-      .Type(GetTuneSchemaType(prop.FieldTypeDescriptor, typeof(ZObjectType<>)));
+      .Type(GetZSchemaType(prop.FieldTypeDescriptor, typeof(ZObjectType<>)));
     if (prop.Auth != null) field = field.AddApiAuthorization(prop.Auth);
     ZEnv.Log.Verbose("[FIELD] {prop} <{type} />", prop, prop.FieldType);
     field.Resolve((c, ct) => prop.GetValue(c.Parent<object>()));
   }
 
-  public static void AddTuneRequestMethod(
+  public static void AddZRequestMethod(
     this IObjectTypeDescriptor descriptor, Func<IResolverContext, ZMethodDescriptor, object?[]?, Task<object?>> resolve, ZMethodDescriptor mi
   ) {
     string fieldName = mi.FieldName;
     var field = descriptor.Field(fieldName);
 
     foreach (var param in mi.Parameters) {
-      var doArg = GetTuneSchemaType(param.ParameterType, typeof(ZInputType<>), param.IsOptional);
+      var doArg = GetZSchemaType(param.ParameterType, typeof(ZInputType<>), param.IsOptional);
       ZEnv.Log.Verbose("[FUNC] {name}: {arg} ({type} {t2}) = {argType}",
         fieldName, param.FieldName, param.ParameterType, param.IsOptional, doArg.Name);
       field = field.Argument(param.FieldName, m => m.Type(doArg));
     }
     if (mi.Auth != null) field = field.AddApiAuthorization(mi.Auth);
-    var doReturn = GetTuneSchemaType(mi.FieldType, typeof(ZObjectType<>));
+    var doReturn = GetZSchemaType(mi.FieldType, typeof(ZObjectType<>));
     ZEnv.Log.Debug("[FUNC] {name}({@fields}): {t2} / {ret}",
       fieldName, mi.Parameters.Select(p => p.ParameterType), mi.FieldType, doReturn);
     field.Resolve(async resolver => await resolve(resolver, mi, resolver.ResolveInputVariables(mi.Parameters)), doReturn);
   }
 
-  public static void AddTuneRequestDescriptors<TRequest>(this IObjectTypeDescriptor descriptor, ApiExecutionType et) where TRequest : ZRequestBase {
+  public static void AddZRequestDescriptors<TRequest>(this IObjectTypeDescriptor descriptor, ApiExecutionType et) where TRequest : ZRequestBase {
     Dictionary<Type, Dictionary<string, ZMethodDescriptor>>? apiMethods = ZApi.GetMethodImplementor(et);
 
     foreach (var t in apiMethods.Keys) {
       List<ZMethodDescriptor> methods = apiMethods[t].Values.ToList();
       foreach (var mi in methods)
-        descriptor.AddTuneRequestMethod(async (resolver, method, args) => {
+        descriptor.AddZRequestMethod(async (resolver, method, args) => {
           var context = resolver.Services.GetCurrentContext();
           object queryObj = Activator.CreateInstance(t, context)!; // .BeginRequest()
           return await context.ExecuteRequiredTask(async () => {

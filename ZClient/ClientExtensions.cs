@@ -13,6 +13,7 @@ using StrawberryShake.Transport.Http;
 #endregion
 
 namespace IZ.Client;
+using Microsoft.Extensions.Configuration;
 
 public static class ClientExtensions {
   public static IServiceCollection AddTuneQueries<TSession, TConn>(this IServiceCollection c, Func<IServiceProvider, TConn> connBuilder)
@@ -25,4 +26,12 @@ public static class ClientExtensions {
     .AddSingleton<IOperationStore>(sp => new OperationStore(sp.GetRequiredService<IEntityStore>()))
     // .AddSingleton<StrawberryShake.IOperationResultBuilder<global::System.Text.Json.JsonDocument, GraphResult>, GraphBuilder>()
     .AddSingleton<IResultPatcher<JsonDocument>, JsonResultPatcher>();
+
+  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) {
+    return new ApplicationStorage(
+      productName,
+      dirs.GetSection("User").Value!,
+      dirs.GetSection("Tmp").Value!,
+      dirs.GetSection("wwwroot").Value);
+  }
 }

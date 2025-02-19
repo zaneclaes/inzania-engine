@@ -24,15 +24,33 @@ public class ZHttpClient : HttpClient, IHaveContext {
   }
 
   public async Task<string> LoadString(
+    string href, HttpContent content, HttpMethod? method = null
+  ) {
+    // context.Log.Information("GET");
+    using var req = new HttpRequestMessage(method ?? HttpMethod.Get, href);
+    req.Content = content;
+    var res = await SendAsync(req);
+    return await ReadString(res, href);
+  }
+
+  public async Task<T> LoadJson<T>(
+    string href, HttpContent content, HttpMethod? method = null
+  ) => Deserialize<T>(await LoadString(href, content, method), href);
+
+  public async Task<string> LoadString(
     string href, HttpMethod? method = null, string? body = null, string? mediaType = null, TimeSpan? cacheDuration = null
   ) {
     // context.Log.Information("GET");
     var res = await this.LoadUrl(href, Context, method, body, mediaType);
     // res.EnsureSuccessStatusCode();
+    return await ReadString(res, href);
+  }
+
+  private async Task<string> ReadString(HttpResponseMessage res, string href) {
     var str = await res.Content.ReadAsStringAsync();
     // Log.Information("STR {s}", str);
     if (!res.IsSuccessStatusCode) {
-      Log.Warning("[HTTP] response body: {str}", str);
+      Log.Warning("[HTTP] status {code} for {url}: {body}", res.StatusCode, href, str.Split("\n").First());
       throw new RemoteZException(Context, $"[HTTP] error {res.StatusCode} from {href}");
     }
     return str;
@@ -53,10 +71,7 @@ public class ZHttpClient : HttpClient, IHaveContext {
 
   public async Task<T> LoadJson<T>(
     string href, HttpMethod? method = null, string? body = null, string? mediaType = null, TimeSpan? cacheDuration = null
-  ) {
-    var str = await LoadCachedUrl(href, method, body, mediaType, cacheDuration);
-    return Deserialize<T>(str, href);
-  }
+  ) => Deserialize<T>(await LoadString(href, method, body, mediaType, cacheDuration), href);
 
   public async Task<T> LoadCachedJson<T>(
     string href, HttpMethod? method = null, string? body = null, string? mediaType = null, TimeSpan? cacheDuration = null

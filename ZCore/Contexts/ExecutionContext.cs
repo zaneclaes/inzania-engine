@@ -15,7 +15,6 @@ public class ExecutionContext : BaseContext, IZChildContext {
   public ExecutionContext(IZRootContext parent) : base(parent.App) {
     _root = parent;
     Init();
-    // Log.Information("TRACE {stack}", new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
   public override IZContext Parent => _root;

@@ -93,7 +93,6 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
       // if (value is ChildContext child && child.ScopeType == GetType())
       // else _context = value.Spawn(GetType());
       _context = value;
-      // Log.Information("[CONTEXT] {type}: {trace}", GetType(), new TuneTrace());
     }
   }
 

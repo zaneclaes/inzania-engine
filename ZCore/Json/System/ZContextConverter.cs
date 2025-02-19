@@ -173,12 +173,6 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) {
-    // TuneTypeDescriptor typeDescriptor = TuneTypeDescriptor.FromType(value.GetType());
-    // string val = "{" + string.Join(",", typeDescriptor.ObjectDescriptor.AllProperties
-    //   .Where(p => !p.IsJsonIgnored)
-    //   .Select(p => $"\"{p.FieldName}\":{JsonSerializer.Serialize(p.GetValue(value), options)}")) + "}";
-    // // JsonSerializer.Serialize(writer, value, value.GetType(), options);
-    // writer.WriteRawValue(val);
     JsonSerializer.Serialize(writer, value, value.GetType(), SystemJson.DeserializeOptionsForContext(null));
   }
 }

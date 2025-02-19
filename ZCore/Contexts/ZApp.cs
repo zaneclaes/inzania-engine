@@ -2,6 +2,7 @@
 
 using System;
 using System.Reflection;
+using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Navigation;
@@ -28,7 +29,7 @@ public abstract class ZApp : IGetLogged {
     AppAssembly = Assembly.GetEntryAssembly() ?? CoreAssembly;
     Log = log ?? ZEnv.Log;
     Target = target ?? ZTarget.PublicApp;
-    Storage = directories ?? new ApplicationStorage();
+    Storage = directories ?? new ApplicationStorage(ProductName);
     Auth = authOptions ?? new ZAuthOptions();
     if (env <= ZEnvironment.Development) {
       DomainName = "localhost";
@@ -41,6 +42,7 @@ public abstract class ZApp : IGetLogged {
     ZEnv.App = this;
     // Sitemap = new Sitemap($"https://www.{ZEnv.DomainName}");
     ZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
+    ZApi.EnsureSchema();
   }
 
   public ZTarget Target { get; }
@@ -74,28 +76,11 @@ public abstract class ZApp : IGetLogged {
 
   public ZAuthOptions Auth { get; }
 
-  // public ZEnvironment Env {
-  //   get {
-  //     if (Target <= TuneTarget.UnitTests) return ZEnvironment.Testing;
-  //     if (Target <= TuneTarget.InternalApp) return ZEnvironment.Internal;
-  //     if (Target <= TuneTarget.Server) return ZEnv.Environment ?? ZEnvironment.Production;
-  //     // public app...
-  //     return ZEnv.GetEnvironment("TUNEALITY_ENVIRONMENT") ?? ZEnvironment.Production;
-  //   }
-  // }
-
-
   public ZEnvironment Env { get; }
 
   public string EnvName => Env.ToString();
 
   public ApplicationStorage Storage { get; }
 
-
   public IZLogger Log { get; private set; }
-  //
-  // public TunealityApp ReplaceLogger(IZLogger log) {
-  //   Log = log;
-  //   return this;
-  // }
 }

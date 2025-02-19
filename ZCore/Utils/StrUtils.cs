@@ -31,6 +31,13 @@ public static class StringUtils {
                                                         + string.Join("", parts.Select(s => char.ToUpperInvariant(s[0]) + s.Substring(1)));
   }
 
+  public static bool IsNumeric(this string input) {
+    if (input.StartsWith("-")) input = input.Substring(1);
+    var parts = input.Split('.');
+    if (parts.Length > 2) return false;
+    return parts.All(p => p.ToCharArray().All(char.IsDigit));
+  }
+
   public static string ToTitleCase(this string camelCase, string spaces = " ") {
     return string.Join(spaces, camelCase
       .ToAlphaNumericChunks()

@@ -92,12 +92,6 @@ public static class ZApi {
     if (!_hasSchema) ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace(new StackTrace().ToString()).ToString());
   }
 
-  // public static Dictionary<string, TuneMethodDescriptor> GetObjectMethods(Type parentClass) {
-  //   EnsureSchema();
-  //   Dictionary<Type, Dictionary<string, TuneMethodDescriptor>>? res = ApiMethods.Values.FirstOrDefault(m => m.ContainsKey(parentClass));
-  //   return res == null ? new Dictionary<string, TuneMethodDescriptor>() : res[parentClass];
-  // }
-
   public static ZMethodDescriptor GetRequiredMethodByMethodName(ApiExecutionType opType, string methodName) {
     EnsureSchema();
     Dictionary<string, ZMethodDescriptor>? names = GetMethodFieldNames(opType);

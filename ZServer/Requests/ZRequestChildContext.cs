@@ -8,11 +8,11 @@ using IZ.Core.Contexts;
 
 namespace IZ.Server.Requests;
 
-public class TuneRequestChildContext : BaseContext, IZChildContext {
+public class ZRequestChildContext : BaseContext, IZChildContext {
 
   private readonly HostContext _root;
 
-  public TuneRequestChildContext(
+  public ZRequestChildContext(
     HostContext parent
   ) : base(parent.App) {
     _root = parent;

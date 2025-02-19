@@ -13,18 +13,16 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Data.Providers.Sqlite;
 
 public static class ZSqlite {
-  // public static string databaseName = "chordzy.db";
-
-  public static IServiceCollection AddTunealitySqlite<TDc>(this IServiceCollection services, IConfigurationSection section) where TDc : ZDbContext {
+  public static IServiceCollection AddZSqlite<TDc>(this IServiceCollection services, IConfigurationSection section) where TDc : ZDbContext {
     var settings = new SqliteSettings(section);
-    return AddTunealitySqlite<TDc>(services, settings.ToConnectionString(null));
+    return AddZSqlite<TDc>(services, settings.ToConnectionString(null));
   }
 
   public static void ConfigureSqlite<TDc>(IServiceProvider sp, SqliteDbContextOptionsBuilder opts) {
     opts.MigrationsAssembly(typeof(TDc).Assembly.FullName);
   }
 
-  private static IServiceCollection AddTunealitySqlite<TDc>(this IServiceCollection services, string connStr) where TDc : ZDbContext {
+  private static IServiceCollection AddZSqlite<TDc>(this IServiceCollection services, string connStr) where TDc : ZDbContext {
     return services
       .AddScoped<IZDataRepository, ZEfCoreDataRepository<TDc>>()
       .AddScoped<IZDataFactory, ZEfCoreDataFactory<TDc>>()

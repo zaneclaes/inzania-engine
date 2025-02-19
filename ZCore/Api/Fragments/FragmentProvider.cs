@@ -56,7 +56,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
         if (!Directory.Exists(typeDir)) Directory.CreateDirectory(typeDir);
         path = Path.Join(typeDir, fragmentName + ".graphql");
       } else {
-#if !TUNE_UNITY
+#if !Z_UNITY
         Log.Warning("[FRAGMENT] no persistent directory at {dir}", _graphqlDir);
 #endif
       }
@@ -111,8 +111,11 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
   public void LoadDirectory(string dir) {
     _graphqlDir = dir;
     if (!Directory.Exists(_graphqlDir)) {
-      Log.Warning("[FRAGMENT] directory '{dir}' does not exist", dir);
-      return;
+      var di = Directory.CreateDirectory(_graphqlDir);
+      if (!di.Exists) {
+        Log.Warning("[FRAGMENT] directory '{dir}' does not exist", dir);
+        return;
+      }
     }
     Log.Information("[FRAGMENT] loading files from {dir}", dir);
     ZApi.EnsureSchema();
@@ -135,7 +138,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
         // }
       }
       string typeName = string.Join("_", names);
-      var desc = ZObjectDescriptor.FindTuneObjectDescriptor(typeName);
+      var desc = ZObjectDescriptor.FindZObjectDescriptor(typeName);
       if (desc == null) {
         Log.Warning("[FRAGMENT] type {name} missing; cannot load {fn}", typeName, fn);
         continue;

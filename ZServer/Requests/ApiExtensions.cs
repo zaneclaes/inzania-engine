@@ -20,12 +20,6 @@ public static class ApiExtensions {
     return StatusCodes.Status500InternalServerError;
   }
 
-  // public static JsonResult ToJsonResult(this ApiResponse apiResponse) {
-  //   return new JsonResult(apiResponse.ToDictionaryValue(apiResponse.Context.App.Env != TuneEnvironment.Production)) {
-  //     StatusCode = apiResponse.GetHttpStatusCode()
-  //   };
-  // }
-
   public static TMeta BuildResultMeta<TMeta>(this HttpContext http, TMeta? meta = null)
     where TMeta : Dictionary<string, object> {
     meta ??= new ApiResultMeta() as TMeta;

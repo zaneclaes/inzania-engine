@@ -35,8 +35,6 @@ public class ExecutionPlan {
 
   public FragmentSet Fragments { get; }
 
-  // public Dictionary<string, Tuple<TuneTypeDescriptor, object?>> Args { get; } = new();
-
   private readonly ZMethodDescriptor _method;
 
   private static readonly Dictionary<string, ExecutionPlan> Plans = new Dictionary<string, ExecutionPlan>();

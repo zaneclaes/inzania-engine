@@ -15,7 +15,7 @@ public class ZQueryable<TData> : TransientObject, IZQueryable<TData> where TData
 
   private readonly IQueryable<TData> _q;
 
-#if !TUNE_UNITY
+#if !Z_UNITY
   private readonly IAsyncEnumerable<TData> _asyncEnumerable;
     #endif
 
@@ -24,7 +24,7 @@ public class ZQueryable<TData> : TransientObject, IZQueryable<TData> where TData
   ) : base(qp.Context) {
     _q = q;
     QueryProvider = qp;
-#if !TUNE_UNITY
+#if !Z_UNITY
     _asyncEnumerable = q as IAsyncEnumerable<TData> ?? throw new ArgumentException($"{q.GetType().Name} is not IAsyncEnumerable");
 #endif
   }
@@ -36,7 +36,7 @@ public class ZQueryable<TData> : TransientObject, IZQueryable<TData> where TData
   public IQueryProvider Provider => QueryProvider;
   public IZDataRepository Repository => QueryProvider.Repository;
   public IZQueryProvider QueryProvider { get; }
-#if !TUNE_UNITY
+#if !Z_UNITY
   public IAsyncEnumerator<TData> GetAsyncEnumerator(CancellationToken cancellationToken = new CancellationToken()) => _asyncEnumerable.GetAsyncEnumerator(cancellationToken);
 #endif
 }

@@ -16,8 +16,6 @@ public static class DataDogTracing {
     // tracerSettings.GlobalTags.Add("dd_env", FurEnv.AspNetEnv.Equals(FurEnv.ProductionEnv) ? "prod" : FurEnv.AspNetEnv.ToLowerInvariant());
     // tracerSettings.GlobalTags.Add("dd_version", Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0");
     tracerSettings.GlobalTags.Add("service", ZEnv.ProductName);
-    // tracerSettings.GlobalTags.Add("subdomain", TuneEnv.Subdomain);
-    // tracerSettings.GlobalTags.Add("pod_role", TuneEnv.IsTimekeeperDaemon ? "worker" : "web");
     tracerSettings.LogsInjectionEnabled = true;
     Tracer.Configure(tracerSettings);
 

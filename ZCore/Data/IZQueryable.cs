@@ -15,7 +15,7 @@ public interface IZQueryable : IOrderedQueryable, IHaveContext {
 }
 
 public interface IZQueryable<out T> : IOrderedQueryable<T>, IZQueryable
-#if !TUNE_UNITY
+#if !Z_UNITY
   , IAsyncEnumerable<T>
 #endif
 { }

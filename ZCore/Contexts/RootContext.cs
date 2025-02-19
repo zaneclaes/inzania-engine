@@ -44,7 +44,6 @@ public abstract class BaseContext : IZContext, IEventEnricher {
 
   protected void Init() {
     Span = ZEnv.SpanBuilder.Invoke(this);
-    // Log.Information("[ROOT] create {context}", ToString());//, new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
   [ApiIgnore] public IZContext Context => this;
@@ -70,10 +69,6 @@ public abstract class BaseContext : IZContext, IEventEnricher {
 
   public virtual IZResolver Resolver => Parent?.Resolver ?? throw new NullReferenceException(nameof(Resolver));
 
-  // [ApiIgnore]
-  // public virtual ITuneRequest Request =>
-  //   new TuneRequest(this);
-
   private CancellationToken? _cancellationToken;
   public CancellationToken CancellationToken {
     get => _cancellationToken ??= new CancellationTokenSource().Token;
@@ -90,11 +85,13 @@ public abstract class BaseContext : IZContext, IEventEnricher {
 
   public virtual IZChildContext ScopeAction(Type? t, string? reason = null, IZLogger? logger = null) => new ActionContext(this, t, reason, logger);
 
+  public Dictionary<string, object> DataBag => Parent?.DataBag ?? (_dataBag ??= new Dictionary<string, object>());
+  private Dictionary<string, object>? _dataBag = null;
+
   public virtual void Dispose() {
     _data?.Dispose();
     _data = null;
     Span.Dispose();
-    // Log.Information("[ROOT] dispose {context}", ToString());//, new TuneTrace(new StackTrace().ToString()).ToString());
   }
 
   public override string ToString() => $"{GetType().Name}#{_uuid}<{Resource}>{Action}()";

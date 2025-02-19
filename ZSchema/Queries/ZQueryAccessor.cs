@@ -25,9 +25,6 @@ public class ZQueryAccessor : IOperationDocumentStorage {
 
   private readonly IFragmentProvider _provider;
 
-  // public Task<QueryDocument?> TryReadQueryAsync(string queryId, CancellationToken cancellationToken = new CancellationToken()) =>
-  // Task.FromResult(TryReadQuery(TuneEnv.SpawnRootContext(), queryId));
-
   private static readonly ConcurrentDictionary<string, OperationDocument> Documents =
     new ConcurrentDictionary<string, OperationDocument>();
 

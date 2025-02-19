@@ -23,13 +23,11 @@ namespace IZ.Server;
 public static class HostingExtensions {
   private static readonly FileExtensionContentTypeProvider _extTypes = new FileExtensionContentTypeProvider();
 
-  public static IServiceCollection AddTuneServerCore<T>(
-    this IServiceCollection collection, T tunealityApp
+  public static IServiceCollection AddZServerCore<T>(
+    this IServiceCollection collection, T zApp
   ) where T : ZApp => collection
-    .AddTunealityApp<T, HostContext>(tunealityApp)
+    .AddZApp<T, HostContext>(zApp)
     .AddLogging(lb => lb.AddSerilog())
-    // .AddTuneQuery()
-    //   .Services
     .AddHttpContextAccessor()
     .AddTransient<IProvideRootContext, HttpRootContextAccessor>()
     .AddSerilog();
@@ -102,8 +100,9 @@ public static class HostingExtensions {
     })
     .Services;
 
-  public static ApplicationStorage ToTunealityApplicationDirectories(this IConfigurationSection dirs) {
+  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) {
     return new ApplicationStorage(
+      productName,
       dirs.GetSection("User").Value!,
       dirs.GetSection("Tmp").Value!,
       dirs.GetSection("wwwroot").Value);

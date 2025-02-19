@@ -28,10 +28,7 @@ public class ZInputType<TData> : InputObjectType<TData> where TData : ApiObject 
       var prop = zTypeDescriptor.ObjectDescriptor.Inputs[inputName];
       ZEnv.Log.Verbose("[IN] [{type}] {arg} = {type}", typeof(TData), inputName, prop.FieldType);
 
-      var t = ZSchema.GetTuneSchemaType(prop.FieldType, typeof(ZInputType<>));
-      // if (!TuneApi.GetTuneObjectDescriptor(prop.PropertyType).IsScalar)
-      //   t = typeof(InputObjectType<>).MakeGenericType(t);
-      // if (prop.IsOptional && t.IsListType()) t = typeof(Nullable<>).MakeGenericType(t);
+      var t = ZSchema.GetZSchemaType(prop.FieldType, typeof(ZInputType<>));
       var d = descriptor.Field(inputName).Type(t);
     }
     base.Configure(descriptor);
@@ -76,25 +73,6 @@ public static class ZInputTypes {
     }
     return ret;
   }
-
-  // public static Dictionary<string, ApiVariableValueOrLiteral>? ResolveInputVariables(
-  //   IZContext context, Func<string, object?> getValue, List<TuneParameterDescriptor> pars
-  // ) {
-  //   if (!pars.Any()) return null;
-  //
-  //   return context.ExecuteOptional(() => {
-  //     Dictionary<string, ApiVariableValueOrLiteral> args = new Dictionary<string, ApiVariableValueOrLiteral>();
-  //     foreach (var parameterInfo in pars) {
-  //       var node = resolver.ArgumentLiteral<IValueNode>(parameterInfo.Name!.ToFieldName());
-  //       var obj = getValue(parameterInfo.FieldName);
-  //       var apiVar = new ApiVariableValueOrLiteral(new ApiInputType(TypeKind.Object, parameterInfo.ParameterType), obj, node);
-  //
-  //       context.Log.Debug("[PARAM] {pt} = {@p} = {@param}", parameterInfo.FieldName, node, obj);
-  //       args.Add(parameterInfo.FieldName, apiVar);
-  //     }
-  //     return args;
-  //   });
-  // }
 
   public static Dictionary<string, ApiVariableValueOrLiteral>? ResolveInputVariables(
     IZContext context, Func<string, IValueNode?> getValue, List<ZParameterDescriptor> pars

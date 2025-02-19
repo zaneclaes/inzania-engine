@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using IZ.Core.Api;
 using IZ.Core.Auth;
@@ -40,9 +41,6 @@ public interface IZContext : IServiceScope, IAmInternal, IEventEnricher {
   [ApiDocs("The batched data loader")]
   public IZResolver Resolver { get; }
 
-  // [ApiDocs("The request executor, allowing access to API and/or cached local data")]
-  // public ITuneRequest Request { get; }
-
   [ApiDocs("The request cancellation token")]
   public CancellationToken CancellationToken { get; set; }
 
@@ -56,6 +54,8 @@ public interface IZContext : IServiceScope, IAmInternal, IEventEnricher {
 
   [ApiDocs("Spawn a child context (span) for some action")]
   public IZChildContext ScopeAction(Type? t, string? reason = null, IZLogger? logger = null);
+
+  public Dictionary<string, object> DataBag { get; }
 }
 
 public interface IZRootContext : IZContext { }

@@ -60,7 +60,7 @@ public class ZObjectDescriptor : IAmInternal {
     if (t == typeof(bool)) return bool.Parse(val);
     if (t == typeof(decimal)) return decimal.Parse(val);
     if (t == typeof(double)) return double.Parse(val);
-    if (t.IsEnum) return int.Parse(val);
+    if (t.IsEnum) return val.IsNumeric() ? int.Parse(val) : Enum.Parse(t, val, true);
     ZEnv.Log.Warning("[TYPE] {type} unknown from {val}", t.Name, val);
     return val;
   }
@@ -158,8 +158,7 @@ public class ZObjectDescriptor : IAmInternal {
     return type;
   }
 
-  internal static ZObjectDescriptor LoadTuneObjectDescriptor(Type t) {
-    // t = TuneTypeDescriptor.MakeBaseType(t); // makeBase ? TuneTypeDescriptor.MakeBaseType(t) : t;
+  internal static ZObjectDescriptor LoadZObjectDescriptor(Type t) {
     var innerType = StripOuterTypes(t);
     string key = innerType.Name;
     if (key.Contains("`") || key.Contains("[]")) throw new SystemException($"Invalid type {innerType} from {t}");
@@ -169,5 +168,5 @@ public class ZObjectDescriptor : IAmInternal {
     return descriptor;
   }
 
-  public static ZObjectDescriptor? FindTuneObjectDescriptor(string key) => ObjectTypes.GetValueOrDefault(key);
+  public static ZObjectDescriptor? FindZObjectDescriptor(string key) => ObjectTypes.GetValueOrDefault(key);
 }

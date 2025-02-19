@@ -106,7 +106,7 @@ public static class ZLogging {
       .ToArray();
   }
 
-  public static TBuilder WithTuneData<TBuilder>(this TBuilder c) where TBuilder : LogBuilder {
+  public static TBuilder WithZData<TBuilder>(this TBuilder c) where TBuilder : LogBuilder {
     c
       // .Destructure.UsingAttributes()
       .TransformObjectWhere<object>(t => t.HasAssignableType<IGetLogged>(), TransformObject<IGetLogged>)

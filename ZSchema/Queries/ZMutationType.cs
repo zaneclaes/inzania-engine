@@ -9,6 +9,6 @@ namespace IZ.Schema.Queries;
 
 public class ZMutationType : ObjectType {
   protected override void Configure(IObjectTypeDescriptor descriptor) {
-    descriptor.AddTuneRequestDescriptors<ZMutationBase>(ApiExecutionType.Mutation);
+    descriptor.AddZRequestDescriptors<ZMutationBase>(ApiExecutionType.Mutation);
   }
 }

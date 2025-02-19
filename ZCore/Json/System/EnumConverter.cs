@@ -59,6 +59,6 @@ public class NullableEnumConverter<TEnum> : JsonConverter<TEnum?> where TEnum : 
 
   public override void Write(Utf8JsonWriter writer, TEnum? value, JsonSerializerOptions options) {
     if (value == null) writer.WriteNullValue();
-    else writer.WriteStringValue(value.Value.SerializeTuneEnum());
+    else writer.WriteStringValue(value.Value.SerializeZEnum());
   }
 }

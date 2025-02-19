@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-#if TUNE_UNITY
+#if Z_UNITY
 using Lib.Logging;
 #endif
 
@@ -25,7 +25,7 @@ public static class MachineHost {
     p.StartInfo.Arguments = $"-i :{port}";
     p.Start();
     string txt = p.StandardOutput.ReadToEnd();
-#if TUNE_UNITY
+#if Z_UNITY
       UnityEngine.Debug.Log($"[PROCS] {txt}");
 #endif
     Dictionary<long, string> output = txt.Trim().Split('\n')

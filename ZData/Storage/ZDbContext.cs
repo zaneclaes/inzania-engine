@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -10,6 +11,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 using IZ.Core.Observability.Logging;
+using IZ.Core.Utils;
 using IZ.Data.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -25,27 +27,27 @@ public class ZDbContext : DbContext, IHaveContext {
     Context = root;
     Uuid = ModelId.GenerateId();
     Log = root.Log.ForContext(GetType());
-    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
   }
 
   public ZDbContext(DbContextOptions opts) : base(opts) {
     Context = ZEnv.SpawnRootContext();
     Uuid = ModelId.GenerateId();
     Log = Context.Log.ForContext(GetType());
-    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
   }
 
   public IZContext Context { get; }
   public IZLogger Log { get; }
 
   public override void Dispose() {
-    // Log.Information("[DB] DISPOSE {id}\n{stack}", Uuid);//, new TuneTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[DB] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
     base.Dispose();
   }
 
   protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
     if (!optionsBuilder.IsConfigured) {
-      string? fn = $"{Context.App.Storage.UserDir}/tuneality.db";
+      string fn = Path.Join(Context.App.Storage.UserDir, $"{Context.App.ProductName.ToSnakeCase()}.db");
       Log.Information("[DB] falling back on {fn}", fn);
       optionsBuilder.UseSqlite($"Data Source={fn}");
     }
@@ -99,11 +101,7 @@ public class ZDbContext : DbContext, IHaveContext {
     UpdateChanges();
     return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
   }
-  // TuneEnv.SpawnRootContext().App.GetType().Assembly;
 
-  // private static List<Type>? _dataObjectTypes = null;
-  // protected static List<Type> DataObjectTypes => _dataObjectTypes ??=
-  //   AppAssembly.GetTypes().ToList();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     base.OnModelCreating(modelBuilder);

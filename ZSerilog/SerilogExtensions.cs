@@ -11,13 +11,4 @@ using Serilog.Events;
 namespace IZ.Logging.SerilogLogging;
 
 public static class SerilogExtensions {
-
-  // public static LoggerConfiguration Tuneality(
-  //   this LoggerSinkConfiguration sinkConfiguration,
-  //   LogEventLevel restrictedToMinimumLevel = LogEventLevel.Verbose,
-  //   LoggingLevelSwitch? levelSwitch = null) {
-  //   if (sinkConfiguration == null)
-  //     throw new ArgumentNullException(nameof(sinkConfiguration));
-  //   return sinkConfiguration.Sink(ZLogSink.Singleton, restrictedToMinimumLevel, levelSwitch);
-  // }
 }

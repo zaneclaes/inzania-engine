@@ -31,8 +31,6 @@ public static class WorkExtensions {
     }
   }
 
-  // new UserState(TuneSystemIdentity.Singleton.Principal)
-
   public static Task<IOperationResult> ExecuteInternalApiCall(this OperationRequestBuilder req, IZContext context, ClaimsPrincipal claimsPrincipal) =>
     ExecuteInternalApiCall(req, context, new UserState(claimsPrincipal));
 

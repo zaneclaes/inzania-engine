@@ -133,15 +133,17 @@ public static class DataModelLoader {
 
   public static Task<T> LoadRequiredDataModelAsync<T>(
     this IQueryable<T> queryable, IZContext? context = null
-  ) where T : DataObject => queryable.LoadDataModelAsync($"NotFound: {typeof(T)}");
+  ) where T : DataObject => queryable.LoadDataModelAsync($"NotFound: {typeof(T)}", context);
 
-  public static Task<TModel?> LoadModelId<TModel>(
-    this IZContext context, string id
-  ) where TModel : ModelKey<string> => context.QueryForId<TModel>(id).LoadDataModelAsync(context);
+  public static async Task<TModel?> LoadModelId<TModel>(
+    this IZContext context, string id, bool searchMemory = true
+  ) where TModel : ModelKey<string> => (searchMemory ? await context.LoadModelIdFromMemory<TModel>(id) : null) ??
+                                       await context.QueryForId<TModel>(id).LoadDataModelAsync(context);
 
-  public static Task<TModel> LoadRequiredModelId<TModel>(
-    this IZContext context, string id
-  ) where TModel : ModelKey<string> => context.QueryForId<TModel>(id).LoadDataModelAsync($"NotFound: {typeof(TModel)}#{id}", context);
+  public static async Task<TModel> LoadRequiredModelId<TModel>(
+    this IZContext context, string id, bool searchMemory = true
+  ) where TModel : ModelKey<string> => (searchMemory ? await context.LoadModelIdFromMemory<TModel>(id) : null) ??
+                                       await context.QueryForId<TModel>(id).LoadDataModelAsync($"NotFound: {typeof(TModel)}#{id}", context);
 
   public static async Task<T> LoadDataModelAsync<T>(
     this IQueryable<T> queryable, string missingException, IZContext? context = null
@@ -151,9 +153,13 @@ public static class DataModelLoader {
     return ret ?? throw new KeyNotFoundException(missingException);
   }
 
-  public static Task<TModel> LoadModelId<TModel>(
-    this IZContext context, string id, string errorMessage
-  ) where TModel : ModelKey<string> => context.QueryForId<TModel>(id).LoadDataModelAsync(errorMessage, context);
+  public static async Task<TModel> LoadModelId<TModel>(
+    this IZContext context, string id, string errorMessage, bool searchMemory = true
+  ) where TModel : ModelKey<string> => (searchMemory ? await context.LoadModelIdFromMemory<TModel>(id) : null) ??
+                                       await context.QueryForId<TModel>(id).LoadDataModelAsync(errorMessage, context);
+
+  public static async Task<T?> LoadModelIdFromMemory<T>(this IZContext context, string id) where T : ModelKey<string> =>
+    (await context.Data.GetMemoryModels<T>()).FirstOrDefault(m => m.Id == id);
 
   // public static Task<TModel> UpsertModelId<TModel>(
   //   this IZContext context, string id, Func<TModel, DataState, Task>? creator = null
@@ -167,28 +173,28 @@ public static class DataModelLoader {
     this IZContext context, params TKey[] id
   ) where TModel : ModelKey<TKey>, new() {
     IZQueryable<TModel> q = context.QueryFor<TModel>();
-    return q.Where(m => m.Id != null && id.Contains(m.Id)).AsTuneQueryable(q.QueryProvider);
+    return q.Where(m => m.Id != null && id.Contains(m.Id)).AsZQueryable(q.QueryProvider);
   }
 
   public static IZQueryable<TModel> QueryForModelId<TModel, TKey>(
     this IZContext context, TKey id
   ) where TModel : ModelKey<TKey> {
     IZQueryable<TModel> q = context.QueryFor<TModel>();
-    return q.Where(m => m.Id != null && m.Id.Equals(id)).AsTuneQueryable(q.QueryProvider);
+    return q.Where(m => m.Id != null && m.Id.Equals(id)).AsZQueryable(q.QueryProvider);
   }
 
   public static IZQueryable<TModel> QueryForId<TModel>(
     this IZContext context, string id
   ) where TModel : ModelKey<string> => context.QueryForModelId<TModel, string>(id);
 
-  public static IZQueryable<TModel> AsTuneQueryable<TModel>(this IQueryable<TModel> q, IZQueryProvider provider) where TModel : DataObject {
+  public static IZQueryable<TModel> AsZQueryable<TModel>(this IQueryable<TModel> q, IZQueryProvider provider) where TModel : DataObject {
     if (q is IZQueryable<TModel> tq) return tq;
     provider.Log.Warning("[QUERY] converting {type} to ZQueryable<{dm}> via {other}", q.GetType(), typeof(TModel), provider.GetType());
     return new ZQueryable<TModel>(provider, q);
   }
 
   public static IZQueryable<TSource> Filter<TSource>(this IZQueryable<TSource> q, Expression<Func<TSource, bool>> predicate)
-    where TSource : DataObject => q.Where(predicate).AsTuneQueryable(q.QueryProvider);
+    where TSource : DataObject => q.Where(predicate).AsZQueryable(q.QueryProvider);
 
   public static Task<TModel> Upsert<TModel>(this IZQueryable<TModel> q, Action<TModel> creator) where TModel : DataObject, new() =>
     q.QueryProvider.Context.Upsert(q, creator);

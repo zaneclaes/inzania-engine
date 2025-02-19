@@ -36,7 +36,6 @@ public static class ZEnv {
   public static ZApp App { get; internal set; } = null!;
 
   public static IZRootContext SpawnRootContext() {
-    // Log.Information("[ROOT] {stack}", new TuneTrace(new StackTrace().ToString()).ToString());
     return _defaultContextBuilder?.Invoke() ??
       throw new SystemException("ZEnv defaultContextBuilder does not exist");
   }
@@ -45,7 +44,7 @@ public static class ZEnv {
   }
   private static Func<IZRootContext>? _defaultContextBuilder;
 
-  public static string SerializeTuneEnum<T>(this T e) where T : Enum => e.ToString().ToSnakeCase().ToUpper();
+  public static string SerializeZEnum<T>(this T e) where T : Enum => e.ToString().ToSnakeCase().ToUpper();
 
   public static string ToShortString(this ZEnvironment e) {
     if (e == ZEnvironment.Testing) return "test";

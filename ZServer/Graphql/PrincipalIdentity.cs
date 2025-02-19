@@ -22,7 +22,7 @@ public class PrincipalIdentity {
     Id = principal.GetClaim("nameidentifier");
     Username = principal.GetClaim("preferred_username");
     Email = principal.GetClaim("emailaddress");
-    Role = principal.GetTuneRole();
+    Role = principal.GetZRole();
     Identities = principal.Identities.ToArray();
     AuthToken = authToken;
   }

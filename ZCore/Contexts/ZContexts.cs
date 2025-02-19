@@ -84,7 +84,6 @@ public static class ZContexts {
 
   public static IZContext GetCurrentContext(this IServiceProvider serviceProvider) {
     return serviceProvider.GetRootContext();
-    // IZContext? context = serviceProvider.GetService<ITuneChildContext>();
     // if (context != null) return context;
     // context = serviceProvider.TryGetRootContext();
     // if (context != null) return context;

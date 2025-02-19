@@ -7,7 +7,7 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-#if !TUNE_UNITY
+#if !Z_UNITY
 using System.Threading.Tasks.Dataflow;
 #endif
 using IZ.Core.Contexts;
@@ -49,7 +49,7 @@ public static class Tasks {
       if (task != null) task.AsUniTask().Forget();
     }
 #endif
-#if !TUNE_UNITY
+#if !Z_UNITY
   public static void Forget(this Task? task) { }
 
   /// <summary>
@@ -143,57 +143,4 @@ public static class Tasks {
       ex, "[{tag}]: {reason} {type}: {@error}", tag, reason, errorType, ZError.Guard(ex));
     return ex;
   }
-
-  // public static async Task<TData> CatchFamiliarExceptions<TData>(
-  //   this FurContext context, FurSpan? span, string? tag, string reason, Func<Task<TData>> transaction, Func<Exception, Task>? handler,
-  //   Func<bool>? checkSave = null,
-  //   TData def = default!
-  // ) {
-  //   try {
-  //     var ret = await transaction();
-  //     if (checkSave != null && checkSave()) await context.Save($"txn{reason}");
-  //     return ret;
-  //   } catch (ArgumentException e) {
-  //     // Arg. exception generally thrown to indicate client failure
-  //     context.Log.Information(e, "[{ctag}] {reason}: Argument Exception: {message}", tag, reason, e.Message);
-  //     SetSpanError(e, tag, reason, span, TuneEventLevel.Information);
-  //     if (handler != null) await handler.Invoke(e);
-  //     else throw;
-  //   } catch (ApiException e) {
-  //     // API exception generally thrown to indicate client failure
-  //     context.Log.Information(e, "[{ctag}] {reason}: API Exception: {message}", tag, reason, e.Message);
-  //     SetSpanError(e, tag, reason, span, TuneEventLevel.Information);
-  //     if (handler != null) await handler.Invoke(e);
-  //     else throw;
-  //   } catch (OperationCanceledException e) {
-  //     context.Log.Information("[{ctag}] {reason}: Operation Canceled", tag, reason);
-  //     // No exception is set; cancellation is not important
-  //     if (handler != null) await handler.Invoke(e);
-  //     return def;
-  //   } catch (HttpRequestException e) {
-  //     SetSpanError(e, tag, reason, span);
-  //     if (context.Chain.Network.ChainId < 100) context.Log.Information("[BK] HTTP Exception {reason} {ex}", reason, e.Message);
-  //   } catch (RpcClientUnknownException e) {
-  //     LogEventLevel lvl = LogEventLevel.Error;
-  //     if (e.InnerException is HttpRequestException httpRequestException) {
-  //       // context.Log.Warning("[{ctag}] {reason}: HTTP {@exception}", reason, FurException.Guard(httpRequestException));
-  //       if (httpRequestException.StatusCode == HttpStatusCode.TooManyRequests) await context.MarkBlockchainError();
-  //       lvl = LogEventLevel.Warning;
-  //     }
-  //     SetSpanError(e, tag, reason, span, lvl);
-  //     if (handler != null) await handler.Invoke(e);
-  //     return def;
-  //   } catch (DbUpdateException e) {
-  //     SetSpanError(e, tag, reason, span);
-  //     if (handler != null) await handler.Invoke(e);
-  //     else throw;
-  //   } catch (Exception e) {
-  //     SetSpanError(e, tag, reason, span);
-  //     if (handler != null) await handler.Invoke(e);
-  //     else throw;
-  //   }
-  //
-  //   return def;
-  // }
-
 }

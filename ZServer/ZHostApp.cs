@@ -38,18 +38,17 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
 
   protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) :
     base(productName, domainName, Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!), new SerilogLogBuilder()
-        .WithTuneData()
-        // .WithTuneXmlLogging()
+        .WithZData()
         .ReadFrom(c => c.Configuration(builder.Configuration, new ConfigurationReaderOptions(
           Assembly.GetExecutingAssembly(), typeof(DatadogSink).Assembly, typeof(ConsoleTheme).Assembly)))
         .BuildToSingleton(),
       ZTarget.PublicApp,
-      builder.Configuration.GetSection("Dir").ToTunealityApplicationDirectories(),
+      builder.Configuration.GetSection("Dir").ToZApplicationDirectories(productName),
       builder.Configuration.GetSection("Auth").Get<ZAuthOptions>()) {
     DataDogTracing.Enable();
 
     _builder = builder;
-    builder.Services.AddTuneServerCore(this);
+    builder.Services.AddZServerCore(this);
   }
 
   public override IServiceProvider CreateServices() => WebApp?.Services ?? _builder.Services.BuildServiceProvider();

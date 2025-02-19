@@ -10,8 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Server.Sql;
 
-public static class TunealityMySql {
-  public static IServiceCollection AddTunealityMySql<TData>(this IServiceCollection services, MySqlOptions settings) where TData : ZDbContext {
+public static class ZMySql {
+  public static IServiceCollection AddZMySql<TData>(this IServiceCollection services, MySqlOptions settings) where TData : ZDbContext {
     return services
       .AddScoped<IZDataRepository, ZEfCoreDataRepository<TData>>()
       .AddScoped<IZDataFactory, ZEfCoreDataFactory<TData>>()
