@@ -51,7 +51,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
       }
     }
   }
-    // (TDb) Context.ServiceProvider.GetRequiredService(typeof(TDb));
+
   private TDb? _db;
 
   public override void Dispose() {
@@ -102,41 +102,15 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   public Task<long> ExecuteSumAsync<TData>(
     IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func
   ) => ExecuteLocked(() => q.SumAsync(func, context.CancellationToken));
-  // => ExecuteSanitizedTask(context, q.SumAsync(func, context.CancellationToken), locked);
-  // {
-  //   Task<long> Task() => q.SumAsync(func, context.CancellationToken);
-  //   var ret = locked ? (await ExecuteLocked((Func<Task<long>>) Task)) : (await Task());
-  //   return ret;
-  // }
 
   public Task<long> ExecuteCountAsync<TData>(IZContext context, IQueryable<TData> q) =>
     ExecuteLocked(() => q.LongCountAsync(context.CancellationToken));
-  // ExecuteSanitizedTask(context, q.LongCountAsync(context.CancellationToken), locked);
-  // {
-  //   Task<long> Task() => q.LongCountAsync(context.CancellationToken);
-  //   var ret = locked ? (await ExecuteLocked(Task)) : (await Task());
-  //   return ret;
-  // }
 
   public Task<TData?> ExecuteFirstOrDefaultAsync<TData>(IZContext context, IQueryable<TData> q) =>
     ExecuteLockedSanitizedData(context, async () => await q.FirstOrDefaultAsync<TData?>(context.CancellationToken));
 
-  //{
-  //   Task<TData?> Task() => q.FirstOrDefaultAsync<TData?>(context.CancellationToken);
-  //   var ret = locked ? (await ExecuteLocked((Func<Task<TData?>>) Task)) : (await Task());
-  //   Sanitize(context); // ensure new models have context
-  //   return ret;
-  // }
-
   public Task<List<TData>> ExecuteListAsync<TData>(IZContext context, IQueryable<TData> q) =>
     ExecuteLockedSanitizedData(context, async () => await q.ToListAsync(context.CancellationToken));
-
-  // {
-  //   Task<List<TData>> Task() => q.ToListAsync(context.CancellationToken);
-  //   var ret = locked ? (await ExecuteLocked((Func<Task<List<TData>>>) Task)) : (await Task());
-  //   Sanitize(context); // ensure new models have context
-  //   return ret;
-  // }
 
   public async Task SaveAsync(CancellationToken ct = new CancellationToken()) {
     await ExecuteLocked(() => Db.SaveChangesAsync(ct));
@@ -162,12 +136,6 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
       Log.Warning("[DB] sanitization error {error}", error);
     }
   }
-
-  // private readonly List<object> _changed = new List<object>();
-
-  // public void SetChanged<TData>(params TData[] data) where TData : DataObject {
-  //   _changed.AddRange(data);
-  // }
 
   public bool HasChanges => Db?.ChangeTracker.HasChanges() ?? false; //_changed.Any();
 

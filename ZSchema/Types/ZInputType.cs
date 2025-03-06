@@ -86,13 +86,14 @@ public static class ZInputTypes {
         continue;
       }
       var value = node.Value;
-      var apiVar = new ApiVariableValueOrLiteral(new ApiInputType(TypeKind.Object, value?.GetType() ?? typeof(DBNull)), value, node);
+      var apiVar = new ApiVariableValueOrLiteral(new ApiInputType(TypeKind.Object, value?.GetType() ?? null!), value, node); // DBNull?
+      context.Log.Debug("[PARAM] {pt} = {@p} = {param}", name, node, value);
       ret.Add(name, apiVar);
     }
     return ret;
   }
 
-  public static Dictionary<string, ApiVariableValueOrLiteral>? ResolveInputVariables(
+  private static Dictionary<string, ApiVariableValueOrLiteral>? ResolveInputVariables(
     IZContext context, Func<string, IValueNode?> getValue, List<ZParameterDescriptor> pars
   ) {
     if (!pars.Any()) return null;

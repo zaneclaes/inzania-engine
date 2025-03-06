@@ -80,7 +80,7 @@ public class ZHttpClient : HttpClient, IHaveContext {
     return Deserialize<T>(str, href);
   }
 
-  private T Deserialize<T>(string str, string errDesc) {
+  public T Deserialize<T>(string str, string errDesc) {
     try {
       // context.Log.Information("GET {href}", href);
       var ret = ZJson.DeserializeObject<T>(Context, str) ?? throw new SystemException($"Got NULL object from {str.Length} bytes ({errDesc})");

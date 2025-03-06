@@ -46,8 +46,8 @@ public class ZObjectType<TData> : ObjectType<TData> where TData : ApiObject {
           throw new ArgumentException($"{zDescriptor}.{method.OperationName}() is a {method.ExecutionType}");
         }
         ZEnv.Log.Debug("[EXEC] {name} on {@obj} w {@args}", method.OperationName, resolver.Operation.Type, args);
-        object? ret = resolver.Services.GetCurrentContext()
-          .ExecuteOptional(() => method.Invoke(resolver.Parent<object>(), args));
+        var context = resolver.Services.GetCurrentContext();
+        object? ret = context.ExecuteOptional(() => method.Invoke(context, resolver.Parent<object>(), args));
         ZEnv.Log.Verbose("[EXEC] {name} done", method.OperationName);
         if (ret is IZResult res) {
           ret = await res.ExecuteObject();

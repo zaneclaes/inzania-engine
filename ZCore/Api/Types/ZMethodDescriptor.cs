@@ -25,7 +25,14 @@ public class ZMethodDescriptor : ZFieldDescriptor {
 
   private MethodInfo Method { get; }
 
-  public object? Invoke(object o, params object?[]? args) => Method.Invoke(o, args);
+  public object? Invoke(IZContext context, object o, params object?[]? args) {
+    try {
+      return Method.Invoke(o, args);
+    } catch (Exception e) {
+      context.Log.Error(e, "Failed to invoke {method} on {type}", Method.Name, o.GetType());
+      throw;
+    }
+  }
 
   protected override List<ZTypeDescriptor> GetTypeDescriptors() =>
     base.GetTypeDescriptors().Union(Parameters.Select(p => p.ApiType)).ToList();

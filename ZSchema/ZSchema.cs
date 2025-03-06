@@ -170,7 +170,7 @@ public static class ZSchema {
           var context = resolver.Services.GetCurrentContext();
           object queryObj = Activator.CreateInstance(t, context)!; // .BeginRequest()
           return await context.ExecuteRequiredTask(async () => {
-            var result = (method.Invoke(queryObj, args) as IZResult)!;
+            var result = (method.Invoke(context, queryObj, args) as IZResult)!;
             return await result.ExecuteObject();
           });
         }, mi);
