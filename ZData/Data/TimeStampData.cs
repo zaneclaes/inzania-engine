@@ -35,8 +35,8 @@ public static class TimeStampData {
     return data.OrderBy(d => d.UpdatedAt ?? d.CreatedAt);
   }
 
-  public static void OnModelChanging(ChangeTracker changes) {
-    List<EntityEntry>? updates = changes.Entries()
+  public static void OnModelChanging(List<EntityEntry> changedEntities) {
+    List<EntityEntry> updates = changedEntities
       .Where(e => e.State is EntityState.Modified && e.Entity is IUpdatedAt).ToList();
 
     for (int i = 0; i < updates.Count; i++) {
@@ -45,13 +45,14 @@ public static class TimeStampData {
       tsd.UpdatedAt = ZEnv.Now;
     }
 
-    List<EntityEntry>? creates = changes.Entries()
+    List<EntityEntry> creates = changedEntities
       .Where(e => e.Entity is ICreatedAt).ToList();
 
     for (int i = 0; i < creates.Count; i++) {
       var cre = creates[i];
       var c = (ICreatedAt) cre.Entity;
 #pragma warning disable CS8073 // The result of the expression is always the same since a value of this type is never equal to 'null'
+      // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
       if (cre.State == EntityState.Added || c.CreatedAt == null || c.CreatedAt.Year < 2000)
 #pragma warning restore CS8073 // The result of the expression is always the same since a value of this type is never equal to 'null'
         c.CreatedAt = ZEnv.Now;

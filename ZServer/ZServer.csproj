@@ -16,11 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="HotChocolate.AspNetCore" Version="14.3.0" />
-    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="14.3.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.2.0"/>
-    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2"/>
+    <PackageReference Include="HotChocolate.AspNetCore" Version="15.0.3" />
+    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="15.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>

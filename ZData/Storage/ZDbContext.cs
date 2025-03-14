@@ -62,12 +62,13 @@ public class ZDbContext : DbContext, IHaveContext {
   }
 
   private void UpdateChanges() {
-    TimeStampData.OnModelChanging(ChangeTracker);
+    var changedEntities = ChangeTracker.Entries().ToList();
+    TimeStampData.OnModelChanging(changedEntities);
     string? errorId = this.Sanitize(Context);
     if (errorId != null) throw new ArgumentException($"[DB] creation error: {errorId}");
 
     // Prevent creation of non-database models
-    foreach (var entry in ChangeTracker.Entries()) {
+    foreach (var entry in changedEntities) {
       var ds = DataStateFromEntityState(entry.State);
       if (entry.Entity is IAutoUpdate up && ds != DataState.None) {
         up.OnSavingData(ds);
@@ -82,7 +83,8 @@ public class ZDbContext : DbContext, IHaveContext {
 
   // https://stackoverflow.com/questions/16437083/dbcontext-discard-changes-without-disposing/22098063#22098063
   public void RejectChanges() {
-    foreach (var entry in ChangeTracker.Entries().ToList())
+    var entries = ChangeTracker.Entries().ToList();
+    foreach (var entry in entries)
       switch (entry.State) {
         case EntityState.Modified:
         case EntityState.Deleted:
