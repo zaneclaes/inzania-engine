@@ -27,11 +27,6 @@ using Type = System.Type;
 
 namespace IZ.Data.Storage;
 
-public class ZEfCoreDataFactory<TDb> : IZDataFactory where TDb : ZDbContext {
-  public IZDataRepository GetDataRepository(IZContext context) =>
-    new ZEfCoreDataRepository<TDb>(context);
-}
-
 public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository where TDb : ZDbContext {
   private DbContextOptions<TDb> _options;
 

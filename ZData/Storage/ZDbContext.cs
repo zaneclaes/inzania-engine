@@ -62,7 +62,7 @@ public class ZDbContext : DbContext, IHaveContext {
   }
 
   private void UpdateChanges() {
-    var changedEntities = ChangeTracker.Entries().ToList();
+    var changedEntities = GetChanges();
     TimeStampData.OnModelChanging(changedEntities);
     string? errorId = this.Sanitize(Context);
     if (errorId != null) throw new ArgumentException($"[DB] creation error: {errorId}");
@@ -81,9 +81,21 @@ public class ZDbContext : DbContext, IHaveContext {
     return base.SaveChanges();
   }
 
+  public List<EntityEntry> GetChanges(int tries = 0) {
+    try {
+      return ChangeTracker.Entries().ToList();
+    } catch (Exception ex) {
+      if (tries < 3) {
+        Log.Warning(ex, "[DB] failed to get changes; trying again");
+        return GetChanges(tries+1);
+      }
+      throw;
+    }
+  }
+
   // https://stackoverflow.com/questions/16437083/dbcontext-discard-changes-without-disposing/22098063#22098063
   public void RejectChanges() {
-    var entries = ChangeTracker.Entries().ToList();
+    var entries = GetChanges();
     foreach (var entry in entries)
       switch (entry.State) {
         case EntityState.Modified:
@@ -103,7 +115,6 @@ public class ZDbContext : DbContext, IHaveContext {
     UpdateChanges();
     return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
   }
-
 
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     base.OnModelCreating(modelBuilder);
@@ -146,7 +157,7 @@ public class ZDbContext : DbContext, IHaveContext {
 
   private void ConfigureModelProperty(ZTypeDescriptor zTypeDescriptor, string propertyName, ModelBuilder modelBuilder) {
     var prop = zTypeDescriptor.ObjectDescriptor.ObjectProperties[propertyName];
-    if (!prop.IsInherited && prop.ChildPropertyName != null) {
+    if (prop is {IsInherited: false, ChildPropertyName: not null}) {
       var zForeignType = ZTypeDescriptor.FromType(prop.FieldType);
       if (prop.ThroughPropertyType == null) {
         if (zForeignType.IsList) {
@@ -186,24 +197,4 @@ public class ZDbContext : DbContext, IHaveContext {
   }
 }
 
-public static class ZEfCoreData {
-  public static string? Sanitize(this ZDbContext db, IZContext context) {
-    // General auto-cleanup method, applies fixes to models, returns errorId
-    List<EntityEntry>? entries = db.ChangeTracker.Entries().ToList();
-    foreach (var entry in entries) {
-      var t = entry.Entity.GetType();
-      // DataState ds = DataStateFromEntityState(entry.State);
-      if (entry.State == EntityState.Added && !db.CanStore(entry.Entity)) {
-        // entry.State = EntityState.Modified;
-        string? id = entry.Entity is IStringKeyData d ? d.Id : "";
-        ZEnv.Log.Warning("[DB] {type}#{id} is not a DataObject", t.Name, id);
-        return id;
-      }
 
-      if (entry.Entity is DataObject dataObj) {
-        dataObj.ProvideContext(context);
-      }
-    }
-    return null;
-  }
-}
