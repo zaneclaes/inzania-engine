@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 #endregion
@@ -1463,7 +1464,7 @@ public static class MimeTypeMap {
   /// <param name="mimeType">The variable to store the MIME type.</param>
   /// <returns>The MIME type.</returns>
   /// <exception cref="ArgumentNullException" />
-  public static bool TryGetMimeType(string str, out string mimeType) {
+  public static bool TryGetMimeType(string str, [NotNullWhen(true)] out string? mimeType) {
     if (str == null) {
       throw new ArgumentNullException(nameof(str));
     }
@@ -1475,7 +1476,7 @@ public static class MimeTypeMap {
 
 
     if (!str.StartsWith(Dot)) {
-      int index = str.LastIndexOf(Dot);
+      int index = str.LastIndexOf(Dot, StringComparison.InvariantCulture);
       if (index != -1 && str.Length > index + 1) {
         str = str.Substring(index + 1);
       }
@@ -1492,7 +1493,7 @@ public static class MimeTypeMap {
   /// <param name="str">The filename or extension.</param>
   /// <returns>The MIME type.</returns>
   /// <exception cref="ArgumentNullException" />
-  public static string GetMimeType(string str) => TryGetMimeType(str, out string? result) ? result : DefaultMimeType;
+  public static string GetMimeType(string str) => TryGetMimeType(str, out string? result) ? result! : DefaultMimeType;
 
   /// <summary>
   /// Gets the extension from the provided MINE type.
@@ -1511,7 +1512,7 @@ public static class MimeTypeMap {
       throw new ArgumentException("Requested mime type is not valid: " + mimeType);
     }
 
-    if (_mappings.Value.TryGetValue(mimeType, out string extension)) {
+    if (_mappings.Value.TryGetValue(mimeType, out string? extension)) {
       return extension;
     }
 

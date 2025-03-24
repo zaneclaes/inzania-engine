@@ -13,7 +13,9 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 
 namespace IZ.Data.Resolvers;
 
+ #pragma warning disable EF1001
 public class ZEfCoreQueryProvider : EntityQueryProvider, IZQueryProvider {
+ #pragma warning restore EF1001
   private readonly IAsyncQueryProvider _inner;
 
   public IQueryProvider Provider { get; }

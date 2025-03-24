@@ -33,14 +33,14 @@ public static class ParsingUtilities {
 
   public static string GetNonnegativeDoubleNumberGroup(string groupName) => $@"(?<{groupName}>\d+(.\d+)?)";
 
-  public static Match Match(string input, IEnumerable<string> patterns, bool ignoreCase = true) {
+  public static Match? Match(string input, IEnumerable<string> patterns, bool ignoreCase = true) {
     return patterns.Select(p => Regex.Match(input.Trim(), $"^{p}$", ignoreCase ? RegexOptions.IgnoreCase : RegexOptions.None))
       .FirstOrDefault(m => m.Success);
   }
 
   public static Match[] Matches(string input, IEnumerable<string> patterns, bool ignoreCase = true) {
-    return patterns.Select(p => Regex.Matches(input.Trim(), p, ignoreCase ? RegexOptions.IgnoreCase : RegexOptions.None).OfType<Match>().ToArray())
-      .FirstOrDefault(m => m.Any());
+    return patterns.Select(p => Regex.Matches(input.Trim(), p, ignoreCase ? RegexOptions.IgnoreCase : RegexOptions.None).ToArray())
+      .FirstOrDefault(m => m.Any()) ?? new Match[] { };
   }
 
   public static bool ParseNonnegativeInt(Match match, string groupName, int defaultValue, out int value) => ParseInt(match, groupName, defaultValue, NonnegativeIntegerNumberStyle, out value);

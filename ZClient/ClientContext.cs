@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Client;
 
 public class ClientContext : RootContext {
-  private IZChildContext? _span;
+  // private IZChildContext? _span;
 
   public ZClientApp ClientApp => App as ZClientApp ?? throw new SystemException($"ClientApp is a {App?.GetType()}");
 

@@ -34,7 +34,7 @@ public class ConsoleLogger : IZLogger {
 
   private string PrintObject(object? o) {
     if (o == null) return "null";
-    if (!(o is IGetLogged logged)) return o.ToString();
+    if (!(o is IGetLogged logged)) return o.ToString() ?? o.GetType().Name;
     return ZJson.SerializeObject(ZLogging.TransformObject<IGetLogged>(logged));
   }
 

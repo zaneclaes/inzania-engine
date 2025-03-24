@@ -63,7 +63,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
       if (existing.Any()) {
         TData[] ret = existing.ToArray();
-        loader.Set(key, ret);
+        loader.SetCacheEntry(key, ret);
         return ret;
       }
 
@@ -75,7 +75,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
   }
 
   public async Task<IReadOnlyList<TData>> LoadMany<TKey, TData>(
-    string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, List<TData>>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey> fetchKey
+    string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, List<TData>>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey?> fetchKey
   ) where TKey : notnull {
     try {
       if (keys.Any(k => k == null)) throw new NullReferenceException(nameof(keys));
@@ -101,7 +101,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       foreach (var exist in existing) {
         if (exist != null) {
           var key = fetchKey(exist);
-          if (key != null) loader.Set(key, exist);
+          if (key != null) loader.SetCacheEntry(key, exist);
         }
       }
 
@@ -112,7 +112,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
       // Log.Information("[LOAD ALL] {keys}", keys.ToList());
       return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null)
-        .SelectMany(v => v.ToList()).Where(v => v != null).ToImmutableList();
+        .SelectMany(v => v!.ToList()).Where(v => v != null).ToImmutableList();
     } catch (Exception e) {
       if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve {name}", name);
       throw;
@@ -123,7 +123,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
 
   public async Task<IReadOnlyList<TData>> LoadAll<TKey, TData>(
-    string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey> fetchKey
+    string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey?> fetchKey
   ) where TKey : notnull {
     try {
       if (keys.Any(k => k == null)) throw new NullReferenceException(nameof(keys));
@@ -149,7 +149,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       foreach (var exist in existing) {
         if (exist != null) {
           var key = fetchKey(exist);
-          if (key != null) loader.Set(key, exist);
+          if (key != null) loader.SetCacheEntry(key, exist);
         }
       }
 
@@ -159,7 +159,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       // }
 
       // Log.Information("[LOAD ALL] {keys}", keys.ToList());
-      return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null).ToImmutableList();
+      return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null).Cast<TData>().ToImmutableList();
     } catch (Exception e) {
       if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve {name}", name);
       throw;
