@@ -91,6 +91,11 @@ public class ZHttpClient : HttpClient, IHaveContext {
     }
   }
 
+  public ZHttpClient(IZContext zContext, HttpClientHandler handler) : base(handler) {
+    Context = zContext;
+    Log = zContext.Log.ForContext(GetType());
+  }
+
   public ZHttpClient(IZContext zContext, string? baseUrl = null) {
     Context = zContext;
     Log = zContext.Log.ForContext(GetType());

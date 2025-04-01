@@ -11,6 +11,7 @@ using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using Microsoft.AspNetCore.Http;
+using Serilog;
 
 namespace IZ.Server.Graphql;
 
@@ -21,8 +22,8 @@ public static class HttpExtensions {
   }
 
   public static string? GetAuthToken(this HttpContext http) {
-    string? auth = http.Request.Headers[ZHeaders.Authorization].ToString();
-    string? authPre = "bearer ";
+    string auth = http.Request.Headers[ZHeaders.Authorization].ToString();
+    string authPre = "bearer ";
     return auth.StartsWith(authPre, true, CultureInfo.InvariantCulture) ? auth.Substring(authPre.Length).Trim() : null;
   }
 
