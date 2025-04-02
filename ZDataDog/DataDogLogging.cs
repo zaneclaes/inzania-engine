@@ -58,14 +58,14 @@ public static class DataDogLogging {
     return new DatadogConfiguration(datadogConfiguration?.Url ?? datadogConfiguration1.Url, datadogConfiguration != null ? datadogConfiguration.Port : datadogConfiguration1.Port, datadogConfiguration != null ? datadogConfiguration.UseSSL : datadogConfiguration1.UseSSL, datadogConfiguration != null ? datadogConfiguration.UseTCP : datadogConfiguration1.UseTCP);
   }
 
-  public static SerilogLogBuilder WriteToDataDog(this SerilogLogBuilder c, ZEnvironment env, params string[] tags) {
+  public static SerilogLogBuilder WriteToDataDog(this SerilogLogBuilder c, string productName, ZEnvironment env, params string[] tags) {
     List<string> t = tags.ToList();
     t.AddRange((Environment.GetEnvironmentVariable("DD_TAGS") ?? "").Split(',').Where(s => s.Length > 0));
     t.Add($"env:{env.ToShortString()}");
     c.SerilogConfig.WriteTo.CaptureDatadogLogs(
       "c6a7086c0f65e9219bf1b79095a7467a",
       "csharp",
-      ZEnv.ProductName,
+      productName,
       Environment.GetEnvironmentVariable("HOSTNAME") ?? "localhost",
       t.ToArray(),
       new DatadogConfiguration("intake.logs.datadoghq.com", 10516, true, true)

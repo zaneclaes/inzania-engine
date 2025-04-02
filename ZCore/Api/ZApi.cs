@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Utils;
@@ -75,21 +76,28 @@ public static class ZApi {
 
   private static bool _hasSchema;
 
+  private static SemaphoreSlim _startup = new SemaphoreSlim(1, 1);
+
   internal static void EnsureSchema() {
-    if (_hasSchema) return;
-    ZEnv.Log.Debug("[SCHEMA] loading...");
-    CacheApiMethods<ZQueryBase>();
-    ZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
+    _startup.Wait();
+    try {
+      if (_hasSchema) return;
+      ZEnv.Log.Debug("[SCHEMA] loading...");
+      CacheApiMethods<ZQueryBase>();
+      ZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
 
-    CacheApiMethods<ZMutationBase>();
-    ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
+      CacheApiMethods<ZMutationBase>();
+      ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
 
-    ZTypeDescriptor.ExpandTypeTree();
-    ZEnv.Log.Debug("[SCHEMA] object types: {@types}", ZObjectDescriptor.ObjectTypes.Keys);
-    ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
+      ZTypeDescriptor.ExpandTypeTree();
+      ZEnv.Log.Debug("[SCHEMA] object types: {@types}", ZObjectDescriptor.ObjectTypes.Keys);
+      ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
 
-    _hasSchema = ZObjectDescriptor.ObjectTypes.Keys.Any();
-    if (!_hasSchema) ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace(new StackTrace().ToString()).ToString());
+      _hasSchema = ZObjectDescriptor.ObjectTypes.Keys.Any();
+      if (!_hasSchema) ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace(new StackTrace().ToString()).ToString());
+    } finally {
+      _startup.Release();
+    }
   }
 
   public static ZMethodDescriptor GetRequiredMethodByMethodName(ApiExecutionType opType, string methodName) {

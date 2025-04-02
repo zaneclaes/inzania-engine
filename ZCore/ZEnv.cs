@@ -33,7 +33,7 @@ public static class ZEnv {
 
   public static IZLogger Log { get; set; } = new ConsoleLogger();
 
-  public static ZApp App { get; internal set; } = null!;
+  public static ZApp App { get; set; } = null!;
 
   public static IZRootContext SpawnRootContext() {
     return _defaultContextBuilder?.Invoke() ??
