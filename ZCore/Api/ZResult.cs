@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
-using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
@@ -16,11 +15,13 @@ public interface IZResult {
   public Task<object> ExecuteObject(ResultSet? selectionSet = null);
 }
 
-public interface IZResult<TData> : IZResult {
+public interface IZResult<TData> : IZResult where TData : class {
   public Task<TData> ExecuteData(ResultSet? selectionSet = null);
+
+  public Task<IGraphQlWebSocket<TData>> Subscribe(ResultSet? selectionSet = null);
 }
 
-public class ZResult<TData> : TransientObject, IZResult<TData> {
+public class ZResult<TData> : TransientObject, IZResult<TData> where TData : class {
   private readonly Func<ExecutionPlan, TData>? _data;
 
   public List<object?> Args { get; }
@@ -57,6 +58,13 @@ public class ZResult<TData> : TransientObject, IZResult<TData> {
       await Context.ExecuteRequiredTask(() => _task!(plan));
     await Context.Data.SaveIfNeededAsync();
     return ret;
+  }
+
+  public async Task<IGraphQlWebSocket<TData>> Subscribe(ResultSet? selectionSet = null) {
+    var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
+    var serverConnection = Context.GetRequiredService<IServerConnection>();
+    var result = new ExecutionResult(Context, plan, Args);
+    return await Context.ExecuteRequiredTask(() => serverConnection.Subscribe<TData>(result));
   }
 
   public async Task<object> ExecuteObject(ResultSet? selectionSet = null) => (await ExecuteData(selectionSet))!;

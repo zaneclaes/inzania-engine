@@ -4,6 +4,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using IZ.Client.Networking.WebSockets.GraphQL;
 using IZ.Client.Queries;
 using IZ.Core.Api;
 using IZ.Core.Contexts;
@@ -15,7 +16,7 @@ using StrawberryShake.Transport.Http;
 
 namespace IZ.Client;
 
-public class TuneGraphServerConnection : LogicBase, IServerConnection {
+public class ZGraphServerConnection : LogicBase, IServerConnection {
 
   public async Task<TData> ExecuteApiRequest<TData>(ExecutionResult result, CancellationToken? ct = null) {
     var context = result.Context;
@@ -36,5 +37,20 @@ public class TuneGraphServerConnection : LogicBase, IServerConnection {
     return data;
   }
 
-  public TuneGraphServerConnection(IZContext context) : base(context) { }
+  public async Task<IGraphQlWebSocket<TData>> Subscribe<TData>(ExecutionResult result, CancellationToken? ct = null) where TData : class {
+    var execDoc = new GraphExecutionDocument(result);
+    var opReq = execDoc.ToOperationRequest();
+    // var gqlReq = opReq.ToGraphQLHttpRequest();
+
+    var graphReq = new GraphRequest {
+      Id = opReq.Id!,
+      // Query = string.IsNullOrWhiteSpace(),
+      Variables = opReq.Variables, //  req.Operation.VariablesNode ?????
+    };
+    GraphQlWebSocket<TData> cws = new GraphQlWebSocket<TData>(result.Context, graphReq);
+    await cws.Connect();
+    return cws;
+  }
+
+  public ZGraphServerConnection(IZContext context) : base(context) { }
 }

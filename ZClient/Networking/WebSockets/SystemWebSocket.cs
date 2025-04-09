@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 #endregion
 
-namespace IZ.Client.Networking.Sockets;
+namespace IZ.Client.Networking.WebSockets;
 
-public class SystemSocket : ISocket {
+public class SystemWebSocket : IWebSocket {
 #pragma warning disable 67
   public event SocketOpenEventHandler? OnOpen;
   public event SocketMessageEventHandler? OnMessage;

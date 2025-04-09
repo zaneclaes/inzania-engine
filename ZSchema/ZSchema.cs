@@ -3,12 +3,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Resolvers;
+using HotChocolate.Subscriptions;
 using HotChocolate.Types;
 using HotChocolate.Types.Descriptors;
+using HotChocolate.Types.Descriptors.Definitions;
 using HotChocolate.Utilities;
 using IZ.Core;
 using IZ.Core.Api;
@@ -19,6 +22,7 @@ using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 using IZ.Schema.Conventions;
 using IZ.Schema.Errors;
+using IZ.Schema.Loaders;
 using IZ.Schema.Queries;
 using IZ.Schema.Types;
 using IZ.Schema.Variables;
@@ -44,7 +48,7 @@ public static class ZSchema {
 
   public static IRequestExecutorBuilder AddSchemaQuery(this IRequestExecutorBuilder services, ZApp app) {
 
-    return services
+    services = services
         .ModifyOptions(options => {
           options.EnableFlagEnums = true;
           options.DefaultBindingBehavior = BindingBehavior.Explicit;
@@ -72,6 +76,8 @@ public static class ZSchema {
             .AddSingleton<IOperationDocumentStorage, ZQueryAccessor>();
         })
       ;
+
+    return services;
   }
 
 
@@ -107,7 +113,7 @@ public static class ZSchema {
     return schemaType;
   }
 
-  public static IRequestExecutorBuilder AddZTypes(
+  private static IRequestExecutorBuilder AddZTypes(
     this IRequestExecutorBuilder descriptor
   ) {
     descriptor = descriptor
@@ -121,6 +127,7 @@ public static class ZSchema {
       .BindRuntimeType<ushort, UnsignedShortType>()
       .AddQueryType<ZQueryType>()
       .AddMutationType<ZMutationType>()
+      .AddSubscriptionType<ZSubscriptionType>()
       .AddType<ZModelIdType>();
 
     List<ZObjectDescriptor> types = ZObjectDescriptor.ObjectTypes.Values.ToList();
@@ -141,7 +148,7 @@ public static class ZSchema {
     field.Resolve((c, ct) => prop.GetValue(c.Parent<object>()));
   }
 
-  public static void AddZRequestMethod(
+  public static IObjectFieldDescriptor AddZRequestMethod(
     this IObjectTypeDescriptor descriptor, Func<IResolverContext, ZMethodDescriptor, object?[]?, Task<object?>> resolve, ZMethodDescriptor mi
   ) {
     string fieldName = mi.FieldName;
@@ -158,15 +165,95 @@ public static class ZSchema {
     ZEnv.Log.Debug("[FUNC] {name}({@fields}): {t2} / {ret}",
       fieldName, mi.Parameters.Select(p => p.ParameterType), mi.FieldType, doReturn);
     field.Resolve(async resolver => await resolve(resolver, mi, resolver.ResolveInputVariables(mi.Parameters)), doReturn);
+    return field;
   }
+
+  private static SubscribeResolverDelegate CreateSubscribeResolver<TMessage>(string topicString)
+  {
+    return async ctx =>
+    {
+      var ct = ctx.RequestAborted;
+      var receiver = ctx.Service<ITopicEventReceiver>();
+      return await receiver.SubscribeAsync<TMessage>(
+          topicString,
+          null,
+          null,
+          ct)
+        .ConfigureAwait(false);
+    };
+  }
+
+  private static SubscribeResolverDelegate CreateArgumentSubscribeResolver<TMessage>(
+    string topicFormatString)
+  {
+    return async ctx =>
+    {
+      var ct = ctx.RequestAborted;
+      var arguments = ctx.Selection.Field.Arguments;
+      var argumentValues = new object[arguments.Count];
+
+      // first we capture the argument values.
+      for (var i = 0; i < arguments.Count; i++)
+      {
+        argumentValues[i] = ctx.ArgumentValue<object>(arguments[i].Name);
+      }
+
+      // next we create from it the topic string.
+      var topicString = string.Format(topicFormatString, argumentValues);
+
+      // last we subscribe with the topic string.
+      var receiver = ctx.Service<ITopicEventReceiver>();
+      return await receiver.SubscribeAsync<TMessage>(
+          topicString,
+          null,
+          null,
+          ct)
+        .ConfigureAwait(false);
+    };
+  }
+
+  private static string ResolveTopicString(MethodInfo method) {
+    if (method.IsDefined(typeof(TopicAttribute))) {
+      return method.GetCustomAttribute<TopicAttribute>()?.Name ?? method.Name;
+    }
+    return method.Name;
+  }
+
+  private static void SubscribeFactory<TMessage>(
+    ObjectFieldDefinition fieldDef,
+    string topicString)
+  {
+    var arg = false;
+
+    if (topicString.Contains('{')) {
+      for (var i = 0; i < fieldDef.Arguments.Count; i++) {
+        var argument = fieldDef.Arguments[i];
+        var argumentPlaceholder = $"{{{argument.Name}}}";
+
+        if (topicString.Contains(argumentPlaceholder)) {
+          topicString = topicString.Replace(argumentPlaceholder, $"{{{i}}}");
+          arg = true;
+        }
+      }
+    }
+
+    if (arg) {
+      fieldDef.SubscribeResolver = CreateArgumentSubscribeResolver<TMessage>(topicString);
+    } else {
+      fieldDef.SubscribeResolver = CreateSubscribeResolver<TMessage>(topicString);
+    }
+  }
+
+  private static readonly MethodInfo SubscribeFactoryMethod =
+    typeof(SubscribeAttribute).GetMethod(nameof(SubscribeFactory), BindingFlags.NonPublic | BindingFlags.Static)!;
 
   public static void AddZRequestDescriptors<TRequest>(this IObjectTypeDescriptor descriptor, ApiExecutionType et) where TRequest : ZRequestBase {
     Dictionary<Type, Dictionary<string, ZMethodDescriptor>>? apiMethods = ZApi.GetMethodImplementor(et);
 
     foreach (var t in apiMethods.Keys) {
       List<ZMethodDescriptor> methods = apiMethods[t].Values.ToList();
-      foreach (var mi in methods)
-        descriptor.AddZRequestMethod(async (resolver, method, args) => {
+      foreach (var mi in methods) {
+        var field = descriptor.AddZRequestMethod(async (resolver, method, args) => {
           var context = resolver.Services.GetCurrentContext();
           object queryObj = Activator.CreateInstance(t, context)!; // .BeginRequest()
           return await context.ExecuteRequiredTask(async () => {
@@ -174,6 +261,38 @@ public static class ZSchema {
             return await result.ExecuteObject();
           });
         }, mi);
+
+        if (et == ApiExecutionType.Subscription) {
+          field.Extend().OnBeforeNaming((c, fieldDef) => {
+            var topicString = fieldDef.Name;// ResolveTopicString();
+            var messageType = typeof(string);
+            var factory = SubscribeFactoryMethod.MakeGenericMethod(messageType);
+            factory.Invoke(null, new object?[] { fieldDef, topicString });
+            /*ZEnv.Log.Information("BEFORE NAMING {d}", d.Name);
+            var subscribeResolver = member.DeclaringType?.GetMethod(
+              With!,
+              Public | NonPublic | Instance | Static);
+
+            if (subscribeResolver is null) {
+              throw new ArgumentException($"Subscriber resolver not found");
+            }
+
+            var map = new Dictionary<ParameterInfo, string>();
+
+            foreach (var argument in d.Arguments) {
+              if (argument.Parameter is not null) {
+                map[argument.Parameter] = argument.Name;
+              }
+            }
+            c.DescriptorContext.ResolverCompiler.CompileSubscribe(
+              subscribeResolver,
+              d.SourceType!,
+              d.ResolverType,
+              map);
+            // d.GetParameterExpressionBuilders()*/
+          });
+        }
+      }
     }
   }
 }

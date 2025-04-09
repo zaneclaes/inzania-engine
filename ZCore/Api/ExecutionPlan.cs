@@ -91,6 +91,7 @@ public class ExecutionPlan {
   private static ApiExecutionType GetClassExecutionType(Type parent) {
     if (parent.IsSubclassOf(typeof(ZQueryBase))) return ApiExecutionType.Query;
     if (parent.IsSubclassOf(typeof(ZMutationBase))) return ApiExecutionType.Mutation;
+    if (parent.IsSubclassOf(typeof(ZSubscriptionBase))) return ApiExecutionType.Subscription;
     throw new ArgumentException($"{parent.Name} is neither query nor mutation");
   }
 

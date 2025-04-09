@@ -89,6 +89,9 @@ public static class ZApi {
       CacheApiMethods<ZMutationBase>();
       ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
 
+      CacheApiMethods<ZSubscriptionBase>();
+      ZEnv.Log.Information("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
+
       ZTypeDescriptor.ExpandTypeTree();
       ZEnv.Log.Debug("[SCHEMA] object types: {@types}", ZObjectDescriptor.ObjectTypes.Keys);
       ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
@@ -117,12 +120,14 @@ public static class ZApi {
     EnsureSchema();
     if (opType == ApiExecutionType.Query) return ApiMethodNames[typeof(ZQueryBase)];
     if (opType == ApiExecutionType.Mutation) return ApiMethodNames[typeof(ZMutationBase)];
+    if (opType == ApiExecutionType.Subscription) return ApiMethodNames[typeof(ZSubscriptionBase)];
     throw new ArgumentException($"{opType} not recognized");
   }
 
   public static Dictionary<Type, Dictionary<string, ZMethodDescriptor>> GetMethodImplementor(ApiExecutionType opType) {
     if (opType == ApiExecutionType.Query) return ApiMethods[typeof(ZQueryBase)];
     if (opType == ApiExecutionType.Mutation) return ApiMethods[typeof(ZMutationBase)];
+    if (opType == ApiExecutionType.Subscription) return ApiMethods[typeof(ZSubscriptionBase)];
     throw new ArgumentException($"{opType} not recognized");
   }
 

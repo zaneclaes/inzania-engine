@@ -32,7 +32,7 @@ public interface IAssetProvider : IHaveContext {
     Directory.CreateDirectory(Path.GetDirectoryName(fp)!);
 
     var unixPath = relativePath.Replace("\\\\", "/").Replace("\\", "/");
-    var url = $"{Context.App.Cdn}/downloads/{unixPath}";
+    var url = $"{Context.App.Cdn}/{unixPath}";
     Log.Information("[ASSET] download {url} to {fp}", url, fp);
     var data = await GetAssetContents(relativePath, url, ct) ??
                throw new NullReferenceException($"Failed to get contents from {url}");

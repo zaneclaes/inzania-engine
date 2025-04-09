@@ -5,32 +5,14 @@ using System.Threading.Tasks;
 
 #endregion
 
-namespace IZ.Client.Networking.Sockets;
-
-public enum SocketCloseCode {
-  /* Do NOT use NotSet - it's only purpose is to indicate that the close code cannot be parsed. */
-  NotSet = 0,
-  Normal = 1000,
-  Away = 1001,
-  ProtocolError = 1002,
-  UnsupportedData = 1003,
-  Undefined = 1004,
-  NoStatus = 1005,
-  Abnormal = 1006,
-  InvalidData = 1007,
-  PolicyViolation = 1008,
-  TooBig = 1009,
-  MandatoryExtension = 1010,
-  ServerError = 1011,
-  TlsHandshakeFailure = 1015
-}
+namespace IZ.Client.Networking.WebSockets;
 
 public delegate void SocketOpenEventHandler();
 public delegate void SocketMessageEventHandler(byte[] data);
 public delegate void SocketErrorEventHandler(string errorMsg);
-public delegate void SocketCloseEventHandler(SocketCloseCode closeCode);
+public delegate void SocketCloseEventHandler(WebSocketCloseCode closeCode);
 
-public interface ISocket {
+public interface IWebSocket {
 
   WebSocketState State { get; }
   event SocketOpenEventHandler OnOpen;

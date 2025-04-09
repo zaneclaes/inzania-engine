@@ -1,4 +1,4 @@
-namespace IZ.Client.Networking.Sockets;
+namespace IZ.Client.Networking.WebSockets;
 
 public enum SocketState {
   Error = -2,

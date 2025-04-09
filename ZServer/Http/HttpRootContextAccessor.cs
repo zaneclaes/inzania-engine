@@ -3,6 +3,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Logging;
 using IZ.Schema;
+using IZ.Schema.Loaders;
 using IZ.Server.Requests;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;

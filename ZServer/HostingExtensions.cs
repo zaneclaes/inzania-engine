@@ -1,5 +1,6 @@
 #region
 
+using HotChocolate.Execution.Configuration;
 using IZ.Core;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
+using StackExchange.Redis;
 
 #endregion
 
@@ -56,11 +58,24 @@ public static class HostingExtensions {
       });
   }
 
+  private static IRequestExecutorBuilder AddZSubscriptions(this IRequestExecutorBuilder collection) {
+    // Redis / memory connection
+    var redisCfg = System.Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+    if (!string.IsNullOrEmpty(redisCfg)) {
+      collection = collection.AddRedisSubscriptions((sp) => ConnectionMultiplexer.Connect(redisCfg));
+      Log.Information("[REDIS] {value}", redisCfg);
+    } else {
+      collection = collection.AddInMemorySubscriptions();
+    }
+    return collection;
+  }
+
   public static IServiceCollection AddZServerGraphQl<TAuth>(this IServiceCollection collection, ZApp app) where TAuth : class, IZAuthenticator, new() => collection
     .AddScoped<IZAuthenticator, TAuth>()
     .AddGraphQLServer()
     // .AddType<WorkMutation>()
     .AddSchemaQuery(app)
+    .AddZSubscriptions()
     .AddAuthorization()
     .AddDiagnosticEventListener<ApiServerEventListener>()
     .AddHttpRequestInterceptor<ZHttpInterceptor<TAuth>>()

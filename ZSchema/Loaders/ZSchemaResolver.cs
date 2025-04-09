@@ -1,7 +1,6 @@
 #region
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -10,28 +9,11 @@ using GreenDonut;
 using HotChocolate.Fetching;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
-using IZ.Schema.Loaders;
 using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
-namespace IZ.Schema;
-
-public class DataLoaderRegistry {
-  private readonly ConcurrentDictionary<string, object> _groupLoaders = new ConcurrentDictionary<string, object>();
-
-  public IDataLoader<TKey, TValue[]> GroupDataLoader<TKey, TValue>(IServiceProvider sp, string key, FetchGroup<TKey, TValue> fetch) where TKey : notnull =>
-    (_groupLoaders.GetOrAdd(key, (k) =>
-      new MultiDataLoader<TKey, TValue>(k, fetch, sp)
-    ) as IDataLoader<TKey, TValue[]>) ?? throw new ArgumentException($"Failed to create DataLoader {key}");
-
-  private readonly ConcurrentDictionary<string, object> _singleLoaders = new ConcurrentDictionary<string, object>();
-
-  public IDataLoader<TKey, TValue> SingleDataLoader<TKey, TValue>(IServiceProvider sp, string key, FetchBatch<TKey, TValue> fetch) where TKey : notnull =>
-    (_singleLoaders.GetOrAdd(key, (k) =>
-      new SingleDataLoader<TKey, TValue>(k, fetch, sp)
-    ) as IDataLoader<TKey, TValue>) ?? throw new ArgumentException($"Failed to create DataLoader {key}");
-}
+namespace IZ.Schema.Loaders;
 
 public class ZSchemaResolver : LogicBase, IZResolver {
   private readonly Dictionary<string, IDataLoader> _dataLoaders = new Dictionary<string, IDataLoader>();
@@ -84,18 +66,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       while (name.EndsWith("[]")) name = name.Substring(0, name.Length - 2);
       IDataLoader<TKey, List<TData>>? loader = _dataLoaders.TryGetValue(name, out var dataLoader) ? dataLoader as IDataLoader<TKey, List<TData>> : null;
       if (loader == null) {
-        _dataLoaders[name] = loader = SingleDataLoader<TKey, List<TData>>(name, async (k, token) => {
-          // using var op = new FurSpan("DB", name);
-          // Log.Information("[LOAD ARR] {keys}", k.ToList());
-          // return await Context.Data.ExecuteLocked(async () => (await load(k)).ToImmutableDictionary());
-          return (await load(k)).ToImmutableDictionary();
-          // await _semaphore.WaitAsync(token);
-          // try {
-          //   return (await load(k)).ToImmutableDictionary();
-          // } finally {
-          //   _semaphore.Release();
-          // }
-        });
+        _dataLoaders[name] = loader = SingleDataLoader<TKey, List<TData>>(name, async (k, token) => (await load(k)).ToImmutableDictionary());
       }
 
       foreach (var exist in existing) {
@@ -132,18 +103,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       while (name.EndsWith("[]")) name = name.Substring(0, name.Length - 2);
       IDataLoader<TKey, TData>? loader = _dataLoaders.TryGetValue(name, out var dataLoader) ? dataLoader as IDataLoader<TKey, TData> : null;
       if (loader == null) {
-        _dataLoaders[name] = loader = SingleDataLoader<TKey, TData>(name, async (k, token) => {
-          // using var op = new FurSpan("DB", name);
-          // Log.Information("[LOAD ARR] {keys}", k.ToList());
-          // return await Context.Data.ExecuteLocked(async () => (await load(k)).ToImmutableDictionary());
-          return (await load(k)).ToImmutableDictionary();
-          // await _semaphore.WaitAsync(token);
-          // try {
-          //   return (await load(k)).ToImmutableDictionary();
-          // } finally {
-          //   _semaphore.Release();
-          // }
-        });
+        _dataLoaders[name] = loader = SingleDataLoader<TKey, TData>(name, async (k, token) => (await load(k)).ToImmutableDictionary());
       }
 
       foreach (var exist in existing) {

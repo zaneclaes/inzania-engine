@@ -18,12 +18,10 @@ public class ZSocketInterceptor : DefaultSocketSessionInterceptor {
     ISocketSession session,
     IOperationMessagePayload connectionInitMessage,
     CancellationToken cancellationToken = default) {
-    // using var op = TraceSpan.Execute(nameof(OnConnectAsync));
+    using var op = session.Connection.HttpContext.AddRequestSpan(typeof(ZSocketInterceptor), nameof(OnConnectAsync));
     // if (connectionInitMessage.Payload?.TryGetValue("Token", out object? value) ?? false) {
     //   // todo: token auth for sockets
     // }
-    // using var op = session.Connection.HttpContext.ApiSpan("WS", nameof(OnConnectAsync));
-    using var op = session.Connection.HttpContext.AddRequestSpan(typeof(ZSocketInterceptor), nameof(OnConnectAsync));
     return await base.OnConnectAsync(session, connectionInitMessage, cancellationToken);
   }
 
@@ -41,7 +39,6 @@ public class ZSocketInterceptor : DefaultSocketSessionInterceptor {
     ISocketSession session,
     CancellationToken cancellationToken = default) {
     using var op = session.Connection.HttpContext.AddRequestSpan(typeof(ZSocketInterceptor), nameof(OnCloseAsync));
-    // using var op = session.Connection.HttpContext.ApiSpan("WS", nameof(OnCloseAsync));
     await base.OnCloseAsync(session, cancellationToken);
   }
 }

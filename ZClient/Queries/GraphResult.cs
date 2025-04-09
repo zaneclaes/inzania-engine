@@ -30,8 +30,8 @@ public class GraphResult<TData> : GraphResult {
       throw new NullReferenceException("Root: " + doc.Body.RootElement.ValueKind.ToString());
     }
     var data = doc.Body.RootElement.GetProperty("data");
-    if (data.ValueKind != JsonValueKind.Object) {
-      Log.Warning("[DOC] data: {data}", doc.Body.ToString());
+    if (data.ValueKind != JsonValueKind.Object && data.ValueKind != JsonValueKind.Array) {
+      Log.Warning("[DOC] data {kind}: {data}", data.ValueKind, doc.Body.ToString());
       throw new NullReferenceException("Data: " + data.ValueKind.ToString());
     }
     var res = data.GetProperty("result");

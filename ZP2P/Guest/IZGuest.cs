@@ -1,0 +1,13 @@
+using System.Threading.Tasks;
+using IZ.P2P.Data;
+using IZ.P2P.Shared;
+
+namespace IZ.P2P.Guest;
+
+public interface IZGuest : IZP2P {
+  // public string? IpAddress { get; }
+
+  public int? Ping { get; }
+
+  public Task<IZP2PSession> Connect(string key, params string[] contentTypes);
+}

@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using IZ.Client.Networking.Sockets;
+using IZ.Client.Networking.WebSockets;
 using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Auth;
@@ -11,29 +11,31 @@ using IZ.Core.Data;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using SocketBuilder = System.Func<
-  string, System.Collections.Generic.Dictionary<string, string>, IZ.Client.Networking.Sockets.ISocket>;
+  IZ.Core.Contexts.IZContext, System.Uri, string, System.Collections.Generic.Dictionary<string, string>?, IZ.Client.Networking.WebSockets.IWebSocket>;
 
 #endregion
 
 namespace IZ.Client;
 
 public static class TuneQueries {
-  private static SocketBuilder _socketBuilder = (url, headers) => new SystemSocket();
+  private static SocketBuilder _webSocketBuilder = (context, url, protocol, headers) => new SystemWebSocket();
 
   public static void SetSocketBuilder(SocketBuilder b) {
-    _socketBuilder = b;
+    _webSocketBuilder = b;
   }
 
-  public static ISocket CreateSocket(string url, Dictionary<string, string> headers) => _socketBuilder.Invoke(url, headers);
+  public static IWebSocket CreateWebSocket(IZContext context, Uri url, string subprotocols, Dictionary<string, string>? headers = null) =>
+    _webSocketBuilder.Invoke(context, url, subprotocols, GetHeaders(context, headers));
 
   public static OperationKind ToOperationKind(this ApiExecutionType executionType) {
     if (executionType == ApiExecutionType.Query) return OperationKind.Query;
     if (executionType == ApiExecutionType.Mutation) return OperationKind.Mutation;
+    if (executionType == ApiExecutionType.Subscription) return OperationKind.Subscription;
     throw new ArgumentException(executionType.ToString());
   }
 
-  public static Dictionary<string, string> GetHeaders(IZContext context) {
-    Dictionary<string, string>? ret = new Dictionary<string, string> {
+  public static Dictionary<string, string> GetHeaders(IZContext context, Dictionary<string, string>? extra = null) {
+    Dictionary<string, string> ret = new Dictionary<string, string> {
       ["GraphQL-preflight"] = "1",
       [ZHeaders.InstallId] = (context.App as ZClientApp)!.InstallId!,
       [ZHeaders.RequestId] = ModelId.GenerateId()
@@ -44,6 +46,13 @@ public static class TuneQueries {
     else {
       context.Log.Information("No token in {at}", at?.GetType()?.Name);
     }
+
+    if (extra != null) {
+      foreach (var key in extra.Keys) {
+        ret[key] = extra[key];
+      }
+    }
+
     return ret;
   }
 

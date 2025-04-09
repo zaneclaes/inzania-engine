@@ -24,16 +24,18 @@ public class DeepLink : TransientObject {
 
   public SiteCategory Category => Page?.Category ?? SiteCategory.Unknown;
 
+  public string Path => string.Join("/", Parts);
+
   private DeepLink(IZContext context, string path) : base(context) {
     _path = path.Split("://").Last().Split("#").First().Split("?").First().Trim('/').ToLower();
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
     Page = context.GetRequiredService<Sitemap>().GetPage(string.Join("/", Parts));
     if (!IsValid) {
-      Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
+      Log.Warning("[DL] invalid page {section}", Path);
     }
   }
 
-  public string ToUrl() => Schema + "://" + string.Join("/", Parts);
+  public string ToUrl() => Schema + "://" + Path;
 
   public override string ToString() => ToUrl() + $" ({_path})";
 

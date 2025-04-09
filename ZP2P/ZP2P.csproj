@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>IZ.P2P</AssemblyName>
+    <RootNamespace>IZ.P2P</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZCore\ZCore.csproj" />
+  </ItemGroup>
+
+</Project>
