@@ -134,8 +134,8 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
 
   public bool HasChanges => Db?.ChangeTracker.HasChanges() ?? false; //_changed.Any();
 
-  public Task<List<T>> GetMemoryModels<T>() where T : DataObject =>
-    ExecuteLocked(() => Task.FromResult(Db.ChangeTracker.Entries<T>().Select(e => e.Entity).ToList()));
+  public Task<List<T>> GetMemoryModels<T>() where T : class =>
+    ExecuteLocked(() => Task.FromResult(Db.GetChanges().Where(e => e.Entity is T).Select(e => (e.Entity as T)!).ToList()));
 
   public IPreFetched<TEntity, TProperty> QueryInclude<TEntity, TProperty>(
     IZQueryable<TEntity> source, Expression<Func<TEntity, TProperty>> navigationPropertyPath

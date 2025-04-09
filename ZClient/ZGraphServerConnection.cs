@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using IZ.Client.Networking.WebSockets.GraphQL;
 using IZ.Client.Queries;
 using IZ.Core.Api;
+using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Contexts;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
@@ -37,17 +38,16 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     return data;
   }
 
-  public async Task<IGraphQlWebSocket<TData>> Subscribe<TData>(ExecutionResult result, CancellationToken? ct = null) where TData : class {
+  public async Task<IGraphQlWebSocket<TData>> Subscribe<TData>(ExecutionResult result, IGraphQLWebSocketDelegate<TData> del, CancellationToken? ct = null) where TData : class {
     var execDoc = new GraphExecutionDocument(result);
     var opReq = execDoc.ToOperationRequest();
-    // var gqlReq = opReq.ToGraphQLHttpRequest();
 
     var graphReq = new GraphRequest {
       Id = opReq.Id!,
       // Query = string.IsNullOrWhiteSpace(),
       Variables = opReq.Variables, //  req.Operation.VariablesNode ?????
     };
-    GraphQlWebSocket<TData> cws = new GraphQlWebSocket<TData>(result.Context, graphReq);
+    GraphQlWebSocket<TData> cws = new GraphQlWebSocket<TData>(result.Context, graphReq, del);
     await cws.Connect();
     return cws;
   }

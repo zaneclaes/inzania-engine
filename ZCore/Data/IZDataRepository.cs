@@ -34,7 +34,7 @@ public interface IZDataRepository : IHaveContext, IDisposable {
 
   public Task<List<TData>> ExecuteListAsync<TData>(IZContext context, IQueryable<TData> q);
 
-  public Task<List<T>> GetMemoryModels<T>() where T : DataObject;
+  public Task<List<T>> GetMemoryModels<T>() where T : class;
 
   IPreFetched<TEntity, TProperty> QueryInclude<TEntity, TProperty>(
     IZQueryable<TEntity> source,

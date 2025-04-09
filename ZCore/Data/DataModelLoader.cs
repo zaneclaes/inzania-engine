@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -77,14 +78,13 @@ public static class DataModelLoader {
     return ret.ToDictionary(lookup);
   }
 
-  private static readonly Dictionary<Type, MethodInfo> _arrayContainsMethods = new Dictionary<Type, MethodInfo>();
+  private static readonly ConcurrentDictionary<Type, MethodInfo> _arrayContainsMethods = new ConcurrentDictionary<Type, MethodInfo>();
 
   public static IZQueryable<TData> FilterKeyIn<TData, TKey>(
     this IZQueryable<TData> queryable, string key, params TKey[] vals
   ) where TData : DataObject {
-    if (!_arrayContainsMethods.ContainsKey(typeof(TKey))) {
-      _arrayContainsMethods[typeof(TKey)] = typeof(Enumerable).GetMethods().Where(x => x.Name == "Contains").Single(x => x.GetParameters().Length == 2).MakeGenericMethod(typeof(TKey));
-    }
+    _arrayContainsMethods.GetOrAdd(typeof(TKey), tk =>
+      typeof(Enumerable).GetMethods().Where(x => x.Name == "Contains").Single(x => x.GetParameters().Length == 2).MakeGenericMethod(tk));
 
     var item = Expression.Parameter(typeof(TData), "item");
     var prop = Expression.Property(item, key);

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 
@@ -18,7 +19,7 @@ public interface IZResult {
 public interface IZResult<TData> : IZResult where TData : class {
   public Task<TData> ExecuteData(ResultSet? selectionSet = null);
 
-  public Task<IGraphQlWebSocket<TData>> Subscribe(ResultSet? selectionSet = null);
+  public Task<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null);
 }
 
 public class ZResult<TData> : TransientObject, IZResult<TData> where TData : class {
@@ -60,11 +61,11 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
     return ret;
   }
 
-  public async Task<IGraphQlWebSocket<TData>> Subscribe(ResultSet? selectionSet = null) {
+  public async Task<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null) {
     var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
     var serverConnection = Context.GetRequiredService<IServerConnection>();
     var result = new ExecutionResult(Context, plan, Args);
-    return await Context.ExecuteRequiredTask(() => serverConnection.Subscribe<TData>(result));
+    return await Context.ExecuteRequiredTask(() => serverConnection.Subscribe<TData>(result, del));
   }
 
   public async Task<object> ExecuteObject(ResultSet? selectionSet = null) => (await ExecuteData(selectionSet))!;

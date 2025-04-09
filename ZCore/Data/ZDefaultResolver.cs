@@ -13,7 +13,7 @@ namespace IZ.Core.Data;
 public class ZDefaultResolver : LogicBase, IZResolver {
   public async Task<TData[]> LoadArray<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<ILookup<TKey, TData>>> load, TKey? key, List<TData> existing
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     if (key == null) return new TData[] { };
     ILookup<TKey, TData> loaded = await load(new List<TKey> {
       key
@@ -24,7 +24,7 @@ public class ZDefaultResolver : LogicBase, IZResolver {
   public async Task<IReadOnlyList<TData>> LoadAll<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load,
     List<TKey> keys, List<TData> existing, Func<TData, TKey> fetchKey
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     ZEnv.Log.Information("LoadAll {name} x{count}", name, keys.Count);
     if (!keys.Any()) return new List<TData>();
     Dictionary<TKey, TData> loaded = await load(keys);
@@ -33,7 +33,7 @@ public class ZDefaultResolver : LogicBase, IZResolver {
 
   public async Task<IReadOnlyList<TData>> LoadMany<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, List<TData>>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey> fetchKey
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     ZEnv.Log.Information("LoadAll {name} x{count}", name, keys.Count);
     if (!keys.Any()) return new List<TData>();
     Dictionary<TKey, List<TData>> loaded = await load(keys);

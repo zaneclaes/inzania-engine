@@ -16,7 +16,7 @@ public class SystemWebSocket : IWebSocket {
   public event SocketCloseEventHandler? OnClose;
 #pragma warning restore 67
 
-  public WebSocketState State => WebSocketState.None;
+  public System.Net.WebSockets.WebSocketState State => System.Net.WebSockets.WebSocketState.None;
 
   public void DispatchMessageQueue() {
     throw new NotImplementedException();

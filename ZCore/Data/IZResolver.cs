@@ -15,13 +15,13 @@ namespace IZ.Core.Data;
 public interface IZResolver : IHaveContext {
   public Task<TData[]> LoadArray<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<ILookup<TKey, TData>>> load, TKey? key, List<TData> existing
-  ) where TKey : notnull;
+  ) where TKey : notnull where TData : class;
 
   public Task<IReadOnlyList<TData>> LoadAll<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey> fetchKey
-  ) where TKey : notnull;
+  ) where TKey : notnull where TData : class;
 
   public Task<IReadOnlyList<TData>> LoadMany<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, List<TData>>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey> fetchKey
-  ) where TKey : notnull;
+  ) where TKey : notnull where TData : class;
 }

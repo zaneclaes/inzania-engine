@@ -2,7 +2,9 @@
 
 using System;
 using System.Reflection;
+using HotChocolate;
 using IZ.Core.Contexts;
+using IZ.Core.Data.Attributes;
 using IZ.Core.Utils;
 
 #endregion
@@ -20,11 +22,17 @@ public class ZParameterDescriptor : IAmInternal {
 
   public object? DefaultValue { get; }
 
+  public bool IsTopic { get; }
+
+  public bool IsEventMessage { get; }
+
   public ZParameterDescriptor(ParameterInfo member) {
     FieldName = member.Name!.ToFieldName();
     ParameterType = member.ParameterType;
     ApiType = ZTypeDescriptor.FromType(ParameterType, member.IsOptional);
     IsOptional = member.IsOptional || ParameterType.IsListType() || ParameterType.IsArray;
     DefaultValue = member.DefaultValue;
+    IsTopic = member.GetCustomAttribute<ApiTopicAttribute>() != null;
+    IsEventMessage = member.GetCustomAttribute<EventMessageAttribute>() != null;
   }
 }

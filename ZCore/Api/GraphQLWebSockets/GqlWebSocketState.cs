@@ -1,6 +1,6 @@
-namespace IZ.Client.Networking.WebSockets;
+namespace IZ.Core.Api.GraphQLWebSockets;
 
-public enum SocketState {
+public enum GqlWebSocketState {
   Error = -2,
   Disconnected = -1,
   Ready = 0,

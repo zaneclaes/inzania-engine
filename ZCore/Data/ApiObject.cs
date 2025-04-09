@@ -47,6 +47,11 @@ public abstract class ApiObject : ContextualObject {
 
     // Log.Information("FIELD {name} opt", localFieldName);
     var existing = localProp.GetValue(this) as TData;
+    // if (existing == null) {
+    //   var memModels = await Context.Data.GetMemoryModels<TData>();
+    //   existing = memModels.FirstOrDefault(m => m.Id.Equals(localId));
+    //   Log.Information("[RESOLVE] {type}#{id} => {existing}", typeof(TData), localId, existing);
+    // }
     var ret = await Context.Resolver.LoadOptional(localProp.FieldName, async keys =>
         await (q ?? Context.QueryFor<TData>())
           .FilterKeyIn(foreignPropName, keys.ToArray())

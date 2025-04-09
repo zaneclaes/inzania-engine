@@ -18,5 +18,6 @@ public class HttpRootContextAccessor : IProvideRootContext {
     return scope.Context;
   }
 
-  public IZResolver? GetResolver(IZContext context) => new ZSchemaResolver(context);
+  public IZResolver GetResolver(IZContext context) => _resolver ??= new ZSchemaResolver(context);
+  private ZSchemaResolver? _resolver;
 }

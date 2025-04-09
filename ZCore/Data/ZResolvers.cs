@@ -13,7 +13,7 @@ public static class ZResolvers {
 
   public static async Task<TData> LoadRequired<TKey, TData>(
     this IZResolver resolver, string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load, TKey key, TData? existing, Func<TData, TKey> fetchKey
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     var ret = await resolver.LoadOptional(name, load, key, existing, fetchKey);
     return ret ?? throw new ArgumentException($"Missing {typeof(TData).Name} for {key}");
   }
@@ -21,8 +21,8 @@ public static class ZResolvers {
   public static async Task<TData?> LoadOptional<TKey, TData>(
     this IZResolver resolver, string name,
     Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load, TKey? key, TData? existing, Func<TData, TKey> fetchKey
-  ) where TKey : notnull {
-    if (key == null) return default;
+  ) where TKey : notnull where TData : class {
+    if (key == null) return null;
     return (
       await resolver.LoadAll(name, load, new List<TKey> {
           key

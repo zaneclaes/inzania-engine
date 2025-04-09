@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using HotChocolate;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
@@ -94,7 +95,7 @@ public static class ZInputTypes {
   }
 
   private static Dictionary<string, ApiVariableValueOrLiteral>? ResolveInputVariables(
-    IZContext context, Func<string, IValueNode?> getValue, List<ZParameterDescriptor> pars
+    IZContext context, Func<string, IValueNode?> getValue, List<ZParameterDescriptor> pars, object? eventMessage = null
   ) {
     if (!pars.Any()) return null;
 
@@ -109,7 +110,8 @@ public static class ZInputTypes {
         }
 
         var paramType = ZTypeDescriptor.FromType(parameterInfo.ParameterType);
-        object? obj = node.Kind == SyntaxKind.NullValue ? parameterInfo.DefaultValue : ResolveInputVariable(context, paramType, node);
+        object? obj = parameterInfo.IsEventMessage && eventMessage != null ? eventMessage :
+          node.Kind == SyntaxKind.NullValue ? parameterInfo.DefaultValue : ResolveInputVariable(context, paramType, node);
 
         var apiVar = new ApiVariableValueOrLiteral(new ApiInputType(TypeKind.Object, parameterInfo.ParameterType), obj, node);
 
@@ -122,7 +124,9 @@ public static class ZInputTypes {
 
   public static object?[]? ResolveInputVariables(this IResolverContext resolver, List<ZParameterDescriptor> pars) {
     var context = resolver.Services.GetRootContext();
-    return ResolveInputVariables(context, resolver.ArgumentLiteral<IValueNode>, pars)?.Values
-      .Select(v => v.Value).ToArray();
+    var eventMessage = resolver.GetScopedStateOrDefault<string>(WellKnownContextData.EventMessage);
+    var resolved = ResolveInputVariables(context, resolver.ArgumentLiteral<IValueNode>, pars, eventMessage);
+    if (resolved == null) return null;
+    return resolved.Values.Select(v => v.Value).ToArray();
   }
 }

@@ -31,7 +31,7 @@ public class DataCacheRepository : DataRepositoryBase, IZDataRepository {
   public Task<long> ExecuteCountAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();
   public Task<TData?> ExecuteFirstOrDefaultAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();
   public Task<List<TData>> ExecuteListAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();
-  public Task<List<T>> GetMemoryModels<T>() where T : DataObject => throw new NotImplementedException();
+  public Task<List<T>> GetMemoryModels<T>() where T : class => throw new NotImplementedException();
   public IPreFetched<TEntity, TProperty> QueryInclude<TEntity, TProperty>(IZQueryable<TEntity> source, Expression<Func<TEntity, TProperty>> navigationPropertyPath) where TEntity : class => throw new NotImplementedException();
   public IPreFetched<TEntity, TProperty> QueryThenInclude<TEntity, TPreviousProperty, TProperty>(IPreFetched<TEntity, TPreviousProperty> source, Expression<Func<TPreviousProperty, TProperty>> navigationPropertyPath) where TEntity : class => throw new NotImplementedException();
   public IPreFetched<TEntity, TProperty> QueryThenIncludeMany<TEntity, TPreviousProperty, TProperty>(IPreFetched<TEntity, List<TPreviousProperty>> source, Expression<Func<TPreviousProperty, TProperty>> navigationPropertyPath) where TEntity : class => throw new NotImplementedException();

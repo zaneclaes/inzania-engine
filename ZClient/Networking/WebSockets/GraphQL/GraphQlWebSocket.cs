@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using IZ.Client.Networking.WebSockets;
 using IZ.Client.Queries;
 using IZ.Core;
 using IZ.Core.Api;
+using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
@@ -31,13 +33,16 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   private int _connectionAttempts;
 
   private string _socketId = "";
-  private SocketState _state = SocketState.Ready;
+  private GqlWebSocketState _state = GqlWebSocketState.Ready;
 
   private readonly string _subProtocol = "graphql-ws";
 
+  public IGraphQLWebSocketDelegate<TData> Delegate { get; set; }
+
   public GraphQlWebSocket(
-    IZContext context, GraphRequest req, Dictionary<string, string>? headers = null
+    IZContext context, GraphRequest req, IGraphQLWebSocketDelegate<TData> del, Dictionary<string, string>? headers = null
   ) : base(context) {
+    Delegate = del;
     _subscriptionUrl = new Uri(context.App.Gql.Replace("http", "ws"));
     _request = req;
     _headers = headers ?? new Dictionary<string, string>();
@@ -53,35 +58,29 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   public DateTime LastHeartbeat { get; private set; } = ZEnv.Now;
 
   public bool HasEverConnected { get; private set; }
-  public SocketState State {
+  public GqlWebSocketState State {
     get => _state;
     set {
       if (_state == value) return;
+      Log.Debug("[GQL-WS] state change {old} => {new}", _state, value);
       _state = value;
-      OnState?.Invoke(this, this);
+      Delegate.OnGraphQLWebSocketState(_state);
     }
   }
 
   private IWebSocket? Socket { get; set; }
 
-  private Queue<TData> MessageQueue { get; } = new Queue<TData>();
-
-  public bool IsActive => State == SocketState.Subscribed;
-
-#pragma warning disable 67
-  public event EventHandler<GraphQlWebSocket<TData>>? OnState;
-
-  public event EventHandler<GraphQlWebSocket<TData>>? OnData;
-#pragma warning restore 67
+  public bool IsActive => State == GqlWebSocketState.Subscribed;
 
   private void DisposeSocket() {
     if (Socket != null) {
-      State = SocketState.Disconnected;
+      State = GqlWebSocketState.Disconnected;
       Socket.OnOpen -= HandleOpen;
       Socket.OnError -= HandleError;
       Socket.OnClose -= HandleClose;
       Socket.OnMessage -= HandleMessage;
     }
+    Log.Information("[GQL-WS] socket disposed");
     Socket = null;
   }
 
@@ -94,10 +93,10 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     Socket.OnMessage += HandleMessage;
   }
 
-  private Task WaitUntil(SocketState state) {
-    Log.Information("[WS] WaitUntil {state}", state);
+  private Task WaitUntil(GqlWebSocketState state) {
+    Log.Debug("[GQL-WS] WaitUntil {state}", state);
     return Tasks.WaitUntilAsync(() => {
-      // Log.Debug("[WS] Wait: {State} != {state}", State, state);
+      // Log.Debug("[GQL-WS] Wait: {State} != {state}", State, state);
       Update(); // send data while waiting...
       return State >= state;
     });
@@ -108,31 +107,31 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   }
 
   private async Task HandleOpen(GraphRequest req) {
-    Log.Information("[WS] Opened; Initializing...");
+    Log.Debug("[GQL-WS] Opened; Initializing...");
     _connectionAttempts = 0;
 
-    State = SocketState.Connecting;
+    State = GqlWebSocketState.Connecting;
     await Send("{\"type\":\"connection_init\"}");
-    await WaitUntil(SocketState.Connected);
+    await WaitUntil(GqlWebSocketState.Connected);
 
-    Log.Information("[WS] Connected; Subscribing...");
+    Log.Debug("[GQL-WS] Connected; Subscribing...");
     await Send(_socketId, req);
-    State = SocketState.Subscribed;
+    State = GqlWebSocketState.Subscribed;
 
-    Log.Information("[WS] Sent Init");
+    Log.Debug("[GQL-WS] subscribed");
     HasEverConnected = true;
   }
 
   private void HandleError(string error) {
-    Log.Information($"[WS] Connection error {error}!");
+    Log.Information($"[GQL-WS] Connection error {error}!");
   }
 
   private void HandleClose(WebSocketCloseCode code) {
-    if (code == WebSocketCloseCode.Normal) State = SocketState.Completed;
+    if (code == WebSocketCloseCode.Normal) State = GqlWebSocketState.Completed;
   }
 
   public async Task EnsureConnected() {
-    if (State == SocketState.Subscribed) return;
+    if (State == GqlWebSocketState.Subscribed) return;
     await Reconnect();
   }
 
@@ -145,42 +144,39 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       CreateSocket();
     if (Socket == null) throw new NullReferenceException(nameof(Socket));
     _connectionAttempts++;
-    Log.Information("[WS] re-connect #{count}", _connectionAttempts);
+    Log.Information("[GQL-WS] re-connect #{count}", _connectionAttempts);
     await Socket.Connect();
   }
 
   private void HandleMessage(byte[] bytes) {
     string? messageContents = Encoding.UTF8.GetString(bytes);
-    Log.Information("[WS] GQL RES {msg}", messageContents);
+    Log.Information("[GQL-WS] RES {msg}", messageContents);
     // JObject obj = JObject.Parse(message);
     var msg = ZJson.DeserializeObject<GraphQLWebSocketMessage>(Context, messageContents);
     if (msg == null) {
-      Log.Warning("[WS] failed to parse incoming message: {contents}", messageContents);
+      Log.Warning("[GQL-WS] failed to parse incoming message: {contents}", messageContents);
       return;
     }
 
     if (msg.Type.Equals("connection_ack")) {
-      State = SocketState.Connected;
+      State = GqlWebSocketState.Connected;
     } else if (msg.Type.Contains("error")) {
       throw new ApplicationException("The handshake failed. Error: " + messageContents);
     } else if (msg.Type.Equals("data")) {
-      Log.Information("[WS] received message payload {type}", msg.Payload?.GetType());
       object? payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
       try {
         var data = (TData?) GraphRequest.FromPayload(Context, typeof(TData), payload.ToString());
 
-        // Log.Information("[WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
-        if (data != null) MessageQueue.Enqueue(data);
+        // Log.Information("[GQL-WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
+        if (data != null) Delegate.OnGraphQLWebSocketData(data);
         else throw new InternalZException(Context, "No data object returned");
       } catch (Exception e) {
-        Log.Error(e, "[WS] failed to parse {type} from {payloadType} {data}", typeof(TData).Name, payload.GetType(), payload);
-      } finally {
-        OnData?.Invoke(this, this);
+        Log.Error(e, "[GQL-WS] failed to parse {type} from {payloadType} {data}", typeof(TData).Name, payload.GetType(), payload.ToString());
       }
     } else if (msg.Type.Equals("ka")) {
       // NO-OP
     } else {
-      Log.Error("[WS] message: {message}", messageContents);
+      Log.Error("[GQL-WS] message: {message}", messageContents);
     }
     LastHeartbeat = ZEnv.Now;
   }
@@ -196,9 +192,10 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   public async Task Connect(string id = "1") {
     if (Socket == null) CreateSocket();
     _socketId = id;
-    Log.Information("[WS] Connect");
+    Log.Debug("[GQL-WS] Connect");
     Socket!.Connect().Forget();
-    await WaitUntil(SocketState.Subscribed);
+    await WaitUntil(GqlWebSocketState.Subscribed);
+    Log.Information("[GQL-WS] Subscribed: {id}", _request.Id);
 
     // return UniTask.CompletedTask;
 // #if UNITY_WEBGL && !UNITY_EDITOR
@@ -217,25 +214,25 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   private async Task CloseSocket(IWebSocket socket) {
     try {
       await socket.Close();
-      Log.Information("[WS] Closed");
+      Log.Information("[GQL-WS] Closed");
     } catch (Exception e) {
       // Known to close without handshake
-      if (e.Message.Contains("without completing the close")) Log.Information("[WS] failed to close");
-      else Log.Warning(e, "[WS] failed to close");
+      if (e.Message.Contains("without completing the close")) Log.Information("[GQL-WS] failed to close");
+      else Log.Warning(e, "[GQL-WS] failed to close");
     }
   }
 
   public void Disconnect() {
     var socket = Socket;
     DisposeSocket();
-    if (socket?.State == WebSocketState.Connecting || socket?.State == WebSocketState.Open) CloseSocket(socket).Forget();
-    Log.Information("[WS] Disconnect: Disposed & Disconnected");
+    if (socket?.State == System.Net.WebSockets.WebSocketState.Connecting || socket?.State == System.Net.WebSockets.WebSocketState.Open) CloseSocket(socket).Forget();
+    Log.Information("[GQL-WS] Disconnect: Disposed & Disconnected");
   }
 
   public void Update() {
-#if !UNITY_WEBGL || UNITY_EDITOR
+// #if !UNITY_WEBGL || UNITY_EDITOR
     Socket?.DispatchMessageQueue();
-#endif
+// #endif
   }
 
   public override void Dispose() {

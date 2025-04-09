@@ -1,6 +1,7 @@
 #region
 
 using HotChocolate.Execution.Configuration;
+using HotChocolate.Subscriptions.Diagnostics;
 using IZ.Core;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -9,6 +10,7 @@ using IZ.Schema;
 using IZ.Server.Graphql;
 using IZ.Server.Health;
 using IZ.Server.Http;
+using IZ.Server.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
@@ -67,11 +69,13 @@ public static class HostingExtensions {
     } else {
       collection = collection.AddInMemorySubscriptions();
     }
-    return collection;
+    return collection
+      .AddSubscriptionDiagnostics();
   }
 
   public static IServiceCollection AddZServerGraphQl<TAuth>(this IServiceCollection collection, ZApp app) where TAuth : class, IZAuthenticator, new() => collection
     .AddScoped<IZAuthenticator, TAuth>()
+    .AddTransient<ISubscriptionDiagnosticEventsListener, ZSubscriptionDiagnostics>()
     .AddGraphQLServer()
     // .AddType<WorkMutation>()
     .AddSchemaQuery(app)

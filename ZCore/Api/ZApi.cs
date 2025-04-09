@@ -50,12 +50,6 @@ public static class ZApi {
     Dictionary<Type, Dictionary<string, ZMethodDescriptor>> ret = new Dictionary<Type, Dictionary<string, ZMethodDescriptor>>();
     Dictionary<string, ZMethodDescriptor> methodNames = new Dictionary<string, ZMethodDescriptor>();
 
-    if (!queryTypes.Any()) {
-      ZEnv.Log.Warning("[API] no {type} types found in {assemblies}",
-        typeof(TRequest), string.Join("\n", assemblies.Select(a => a.ToString())));
-      return ret;
-    }
-
     foreach (var t in queryTypes) {
       List<MethodInfo> methods = t.GetMethods()
         .Where(m => m.IsPublic && m.ReturnType.HasAssignableType(typeof(IZResult))).ToList();
@@ -90,7 +84,7 @@ public static class ZApi {
       ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
 
       CacheApiMethods<ZSubscriptionBase>();
-      ZEnv.Log.Information("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
+      ZEnv.Log.Debug("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
 
       ZTypeDescriptor.ExpandTypeTree();
       ZEnv.Log.Debug("[SCHEMA] object types: {@types}", ZObjectDescriptor.ObjectTypes.Keys);

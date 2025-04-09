@@ -24,7 +24,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
   public async Task<TData[]> LoadArray<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<ILookup<TKey, TData>>> load, TKey? key, List<TData> existing
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     Log.Verbose("[RES] {name} queue {key}", name, key);
     if (key == null) return new TData[] { };
     try {
@@ -34,7 +34,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       IDataLoader<TKey, TData[]>? loader = _dataLoaders.TryGetValue(name, out var dataLoader) ?
         dataLoader as IDataLoader<TKey, TData[]> : null;
       if (loader == null) {
-        _dataLoaders[name] = loader = GroupDataLoader<TKey, TData>(name, async (keys, token) => {
+        _dataLoaders[name] = loader = await GroupDataLoader<TKey, TData>(name, async (keys, token) => {
           // using var op = new FurSpan("DB", name);
           // using var op = Context
           Log.Verbose("[RES] {name} begin {@keys}", name, keys);
@@ -51,14 +51,14 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
       return (await loader.LoadAsync(key) as TData[])!;
     } catch (Exception e) {
-      if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve {name}", name);
+      if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve array {name}", name);
       throw;
     }
   }
 
   public async Task<IReadOnlyList<TData>> LoadMany<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, List<TData>>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey?> fetchKey
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     try {
       if (keys.Any(k => k == null)) throw new NullReferenceException(nameof(keys));
       Log.Verbose("[RES2] {name} queue {key}", name, keys);
@@ -66,7 +66,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       while (name.EndsWith("[]")) name = name.Substring(0, name.Length - 2);
       IDataLoader<TKey, List<TData>>? loader = _dataLoaders.TryGetValue(name, out var dataLoader) ? dataLoader as IDataLoader<TKey, List<TData>> : null;
       if (loader == null) {
-        _dataLoaders[name] = loader = SingleDataLoader<TKey, List<TData>>(name, async (k, token) => (await load(k)).ToImmutableDictionary());
+        _dataLoaders[name] = loader = await SingleDataLoader<TKey, List<TData>>(name, async (k, token) => (await load(k)).ToImmutableDictionary());
       }
 
       foreach (var exist in existing) {
@@ -85,7 +85,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null)
         .SelectMany(v => v!.ToList()).Where(v => v != null).ToImmutableList();
     } catch (Exception e) {
-      if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve {name}", name);
+      if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve list {name}", name);
       throw;
     }
     // TData[] ret = await LoadArray(name, load, key, existing == null ? new List<TData>() : new List<TData>() { existing });
@@ -95,7 +95,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
   public async Task<IReadOnlyList<TData>> LoadAll<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<Dictionary<TKey, TData>>> load, List<TKey> keys, List<TData> existing, Func<TData, TKey?> fetchKey
-  ) where TKey : notnull {
+  ) where TKey : notnull where TData : class {
     try {
       if (keys.Any(k => k == null)) throw new NullReferenceException(nameof(keys));
       Log.Verbose("[RES2] {name} queue {key}", name, keys);
@@ -103,7 +103,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       while (name.EndsWith("[]")) name = name.Substring(0, name.Length - 2);
       IDataLoader<TKey, TData>? loader = _dataLoaders.TryGetValue(name, out var dataLoader) ? dataLoader as IDataLoader<TKey, TData> : null;
       if (loader == null) {
-        _dataLoaders[name] = loader = SingleDataLoader<TKey, TData>(name, async (k, token) => (await load(k)).ToImmutableDictionary());
+        _dataLoaders[name] = loader = await SingleDataLoader<TKey, TData>(name, async (k, token) => (await load(k)).ToImmutableDictionary());
       }
 
       foreach (var exist in existing) {
@@ -121,7 +121,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       // Log.Information("[LOAD ALL] {keys}", keys.ToList());
       return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null).Cast<TData>().ToImmutableList();
     } catch (Exception e) {
-      if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve {name}", name);
+      if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve all {name}", name);
       throw;
     }
     // TData[] ret = await LoadArray(name, load, key, existing == null ? new List<TData>() : new List<TData>() { existing });
@@ -129,16 +129,46 @@ public class ZSchemaResolver : LogicBase, IZResolver {
   }
 
 
-  private IDataLoader<TKey, TValue> SingleDataLoader<TKey, TValue>(string key, FetchBatch<TKey, TValue> fetch) where TKey : notnull {
+  private async Task<IDataLoader<TKey, TData>> SingleDataLoader<TKey, TData>(string key, FetchBatch<TKey, TData> fetch) where TKey : notnull where TData : class {
     if (key == null) throw new NullReferenceException(nameof(key));
     var services = Context.ServiceProvider!;
-    return services.GetRequiredService<DataLoaderRegistry>().SingleDataLoader(services, key, fetch);
+    var loader = services.GetRequiredService<DataLoaderRegistry>().SingleDataLoader(services, key, fetch);
+
+    // Warm the cache with existing models from EFCore's change tracker
+    var user = Context.CurrentIdentity?.IZUser;
+    if (user != null && user.GetType().IsAssignableTo(typeof(TData))) {
+      Log.Verbose("[DATA] special user: {user}", user);
+      loader.SetCacheEntry(user.Id, user);
+    }
+    if (typeof(TData).IsSubclassOf(typeof(ModelKey<TKey>))) {
+      var mems = await Context.Data.GetMemoryModels<TData>();
+      foreach (var model in mems) {
+        Log.Verbose("[DATA] provide {type} {model}", typeof(TData), model);
+        loader.SetCacheEntry((model as ModelKey<TKey>)!.Id, model);
+      }
+    }
+    return loader;
   }
 
-  public IDataLoader<TKey, TValue[]> GroupDataLoader<TKey, TValue>(string key, FetchGroup<TKey, TValue> fetch) where TKey : notnull {
+  public async Task<IDataLoader<TKey, TData[]>> GroupDataLoader<TKey, TData>(string key, FetchGroup<TKey, TData> fetch) where TKey : notnull where TData : class {
     if (key == null) throw new NullReferenceException(nameof(key));
     var services = Context.ServiceProvider!;
-    return services.GetRequiredService<DataLoaderRegistry>().GroupDataLoader(services, key, fetch);
+    var loader = services.GetRequiredService<DataLoaderRegistry>().GroupDataLoader(services, key, fetch);
+
+    // Warm the cache with existing models from EFCore's change tracker
+    var user = Context.CurrentIdentity?.IZUser;
+    if (user != null && user.GetType().IsAssignableTo(typeof(TData))) {
+      Log.Verbose("[DATA] special user: {user}", user);
+      loader.SetCacheEntry(user.Id, user);
+    }
+    if (typeof(TData).IsSubclassOf(typeof(ModelKey<TKey>))) {
+      var mems = await Context.Data.GetMemoryModels<TData>();
+      foreach (var model in mems) {
+        Log.Verbose("[DATA] provide {type} {model}", typeof(TData), model);
+        loader.SetCacheEntry((model as ModelKey<TKey>)!.Id, model);
+      }
+    }
+    return loader;
   }
 
   public override void Dispose() {
