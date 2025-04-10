@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using IZ.Client.Networking.WebSockets;
 using IZ.Client.Queries;
@@ -39,10 +40,13 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
 
   public IGraphQLWebSocketDelegate<TData> Delegate { get; set; }
 
+  private Func<JsonElement, Task<TData>> _parser;
+
   public GraphQlWebSocket(
-    IZContext context, GraphRequest req, IGraphQLWebSocketDelegate<TData> del, Dictionary<string, string>? headers = null
+    IZContext context, GraphRequest req, IGraphQLWebSocketDelegate<TData> del, Func<JsonElement, Task<TData>> parser, Dictionary<string, string>? headers = null
   ) : base(context) {
     Delegate = del;
+    _parser = parser;
     _subscriptionUrl = new Uri(context.App.Gql.Replace("http", "ws"));
     _request = req;
     _headers = headers ?? new Dictionary<string, string>();
@@ -79,8 +83,8 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       Socket.OnError -= HandleError;
       Socket.OnClose -= HandleClose;
       Socket.OnMessage -= HandleMessage;
+      Log.Information("[GQL-WS] socket disposed");
     }
-    Log.Information("[GQL-WS] socket disposed");
     Socket = null;
   }
 
@@ -148,9 +152,11 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     await Socket.Connect();
   }
 
-  private void HandleMessage(byte[] bytes) {
+  private void HandleMessage(byte[] bytes) => DoHandleMessage(bytes).Forget();
+
+  private async Task DoHandleMessage(byte[] bytes) {
     string? messageContents = Encoding.UTF8.GetString(bytes);
-    Log.Information("[GQL-WS] RES {msg}", messageContents);
+    Log.Debug("[GQL-WS] RES {msg}", messageContents);
     // JObject obj = JObject.Parse(message);
     var msg = ZJson.DeserializeObject<GraphQLWebSocketMessage>(Context, messageContents);
     if (msg == null) {
@@ -163,9 +169,10 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     } else if (msg.Type.Contains("error")) {
       throw new ApplicationException("The handshake failed. Error: " + messageContents);
     } else if (msg.Type.Equals("data")) {
-      object? payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
+      JsonElement payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
+      // var jsonData = payload.GetProperty("data");
       try {
-        var data = (TData?) GraphRequest.FromPayload(Context, typeof(TData), payload.ToString());
+        var data = await _parser(payload);//  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
 
         // Log.Information("[GQL-WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
         if (data != null) Delegate.OnGraphQLWebSocketData(data);
@@ -174,7 +181,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
         Log.Error(e, "[GQL-WS] failed to parse {type} from {payloadType} {data}", typeof(TData).Name, payload.GetType(), payload.ToString());
       }
     } else if (msg.Type.Equals("ka")) {
-      // NO-OP
+      // NO-OP (keep-alive)
     } else {
       Log.Error("[GQL-WS] message: {message}", messageContents);
     }

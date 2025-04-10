@@ -38,7 +38,7 @@ public static class ClientExtensions {
       dirs.GetSection("wwwroot").Value);
   }
 
-  public static GraphQLHttpRequest ToGraphQLHttpRequest(this OperationRequest request) {
+  public static GraphQLHttpRequest ToGraphQlHttpRequest(this OperationRequest request) {
     (string? id, string? name, var document, IReadOnlyDictionary<string, object?>? variables, IReadOnlyDictionary<string, object?>? extensions, _, IReadOnlyDictionary<string, Upload?>? files, _) = request;
 
 #if NETSTANDARD2_0
