@@ -32,7 +32,6 @@ public class ZQueryAccessor : IOperationDocumentStorage {
     queryId.Contains(ExecutionPlan.QueryIdSplit) ? Documents.GetOrAdd(queryId, GenerateQuery) : null;
 
   private OperationDocument GenerateQuery(string queryId) {
-    ZEnv.Log.Information("[QUERY] ID {id}", queryId);
     List<string> parts = queryId.Split(ExecutionPlan.QueryIdSplit).ToList();
     string? format = null;
     var executionType = ApiExecutionType.Query;

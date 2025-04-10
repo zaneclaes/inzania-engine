@@ -21,10 +21,12 @@ public static class HttpExtensions {
     http.User = identity.Principal;
   }
 
-  public static string? GetAuthToken(this HttpContext http) {
-    string auth = http.Request.Headers[ZHeaders.Authorization].ToString();
+  public static string? GetAuthToken(this HttpContext http) =>
+    GetAuthTokenFromString(http.Request.Headers[ZHeaders.Authorization].ToString());
+
+  public static string? GetAuthTokenFromString(string authHeader) {
     string authPre = "bearer ";
-    return auth.StartsWith(authPre, true, CultureInfo.InvariantCulture) ? auth.Substring(authPre.Length).Trim() : null;
+    return authHeader.StartsWith(authPre, true, CultureInfo.InvariantCulture) ? authHeader.Substring(authPre.Length).Trim() : null;
   }
 
   public static string? GetInstallId(this HttpContext http) {

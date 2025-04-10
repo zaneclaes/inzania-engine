@@ -82,7 +82,7 @@ public static class HostingExtensions {
     .AddZSubscriptions()
     .AddAuthorization()
     .AddDiagnosticEventListener<ApiServerEventListener>()
-    .AddHttpRequestInterceptor<ZHttpInterceptor<TAuth>>()
+    .AddHttpRequestInterceptor<ZHttpInterceptor>()
     .AddSocketSessionInterceptor<ZSocketInterceptor>()
     .Services;
 

@@ -38,7 +38,8 @@ public static class TuneQueries {
     Dictionary<string, string> ret = new Dictionary<string, string> {
       ["GraphQL-preflight"] = "1",
       [ZHeaders.InstallId] = (context.App as ZClientApp)!.InstallId!,
-      [ZHeaders.RequestId] = ModelId.GenerateId()
+      [ZHeaders.RequestId] = ModelId.GenerateId(),
+      [ZHeaders.Env] = context.App.Env.ToString(),
     };
 
     var at = context.GetService<IStoredUserSession>();

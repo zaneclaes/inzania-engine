@@ -49,13 +49,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     _parser = parser;
     _subscriptionUrl = new Uri(context.App.Gql.Replace("http", "ws"));
     _request = req;
-    _headers = headers ?? new Dictionary<string, string>();
-    if (!_headers.ContainsKey(ZHeaders.Authorization)) {
-      var userSession = context.GetService<IStoredUserSession>();
-      if (userSession?.AccessToken != null) {
-        _headers.Add(ZHeaders.Authorization, "bearer " + userSession.AccessToken);
-      }
-    }
+    _headers = TuneQueries.GetHeaders(context, headers);
     CreateSocket();
   }
 
@@ -115,7 +109,17 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     _connectionAttempts = 0;
 
     State = GqlWebSocketState.Connecting;
-    await Send("{\"type\":\"connection_init\"}");
+    var gqlPayload = new GraphQLWebSocketMessage() {
+      Type = "connection_init",
+      Payload = new ZWebSocketConnectionPayload() {
+        Authorization = _headers[ZHeaders.Authorization],
+        InstallId = _headers[ZHeaders.InstallId],
+        RequestId = _headers[ZHeaders.RequestId],
+        Env = _headers[ZHeaders.Env],
+      },
+    };
+    Log.Information("[GQL-WS] {payload}", ZJson.SerializeObject(gqlPayload));
+    await Send(ZJson.SerializeObject(gqlPayload));
     await WaitUntil(GqlWebSocketState.Connected);
 
     Log.Debug("[GQL-WS] Connected; Subscribing...");
@@ -169,10 +173,10 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     } else if (msg.Type.Contains("error")) {
       throw new ApplicationException("The handshake failed. Error: " + messageContents);
     } else if (msg.Type.Equals("data")) {
-      JsonElement payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
+      object payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
       // var jsonData = payload.GetProperty("data");
       try {
-        var data = await _parser(payload);//  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
+        var data = await _parser((JsonElement)payload);//  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
 
         // Log.Information("[GQL-WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
         if (data != null) Delegate.OnGraphQLWebSocketData(data);
