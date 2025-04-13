@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using IZ.Core.Auth;
@@ -8,6 +9,7 @@ using IZ.Core.Data.Attributes;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Observability.Logging;
 using IZ.Core.Observability.Metrics;
+using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Core.Contexts;
@@ -24,7 +26,7 @@ public abstract class BaseContext : IZContext, IEventEnricher {
   private Dictionary<string, object> BuildEventTags() => EventProperties
     .ToDictionary(k => k.Key.Replace(".", "_").ToLower(), k => k.Value);
 
-  private string _uuid = ModelId.GenerateId();
+  protected readonly string _uuid = ModelId.GenerateId();
 
   protected BaseContext(
     ZApp app, IServiceProvider? services = null, IZLogger? logger = null
@@ -36,7 +38,7 @@ public abstract class BaseContext : IZContext, IEventEnricher {
   }
 
   protected void Init() {
-    Span = ZEnv.SpanBuilder.Invoke(this);
+    Span = ZEnv.SpanBuilder.Invoke();
   }
 
   [ApiIgnore] public IZContext Context => this;
@@ -57,8 +59,13 @@ public abstract class BaseContext : IZContext, IEventEnricher {
 
   public virtual IZIdentity? CurrentIdentity => Parent?.CurrentIdentity;
 
-  public virtual IZDataRepository Data => Parent?.Data ?? (_data ??= this.GetRequiredService<IZDataFactory>().GetDataRepository(this));
+  public virtual IZDataRepository Data => Parent?.Data ?? (_data ??= GetDataFactory());
   private IZDataRepository? _data;
+
+  private IZDataRepository GetDataFactory() {
+    Log.Information("[DATA] {ctxt}#{id} create fatory {stack}", GetType().Name, _uuid, new ZTrace(new StackTrace().ToString()).ToString());
+    return this.GetRequiredService<IZDataFactory>().GetDataRepository(this);
+  }
 
   public virtual IZResolver Resolver => Parent?.Resolver ?? throw new NullReferenceException(nameof(Resolver));
 

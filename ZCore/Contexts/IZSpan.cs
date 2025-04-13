@@ -7,7 +7,7 @@ using IZ.Core.Auth;
 
 namespace IZ.Core.Contexts;
 
-public interface IZSpan : IHaveContext, IDisposable {
+public interface IZSpan : IDisposable {
   public void SetTag(string key, string value);
 
   public void SetException(Exception ex);

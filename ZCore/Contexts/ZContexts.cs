@@ -83,7 +83,11 @@ public static class ZContexts {
   }
 
   public static IZContext GetCurrentContext(this IServiceProvider serviceProvider) {
-    return serviceProvider.GetRootContext();
+    var cc = serviceProvider.GetRequiredService<IZContext>();
+    cc.Log.Information("[CUR CONTEXT] {id}", cc.Root);
+    return cc;
+
+    // return serviceProvider.GetRootContext();
     // if (context != null) return context;
     // context = serviceProvider.TryGetRootContext();
     // if (context != null) return context;

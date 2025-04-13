@@ -58,7 +58,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   public bool HasEverConnected { get; private set; }
   public GqlWebSocketState State {
     get => _state;
-    set {
+    private set {
       if (_state == value) return;
       Log.Debug("[GQL-WS] state change {old} => {new}", _state, value);
       _state = value;
@@ -118,7 +118,6 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
         Env = _headers[ZHeaders.Env],
       },
     };
-    Log.Information("[GQL-WS] {payload}", ZJson.SerializeObject(gqlPayload));
     await Send(ZJson.SerializeObject(gqlPayload));
     await WaitUntil(GqlWebSocketState.Connected);
 

@@ -25,6 +25,7 @@ public class RootContext : BaseContext, IZRootContext {
     ZApp app, IServiceProvider services
   ) : base(app, services) {
     Init();
+    Log.Information("[ROOT] created {type}#{id}: {stack}", GetType().Name, _uuid, new ZTrace(new StackTrace().ToString()).ToString());
   }
 
   public override IZResolver Resolver => _resolver ??=

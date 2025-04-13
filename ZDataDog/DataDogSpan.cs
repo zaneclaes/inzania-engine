@@ -14,13 +14,13 @@ public class DataDogSpan : ZSpan, IScope, IZSpan {
 
   private bool _disposed;
 
-  public DataDogSpan(IZContext context, bool useParent = true, string? resource = null, string? action = null) : base(context) {
-    var parent = useParent ? context.Parent?.Span as DataDogSpan : null;
-    Scope = Tracer.Instance.StartActive(action ?? context.Action ?? "", new SpanCreationSettings {
-      Parent = parent?.Span?.Context
+  public DataDogSpan(bool useParent = true, string? resource = null, string? action = null) : base() {
+    // var parent = useParent ? context.Parent?.Span as DataDogSpan : null;
+    Scope = Tracer.Instance.StartActive(action ?? "", new SpanCreationSettings {
+      // Parent = parent?.Span?.Context
     });
     // span.SetTag("subdomain", FurEnv.Subdomain ?? "");
-    Scope.Span.ResourceName = resource ?? context.Resource;
+    Scope.Span.ResourceName = resource ?? "";//context.Resource;
   }
 
   public IScope Scope { get; }

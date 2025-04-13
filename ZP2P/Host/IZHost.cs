@@ -6,4 +6,6 @@ namespace IZ.P2P.Host;
 
 public interface IZHost : IZP2P {
   public Task<IZP2PSession> StartHosting(params string[] contentTypes);
+
+  public Task StopHosting();
 }

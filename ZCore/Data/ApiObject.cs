@@ -13,7 +13,9 @@ using IZ.Core.Utils;
 namespace IZ.Core.Data;
 
 public abstract class ApiObject : ContextualObject {
-  protected ApiObject(IZContext? context = null) : base(context) { }
+  protected ApiObject(IZContext? context = null) : base(context) {
+    context?.Log.Information("[API] {obj} context = {root}", GetType().Name, context?.Root);
+  }
 
   protected override string ContextualObjectGroup => "Object";
 

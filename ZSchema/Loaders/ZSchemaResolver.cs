@@ -3,12 +3,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using GreenDonut;
 using HotChocolate.Fetching;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
+using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 
 #endregion
@@ -19,13 +21,13 @@ public class ZSchemaResolver : LogicBase, IZResolver {
   private readonly Dictionary<string, IDataLoader> _dataLoaders = new Dictionary<string, IDataLoader>();
 
   public ZSchemaResolver(IZContext context) : base(context) {
-    Log.Verbose("[RES] new resolver");
+    Log.Information("[RES] new resolver {res} for {context} : {stack}", this, context.Root, new ZTrace(new StackTrace().ToString()).ToString());
   }
 
   public async Task<TData[]> LoadArray<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<ILookup<TKey, TData>>> load, TKey? key, List<TData> existing
   ) where TKey : notnull where TData : class {
-    Log.Verbose("[RES] {name} queue {key}", name, key);
+    Log.Information("[RES] {name} queue {key} with {res} in {context}", name, key, this, Context.Root);
     if (key == null) return new TData[] { };
     try {
       // IScope outerScope = Tracer.Instance.ActiveScope;
@@ -37,7 +39,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
         _dataLoaders[name] = loader = await GroupDataLoader<TKey, TData>(name, async (keys, token) => {
           // using var op = new FurSpan("DB", name);
           // using var op = Context
-          Log.Verbose("[RES] {name} begin {@keys}", name, keys);
+          Log.Information("[RES] {name} begin {@keys} with {res} in {context}", name, keys, this, Context.Root);
           // return await Context.Data.ExecuteLocked(() => load(keys));
           return await load(keys);
         });

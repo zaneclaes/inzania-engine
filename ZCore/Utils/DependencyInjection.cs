@@ -15,7 +15,7 @@ public static class DependencyInjection {
     this IServiceCollection sc, TApp app, TRoot? rootSingleton = null
   ) where TApp : ZApp where TRoot : class, IZRootContext {
     if (rootSingleton != null) sc.AddSingleton<IZRootContext>(rootSingleton);
-    else sc.AddTransient<IZRootContext, TRoot>();
+    else sc.AddScoped<IZRootContext, TRoot>(); // lives for an entire HTTP request
 
     return sc
         .AddSingleton(app.Log)

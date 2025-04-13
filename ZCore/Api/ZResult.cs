@@ -57,7 +57,11 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
     var ret = _data != null ?
       Context.ExecuteRequired(() => _data(plan)) :
       await Context.ExecuteRequiredTask(() => _task!(plan));
-    await Context.Data.SaveIfNeededAsync();
+    try {
+      await Context.Data.SaveAsync();
+    } catch (Exception e) {
+      Log.Error(e, "Executing {name}, failed to SaveIfNeededAsync",  MethodName);
+    }
     return ret;
   }
 

@@ -8,7 +8,10 @@ using HotChocolate.AspNetCore;
 using HotChocolate.Execution;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
+using IZ.Server.Requests;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 
 #endregion
 
@@ -18,10 +21,12 @@ public class ZHttpInterceptor : DefaultHttpRequestInterceptor {
   public override async ValueTask OnCreateAsync(
     HttpContext http, IRequestExecutor executor, OperationRequestBuilder builder, CancellationToken cancellationToken
   ) {
-    var ctxt = http.RequestServices.GetCurrentContext();
+    // var ctxt = http.RequestServices.GetCurrentContext();
+    var auth = http.RequestServices.GetRequiredService<IZAuthenticator>();
+    var ctxt = auth.Context;
     // using var opScope = TraceSpan.FirstLoad(nameof(HttpInterceptor));
     try {
-      var auth = ctxt.GetRequiredService<IZAuthenticator>();
+      // var auth = ctxt.GetRequiredService<IZAuthenticator>();
       string? authToken = http.GetAuthToken();
       string? installId = http.GetInstallId();
       var identity = await auth.Authenticate(ctxt, installId, authToken, http.User);

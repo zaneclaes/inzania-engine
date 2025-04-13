@@ -12,7 +12,7 @@ public class AutoContext : BaseContext, IZChildContext {
 
   public AutoContext(
     IZContext parent
-  ) : base(parent.App, parent.ServiceProvider) {
+  ) : base(parent.App) {
     Parent = parent;
     Init();
   }

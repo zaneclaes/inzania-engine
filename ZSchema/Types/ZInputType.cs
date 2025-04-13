@@ -123,7 +123,7 @@ public static class ZInputTypes {
   }
 
   public static object?[]? ResolveInputVariables(this IResolverContext resolver, List<ZParameterDescriptor> pars) {
-    var context = resolver.Services.GetRootContext();
+    var context = resolver.RequestServices.GetCurrentContext();
     var eventMessage = resolver.GetScopedStateOrDefault<string>(WellKnownContextData.EventMessage);
     var resolved = ResolveInputVariables(context, resolver.ArgumentLiteral<IValueNode>, pars, eventMessage);
     if (resolved == null) return null;

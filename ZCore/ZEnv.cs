@@ -27,7 +27,7 @@ public static class ZEnv {
 
   public static string DomainName => App.DomainName;
   
-  public static Func<IZContext, IZSpan> SpanBuilder { get; set; } = ZSpan.ForContext;
+  public static Func<IZSpan> SpanBuilder { get; set; } = ZSpan.ForContext;
 
   public static DateTime Now => DateTime.UtcNow;
 

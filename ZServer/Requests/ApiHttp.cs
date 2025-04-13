@@ -12,11 +12,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Server.Requests;
 
 public class RootScope {
-  public IZRootContext Context { get; }
+  // public IZRootContext Context { get; }
   public IScope Scope { get; }
 
-  public RootScope(IZRootContext context, IScope scope) {
-    Context = context;
+  public RootScope(IScope scope) {
+    // Context = context;
     Scope = scope;
   }
 }
@@ -24,8 +24,10 @@ public class RootScope {
 public static class ApiHttp {
   public const string WebSocketOp = "WS";
 
+  private const string RootScopeItem = "Root";
+
   public static RootScope? RootScope(this HttpContext context) =>
-    context.Items.TryGetValue("Root", out object? obj) ? obj as RootScope : null;
+    context.Items.TryGetValue(RootScopeItem, out object? obj) ? obj as RootScope : null;
 
   public static IScope? RootSpan(this HttpContext context) =>
     context.RootScope()?.Scope;
@@ -49,9 +51,12 @@ public static class ApiHttp {
         scope.Span.OperationName = verb;
       }
       if (noun != null) scope.Span.ResourceName = noun;
-      var rootContext = new HostContext(context.RequestServices.GetRequiredService<ZApp>(), context.RequestServices, context); // context.RequestServices.GetRequiredService<IZRootContext>()
-      context.Items["Root"] = rootScope = new RootScope(rootContext, scope);
-      rootScope.Context.Log.Debug("[CTXT] HTTP context created for {v} {n} {ctxt}: {context}", verb, noun, context.Request.Path, rootScope.Context);
+      // var rootContext = context.RequestServices.GetRequiredService<IZRootContext>();
+      // var rootContext = new HostContext(context.RequestServices.GetRequiredService<ZApp>(), context.RequestServices, context); // context.RequestServices.GetRequiredService<IZRootContext>()
+
+      // DO NOT ATTEMPT TO ACCESS IZCONTEXT HERE! It is NOT inside the execution scope!!
+      context.Items[RootScopeItem] = rootScope = new RootScope(scope);
+      // rootScope.Context.Log.Debug("[CTXT] HTTP context created for {v} {n} {ctxt}: {context}", verb, noun, context.Request.Path, rootScope.Context);
     }
     return rootScope;
   }
@@ -78,10 +83,10 @@ public static class ApiHttp {
     // }
 
     // context.Items["API"] = span;
-    return new DataDogSpan(context.RequestServices.GetCurrentContext(), false);
+    return new DataDogSpan( false); // context.RequestServices.GetCurrentContext(),
   }
 
-  public static IZSpan AddRequestSpan(this HttpContext context, Type resource, string verb, bool useParent = true) => new DataDogSpan(context.RequestServices.GetCurrentContext(), useParent,
+  public static IZSpan AddRequestSpan(this HttpContext context, Type resource, string verb, bool useParent = true) => new DataDogSpan(useParent, // context.RequestServices.GetCurrentContext(),
     resource.Name.Replace("Interceptor", "").Replace("Context", ""), verb);
 
   // public static FurSpan AddSpan(this HttpContext context, FurSpan span) {

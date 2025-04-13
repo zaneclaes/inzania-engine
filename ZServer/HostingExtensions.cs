@@ -73,9 +73,9 @@ public static class HostingExtensions {
       .AddSubscriptionDiagnostics();
   }
 
-  public static IServiceCollection AddZServerGraphQl<TAuth>(this IServiceCollection collection, ZApp app) where TAuth : class, IZAuthenticator, new() => collection
-    .AddScoped<IZAuthenticator, TAuth>()
-    .AddTransient<ISubscriptionDiagnosticEventsListener, ZSubscriptionDiagnostics>()
+  public static IServiceCollection AddZServerGraphQl<TAuth>(this IServiceCollection collection, ZApp app) where TAuth : class, IZAuthenticator => collection
+    .AddTransient<IZAuthenticator, TAuth>()
+    // .AddScoped<ISubscriptionDiagnosticEventsListener, ZSubscriptionDiagnostics>()
     .AddGraphQLServer()
     // .AddType<WorkMutation>()
     .AddSchemaQuery(app)

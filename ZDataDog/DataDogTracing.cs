@@ -22,5 +22,5 @@ public static class DataDogTracing {
     ZEnv.SpanBuilder = BuildSpan;
   }
 
-  private static IZSpan BuildSpan(IZContext context) => new DataDogSpan(context);
+  private static IZSpan BuildSpan() => new DataDogSpan();
 }

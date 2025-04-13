@@ -7,7 +7,7 @@ namespace IZ.P2P.Guest;
 public interface IZGuest : IZP2P {
   // public string? IpAddress { get; }
 
-  public int? Ping { get; }
+  // public int? Ping { get; }
 
   public Task<IZP2PSession> Connect(string key, params string[] contentTypes);
 }

@@ -43,7 +43,7 @@ public static class ZSchema {
     // .AddSingleton(new InputFormatter(new ZTypeConverter()))
     // .AddSingleton(new InputParser(new ZTypeConverter()))
     .AddSingleton<ITypeInspector, ZDataTypeInspector>()
-    .AddSingleton<DataLoaderRegistry>()
+    .AddScoped<DataLoaderRegistry>()
     .AddSingleton<ZQueryAccessor>()
   ;
 
@@ -129,7 +129,13 @@ public static class ZSchema {
       .AddQueryType<ZQueryType>()
       .AddMutationType<ZMutationType>()
       .AddSubscriptionType<ZSubscriptionType>()
-      .AddType<ZModelIdType>();
+      .AddType<ZModelIdType>()
+      // .UseField(next => async (context) => {
+      //   var ctxt = context.Service<IZContext>();
+      //   ctxt.Log.Information("[SVC] GOT");
+      //   await next(context);
+      // })
+      ;
 
     List<ZObjectDescriptor> types = ZObjectDescriptor.ObjectTypes.Values.ToList();
     foreach (var t in types) {
@@ -169,7 +175,7 @@ public static class ZSchema {
       try {
         return await resolve(resolver, mi, resolver.ResolveInputVariables(mi.Parameters));
       } catch (Exception e) {
-        var ctxt = resolver.Services.GetCurrentContext();
+        var ctxt = resolver.RequestServices.GetCurrentContext();
         ctxt.Log.Error(e, "[GQL] failed to resolve method {name}", fieldName);
         throw;
       }
@@ -184,7 +190,7 @@ public static class ZSchema {
       List<ZMethodDescriptor> methods = apiMethods[t].Values.ToList();
       foreach (var mi in methods) {
         var field = descriptor.AddZRequestMethod(async (resolver, method, args) => {
-          var context = resolver.Services.GetCurrentContext();
+          var context = resolver.RequestServices.GetCurrentContext();
           object queryObj = Activator.CreateInstance(t, context)!; // .BeginRequest()
           return await context.ExecuteRequiredTask(async () => {
             var result = (method.Invoke(context, queryObj, args) as IZResult)!;
