@@ -59,13 +59,8 @@ public abstract class BaseContext : IZContext, IEventEnricher {
 
   public virtual IZIdentity? CurrentIdentity => Parent?.CurrentIdentity;
 
-  public virtual IZDataRepository Data => Parent?.Data ?? (_data ??= GetDataFactory());
+  public virtual IZDataRepository Data => Parent?.Data ?? (_data ??= this.GetRequiredService<IZDataFactory>().GetDataRepository(this));
   private IZDataRepository? _data;
-
-  private IZDataRepository GetDataFactory() {
-    Log.Information("[DATA] {ctxt}#{id} create fatory {stack}", GetType().Name, _uuid, new ZTrace(new StackTrace().ToString()).ToString());
-    return this.GetRequiredService<IZDataFactory>().GetDataRepository(this);
-  }
 
   public virtual IZResolver Resolver => Parent?.Resolver ?? throw new NullReferenceException(nameof(Resolver));
 

@@ -4,7 +4,7 @@ using IZ.P2P.Shared;
 
 namespace IZ.P2P.Guest;
 
-public interface IZGuest : IZP2P {
+public interface IZGuest<TSession> : IZP2P<TSession>  where TSession : IZP2PSession {
   // public string? IpAddress { get; }
 
   // public int? Ping { get; }

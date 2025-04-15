@@ -84,7 +84,7 @@ public static class ZContexts {
 
   public static IZContext GetCurrentContext(this IServiceProvider serviceProvider) {
     var cc = serviceProvider.GetRequiredService<IZContext>();
-    cc.Log.Information("[CUR CONTEXT] {id}", cc.Root);
+    cc.Log.Verbose("[CUR CONTEXT] {id}", cc.Root);
     return cc;
 
     // return serviceProvider.GetRootContext();
