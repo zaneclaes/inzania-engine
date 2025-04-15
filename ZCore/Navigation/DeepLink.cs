@@ -26,6 +26,8 @@ public class DeepLink : TransientObject {
 
   public string Path => string.Join("/", Parts);
 
+  public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
+
   private DeepLink(IZContext context, string path) : base(context) {
     _path = path.Split("://").Last().Split("#").First().Split("?").First().Trim('/').ToLower();
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
@@ -46,9 +48,9 @@ public class DeepLink : TransientObject {
     return dl.IsValid ? dl : null;
   }
 
-  public static DeepLink ForSong(IZContext context, string? relPath = null) => FromPath(context,
-    $"{SiteCategory.Songs.ToKebabCase()}/{relPath ?? ""}")!;
+  public static DeepLink FromCategory(IZContext context, SiteCategory category, params string[] parts) => FromPath(context, category.ToKebabCase() + "/" + string.Join("/", parts))!;
 
-  public static DeepLink ForMusicTheory(IZContext context, string? relPath = null) => FromPath(context,
-    $"{SiteCategory.Home.ToKebabCase()}/{relPath ?? ""}")!;
+  public static DeepLink ForSong(IZContext context, string? relPath = null) => FromCategory(context, SiteCategory.Songs, relPath ?? "");
+
+  public static DeepLink ForMusicTheory(IZContext context, string? relPath = null) => FromCategory(context, SiteCategory.Home, relPath ?? "");
 }
