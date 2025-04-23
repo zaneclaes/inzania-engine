@@ -15,8 +15,6 @@ public interface IZP2PSession : ICreatedAt {
 
   public List<IZP2PMember> SessionGuests { get; }
 
-  public DateTime CreatedAt { get; set; }
-
   // If non-null, this session is no longer open
   public DateTime? ClosedAt { get; set; }
 

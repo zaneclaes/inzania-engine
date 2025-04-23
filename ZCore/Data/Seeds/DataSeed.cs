@@ -25,11 +25,15 @@ public abstract class DataSeed : IHaveContext {
   public async Task SeedDatabase(IZContext context) {
     _dataContext = Context = context;
     Log = context.Log.ForContext(GetType());
-    var sw = Stopwatch.StartNew();
-    await Exec();
-    await Context.Data.SaveIfNeededAsync();
-    context.IncrementMetric($"{ZMetrics.SysGroup}.seed");
-    Log.Information("[SEED] {type} ran in {ms}ms", GetType(), sw.ElapsedMilliseconds);
+    try {
+      var sw = Stopwatch.StartNew();
+      await Exec();
+      await Context.Data.SaveIfNeededAsync();
+      context.IncrementMetric($"{ZMetrics.SysGroup}.seed");
+      Log.Information("[SEED] {type} ran in {ms}ms", GetType().Name, sw.ElapsedMilliseconds);
+    } catch (Exception e) {
+      Log.Error(e, "[SEED] {type} failed", GetType().Name);
+    }
   }
 
   public bool IsStubbed { get; private set; }

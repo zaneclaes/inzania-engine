@@ -60,7 +60,7 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     if (res.Data == null) throw new NullReferenceException(nameof(TData));
     var data = res.Data!.Result;
     // context.Guard(data);
-    Log.Debug("[API] {@data}", data);
+    Log.Information("[API] {@data}", data);
     return data;
   }
 

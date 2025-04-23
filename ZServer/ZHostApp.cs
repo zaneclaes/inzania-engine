@@ -1,6 +1,8 @@
 #region
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using IZ.Core;
@@ -17,6 +19,8 @@ using IZ.Observability.DataDog;
 using IZ.Server.Requests;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,7 +90,22 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     app.Services.GetRequiredService<IFragmentProvider>().LoadDirectory(Storage.GraphQLDir);
 
     await app.Services.MigrateDatabaseAsync<TDb>();
-    await app.Services.SeedDatabaseAsync(DataSeeds);
+
+    // Seeding should not block startup:
+    app.Services.SeedDatabaseAsync(DataSeeds).Forget();
+
+    app.Lifetime.ApplicationStarted.Register(() => ListUrls(app));
+  }
+
+  protected void ListUrls(WebApplication app) {
+    var serverAddresses = app.Urls;
+    if (!serverAddresses.Any()) {
+      // If app.Urls is empty, try getting addresses from the server features
+      var server = app.Services.GetRequiredService<IServer>();
+      var addressesFeature = server.Features.Get<IServerAddressesFeature>();
+      serverAddresses = addressesFeature?.Addresses ?? new List<string>();
+    }
+    Log.Information("[SERVER] hosting on: {urls}", serverAddresses);
   }
 
   public async Task RunAsync() {

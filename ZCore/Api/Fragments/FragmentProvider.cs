@@ -46,9 +46,9 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     if (string.IsNullOrWhiteSpace(format)) format = null;
     string fragmentName = Fragment.GetName(desc, format);
     if (breadcrumbs.Add(fragmentName)) {
-      Log.Debug("[FRAGMENT] check {path}...", fragmentName);
+      Log.Debug("[FRAGMENT] check {dir} {path}...", fragmentName);
       string? contents = null;
-      bool generate = _app.Env <= ZEnvironment.Development || !Fragments.ContainsKey(fragmentName);
+      bool generate = _app.Target == ZTarget.PublicApp || _app.Env <= ZEnvironment.Development || !Fragments.ContainsKey(fragmentName);
 
       string? path = null;
       if (Directory.Exists(_graphqlDir)) {
