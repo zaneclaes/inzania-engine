@@ -4,8 +4,12 @@ using IZ.P2P.Shared;
 
 namespace IZ.P2P.Host;
 
-public interface IZHost<TSession> : IZP2P<TSession> where TSession : IZP2PSession {
-  public Task<IZP2PSession> StartHosting(params string[] contentTypes);
+public interface IZHost<TMsg, TPacket, TSession, TMember> : IZP2P<TMsg, TPacket, TSession, TMember>
+  where TSession : IZP2PSession<TMember>
+  where TMember : IZP2PMember
+  where TMsg : IZP2PMessage<TSession, TMember>
+{
+  public Task<TSession> StartHosting(params string[] contentTypes);
 
   public Task StopHosting();
 }

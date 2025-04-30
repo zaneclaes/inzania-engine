@@ -3,12 +3,18 @@ using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
-public interface IZP2PConnectionDelegate : IHaveContext {
+public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHaveContext where TMsg : class {
+  public IZP2PSessionApi<TSession, TMsg> SessionApi { get; }
+
   public void OnConnectionState(ZP2PConnectionState state);
 
-  public void OnMemberPing(IZP2PMember member, ushort ping);
+  public void OnMemberPing(TMember member, ushort ping);
 
-  public void OnMemberConnected(IZP2PMember member);
+  public void OnPacket(TMember sender, TPacket packet);
 
-  public void OnMemberDisconnected(IZP2PMember member);
+  public void OnMemberConnected(TMember member);
+
+  public void OnMemberUpdated(TMember member);
+
+  public void OnMemberDisconnected(TMember member);
 }

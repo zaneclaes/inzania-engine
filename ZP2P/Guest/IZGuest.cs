@@ -4,10 +4,14 @@ using IZ.P2P.Shared;
 
 namespace IZ.P2P.Guest;
 
-public interface IZGuest<TSession> : IZP2P<TSession>  where TSession : IZP2PSession {
+public interface IZGuest<TMsg, TPacket, TSession, TMember> : IZP2P<TMsg, TPacket, TSession, TMember>
+  where TSession : IZP2PSession<TMember>
+  where TMember : IZP2PMember
+  where TMsg : IZP2PMessage<TSession, TMember>
+{
   // public string? IpAddress { get; }
 
   // public int? Ping { get; }
 
-  public Task<IZP2PSession> Connect(string key, params string[] contentTypes);
+  public Task<TSession> Connect(string key, params string[] contentTypes);
 }

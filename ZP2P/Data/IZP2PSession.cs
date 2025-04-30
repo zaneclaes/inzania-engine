@@ -8,15 +8,15 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.P2P.Data;
 
-public interface IZP2PSession : ICreatedAt {
+public interface IZP2PSession<TMember> : ICreatedAt where TMember : IZP2PMember {
   [MaxLength(8)] public string Key { get; set; }
 
-  public IZP2PMember SessionHost { get; }
+  public TMember Host { get; }
 
-  public List<IZP2PMember> SessionGuests { get; }
+  public List<TMember> Guests { get; }
 
   // If non-null, this session is no longer open
   public DateTime? ClosedAt { get; set; }
 
-  public List<IZP2PMember> SessionMembers => new List<IZP2PMember>() { SessionHost }.Union(SessionGuests).ToList();
+  public List<TMember> Members => new List<TMember>() { Host }.Union(Guests).ToList();
 }

@@ -20,7 +20,7 @@ public abstract class ApiObject : ContextualObject {
   protected override string ContextualObjectGroup => "Object";
 
   protected async Task<TData> ResolveRequiredId<TKey, TData>(
-    TKey localId, string localPropName, string foreignPropName, IZQueryable<TData>? q = null
+    TKey localId, string localPropName, string? foreignPropName = null, IZQueryable<TData>? q = null
   ) where TData : ModelKey<TKey> where TKey : notnull =>
     await ResolveOptionalId(localId, localPropName, foreignPropName, q) ?? throw new NullReferenceException(nameof(localPropName));
 

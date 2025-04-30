@@ -26,7 +26,7 @@ public interface IAssetProvider : IHaveContext {
   public async Task<string> DownloadAsset(string relativePath, CancellationToken ct = new CancellationToken()) {
     string fp = GetAssetPath(relativePath);
     if (File.Exists(fp)) {
-      Log.Information("[ASSET] got cached {fp}", fp);
+      Log.Debug("[ASSET] got cached {fp}", fp);
       return fp;
     }
     Directory.CreateDirectory(Path.GetDirectoryName(fp)!);

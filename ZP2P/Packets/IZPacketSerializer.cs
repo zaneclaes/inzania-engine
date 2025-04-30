@@ -5,7 +5,11 @@ using IZ.Core.Contexts;
 namespace IZ.P2P.Packets;
 
 public interface IZPacketSerializer {
-  public Task SerializePacket<TPacket>(TPacket packet, Stream stream);
+  public Task SerializePacketStream<TPacket>(TPacket packet, Stream stream);
 
-  public Task<TPacket> DeserializePacket<TPacket>(IZContext context, Stream stream);
+  public byte[] SerializePacketData<TPacket>(TPacket packet);
+
+  public Task<TPacket> DeserializePacketStream<TPacket>(IZContext context, Stream stream);
+
+  public TPacket DeserializePacketData<TPacket>(IZContext context, byte[] data);
 }

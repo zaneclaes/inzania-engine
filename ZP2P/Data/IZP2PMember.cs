@@ -11,7 +11,7 @@ public interface IZP2PMember : IHaveContext, IStringKeyData, ICreatedAt {
 
   public List<IZP2PConnectionOption> P2PConnectionOptions { get; }
 
-  public IZP2PSession? GuestOfSession { get; }
+  // public IZP2PSession? GuestOfSession { get; }
 
   public DateTime? ConnectedAt { get; set; }
 

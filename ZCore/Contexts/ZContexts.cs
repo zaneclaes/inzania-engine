@@ -26,7 +26,7 @@ public static class ZContexts {
   //   context.GetEventProperties()
   //     .ToDictionary(k => k.Key.Replace(".", "_").ToLower(), k => k.Value);
 
-  public static TModel CreateModelStringId<TModel>(this IZContext context, string? id = null) where TModel : ModelId, new() =>
+  public static TModel CreateModelId<TModel>(this IZContext context, string? id = null) where TModel : ModelId, new() =>
     CreateModelId<TModel, string>(context, id ?? ModelId.GenerateId());
 
   public static TModel CreateModelId<TModel, TKey>(this IZContext context, TKey id) where TModel : ModelKey<TKey>, new() => new TModel {

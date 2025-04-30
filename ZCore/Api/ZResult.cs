@@ -50,7 +50,6 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
   public async Task<TData> ExecuteData(ResultSet? selectionSet = null) {
     var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
     var serverConnection = Context.GetService<IServerConnection>();
-    Log.Information("[EXEC] post data to {conn}", serverConnection);
     if (serverConnection != null) {
       var result = new ExecutionResult(Context, plan, Args);
       return await Context.ExecuteRequiredTask(() => serverConnection.ExecuteApiRequest<TData>(result));
