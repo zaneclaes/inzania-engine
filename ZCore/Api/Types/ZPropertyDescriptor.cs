@@ -23,6 +23,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
 
   public bool IsInherited { get; }
 
+  public int Order { get; }
+
   public string? ChildPropertyName { get; }
 
   public ApiDeleteBehavior ChildDeleteBehavior { get; } = ApiDeleteBehavior.SetNull;
@@ -56,6 +58,7 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     Name = propertyInfo.Name;
     FieldName = propertyInfo.Name.ToFieldName();
     IsSettable = propertyInfo.CanWrite;
+    Order = propertyInfo.GetCustomAttribute<ApiOrderAttribute>()?.Order ?? -1;
     Observable = propertyInfo.GetCustomAttribute<ObservableAttribute>();
     bool hasJsonIgnore = propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() != null;
     IsJsonIgnored = !IsSettable || hasJsonIgnore;

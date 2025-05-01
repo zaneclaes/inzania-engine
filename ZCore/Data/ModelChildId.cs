@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace IZ.Core.Data;
 
-public class ModelChildId<TParent> : ModelId where TParent : ModelId {
+public abstract class ModelChildId<TParent> : ModelId where TParent : ModelId {
   [Key] [Column(Order = 0)] [MaxLength(MaxIdLength)]
   public override string Id { get; set; } = null!;
 

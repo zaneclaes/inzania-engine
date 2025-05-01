@@ -19,7 +19,7 @@ public abstract class GraphResult : TransientObject {
 }
 
 public class GraphErrorExtensions {
-  public string Code { get; set; }
+  public string Code { get; set; } = null!;
 }
 
 public class GraphError {

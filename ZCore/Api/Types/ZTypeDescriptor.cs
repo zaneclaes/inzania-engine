@@ -33,7 +33,7 @@ public class ZTypeDescriptor {
     return ret;
   }
 
-  internal static readonly Dictionary<string, ZTypeDescriptor> ApiTypes = new Dictionary<string, ZTypeDescriptor>();
+  public static readonly Dictionary<string, ZTypeDescriptor> ApiTypes = new Dictionary<string, ZTypeDescriptor>();
 
   public static ZTypeDescriptor FromType(Type t, bool isOptional = false) {
     string key = $"{t}{(isOptional ? "?" : "!")}";
@@ -82,21 +82,22 @@ public class ZTypeDescriptor {
     return t;
   }
 
-  public static void ExpandTypeTree(params ZTypeDescriptor[] types) {
-    ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new List<ZTypeDescriptor>());
+  public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) {
+    return ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new List<ZTypeDescriptor>());
   }
 
-  private static void ExpandTypeTree(List<ZTypeDescriptor> baseTypes, List<ZTypeDescriptor> breadcrumbs) {
+  private static List<ZTypeDescriptor> ExpandTypeTree(List<ZTypeDescriptor> baseTypes, List<ZTypeDescriptor> breadcrumbs) {
     List<ZTypeDescriptor> added = new List<ZTypeDescriptor>();
     foreach (var desc in baseTypes) {
       added.AddRange(desc.ExpandTypeTree(breadcrumbs));
     }
     if (added.Any()) ExpandTypeTree(added, breadcrumbs);
+    return added;
   }
 
   private List<ZTypeDescriptor> ExpandTypeTree(List<ZTypeDescriptor> breadcrumbs) {
     List<ZTypeDescriptor> added = new List<ZTypeDescriptor>();
-    foreach (string? key in ObjectDescriptor.FieldMap.Keys) {
+    foreach (string key in ObjectDescriptor.FieldMap.Keys) {
       // ZEnv.Log.Information("[EXPAND] TREE {type} :: {key} => {field}", this, key, ObjectDescriptor.FieldMap[key]);
       added.AddRange(ObjectDescriptor.FieldMap[key].ExpandTypes(breadcrumbs));
     }

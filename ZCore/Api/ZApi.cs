@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Threading;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
+using IZ.Core.Data;
 using IZ.Core.Utils;
 
 #endregion
@@ -32,21 +33,23 @@ public static class ZApi {
            || name.StartsWith("Pomelo")|| name.StartsWith("Anonymously")|| name.StartsWith("Datadog")|| name.StartsWith("WebOptimizer");
   }
 
-  // Gets TOP LEVEL Api methods
-  private static Dictionary<Type, Dictionary<string, ZMethodDescriptor>> CacheApiMethods<TRequest>() where TRequest : ZRequestBase {
-    List<Assembly> assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
     /*new List<Assembly?> {
       typeof(TRequest).Assembly,
       Assembly.GetEntryAssembly(),
       Assembly.GetExecutingAssembly()
-    }.Where(a => a != null).Distinct().Cast<Assembly>().ToList();
+    }.Where(a => a != null).Distinct().Cast<Assembly>().ToList();*/
+  private static List<Assembly> Assemblies => _assemblies ??= AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
+  private static List<Assembly>? _assemblies;
 
-*/
+  private static List<Type> Classes => _classes ??= Assemblies.SelectMany(a => a.GetTypes()).Distinct().ToList();
+  private static List<Type>? _classes;
+
+  private static List<Type> GetSubclasses(Type parentType) => Classes.Where(a => a.IsSubclassOf(parentType)).ToList();
+
+  // Gets TOP LEVEL Api methods
+  private static Dictionary<Type, Dictionary<string, ZMethodDescriptor>> CacheApiMethods<TRequest>() where TRequest : ZRequestBase {
     // ZEnv.Log.Information("[ASM] {asm}", string.Join("\n", assemblies.Select(a => a.ToString())));
-    List<Type> queryTypes = assemblies.SelectMany(a => a.GetTypes())
-      .Where(t => t.IsClass && t.IsSubclassOf(typeof(TRequest)))
-      .Distinct()
-      .ToList();
+    List<Type> queryTypes = GetSubclasses(typeof(TRequest));
     Dictionary<Type, Dictionary<string, ZMethodDescriptor>> ret = new Dictionary<Type, Dictionary<string, ZMethodDescriptor>>();
     Dictionary<string, ZMethodDescriptor> methodNames = new Dictionary<string, ZMethodDescriptor>();
 
@@ -86,7 +89,14 @@ public static class ZApi {
       CacheApiMethods<ZSubscriptionBase>();
       ZEnv.Log.Debug("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
 
-      ZTypeDescriptor.ExpandTypeTree();
+      var allowedTypes = GetSubclasses(typeof(ApiObject))
+        .Where(t => t is {IsAbstract: false, IsGenericType: false}).ToList();
+      var foundTypes = allowedTypes
+        .Select(o => ZTypeDescriptor.FromType(o))
+        .Where(t => t.ObjectDescriptor.PacketDiscriminator > 0)
+        .ToArray();
+
+      ZTypeDescriptor.ExpandTypeTree(foundTypes);
       ZEnv.Log.Debug("[SCHEMA] object types: {@types}", ZObjectDescriptor.ObjectTypes.Keys);
       ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
 

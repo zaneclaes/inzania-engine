@@ -14,9 +14,12 @@ public class ZStunClient : LogicBase {
 
   public uint StunPort { get; private set; }
 
-  public ZStunClient(IZContext ctx, string stunServer = "stun.l.google.com", uint stunPort = 19302) : base(ctx) {
+  public int Timeout { get; private set; }
+
+  public ZStunClient(IZContext ctx, string stunServer = "stun.l.google.com", uint stunPort = 19302, int timeout = 2000) : base(ctx) {
     StunServer = stunServer;
     StunPort = stunPort;
+    Timeout = timeout;
   }
 
   public List<IPAddress> GetLocalIpAddresses() {
@@ -50,7 +53,7 @@ public class ZStunClient : LogicBase {
       try {
         using var udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         udpClient.Bind(new IPEndPoint(localIp, 0));
-        udpClient.ReceiveTimeout = 2000;
+        udpClient.ReceiveTimeout = Timeout;
 
         // udpClient.Connect(remoteEp);
         byte[] request = BuildBindingRequest();
@@ -58,7 +61,7 @@ public class ZStunClient : LogicBase {
 
         var buffer = new byte[512];
         var receiveTask = udpClient.ReceiveFromAsync(new ArraySegment<byte>(buffer), SocketFlags.None, remoteEp);
-        var timeoutTask = Task.Delay(2000);
+        var timeoutTask = Task.Delay(Timeout);
         var completed = await Task.WhenAny(receiveTask, timeoutTask);
 
         if (completed == receiveTask) {

@@ -27,6 +27,8 @@ public class ZObjectDescriptor : IAmInternal {
 
   public string InputTypeName { get; }
 
+  public byte PacketDiscriminator { get; }
+
   // API Object properties (not used as API objects, but used to build fragments)
   public Dictionary<string, ZPropertyDescriptor> ObjectProperties { get; } = new Dictionary<string, ZPropertyDescriptor>();
 
@@ -74,6 +76,7 @@ public class ZObjectDescriptor : IAmInternal {
     else TypeName = t.Name;
 
     IsFile = ObjectType.HasAssignableType<IFileUpload>();
+    PacketDiscriminator = ObjectType.GetCustomAttribute<ApiPacketAttribute>()?.PacketDiscriminator ?? 0;
 
     if (IsFile) {
       IsScalar = false;

@@ -33,4 +33,6 @@ public class ZConnectionOptionSet : TransientObject {
     var privateIps = stunClient.GetLocalIpAddresses().Select(ip => ip.ToString()).Distinct().ToList();
     return new ZConnectionOptionSet(context, publicIps, privateIps);
   }
+
+  public override string ToString() => $"<IPs Public={string.Join(", ", PublicIps)} Private={string.Join(", ", LocalIps)} />";
 }
