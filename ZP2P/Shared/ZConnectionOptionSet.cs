@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
@@ -9,30 +11,40 @@ using IZ.P2P.Shared;
 namespace IZ.P2P.Shared;
 
 public class ZConnectionOptionSet : TransientObject {
-  public List<string> PublicIps { get; private set; }
+  // PublicIPs come from STUN, and include the public-facing port so that clients can connect to that
+  public List<IPEndPoint> PublicIps { get; private set; }
 
-  public List<string> LocalIps { get; private set; }
+  // LocalIPs don't have a port, because they can be connected to via the ListenPort
+  public List<IPAddress> LocalIps { get; private set; }
 
-  public List<string> GetConnectionOptions(ushort port, string? contentType) =>
-    PublicIps.Select(ip => CreateConnectionString(ip, port, ZP2PAccessibility.Public, contentType))
-      .Union(LocalIps.Select(ip => CreateConnectionString(ip, port, ZP2PAccessibility.Local, contentType)))
+  public int ListenPort { get; private set; }
+
+  // Nearby to the legacy 26000 Quake port, which is widely supported by routers
+  private const int PublicPortStart = 25678; // 50000;
+
+  private const int MaxPortNumber = 40000; // 65535;
+
+  public List<string> GetConnectionOptions(string? contentType) =>
+    PublicIps.Select(ip => CreateConnectionString(ip.Address, ip.Port, ZP2PAccessibility.Public, contentType))
+      .Union(LocalIps.Select(ip => CreateConnectionString(ip, ListenPort, ZP2PAccessibility.Local, contentType)))
       .ToList();
 
-  private string CreateConnectionString(string ip, ushort port, ZP2PAccessibility accessibility, string? contentType = null) =>
+  private string CreateConnectionString(IPAddress ip, int port, ZP2PAccessibility accessibility, string? contentType = null) =>
     $"{ip}|{port}|{accessibility}" + (contentType != null ? $"|{contentType}" : "");
 
-  private ZConnectionOptionSet(IZContext context, List<string> publicIps, List<string> localIps) : base(context) {
+  private ZConnectionOptionSet(IZContext context, int port, List<IPEndPoint> publicIps, List<IPAddress> localIps) : base(context) {
+    ListenPort = port;
     PublicIps = publicIps;
     LocalIps = localIps;
   }
 
   public static async Task<ZConnectionOptionSet> Create(IZContext context) {
     using var stunClient = new ZStunClient(context);
-    var endPoints = await stunClient.GetConnectionOptions();
-    var publicIps = endPoints.Select(ep => ep.Address.ToString()).Distinct().ToList();
-    var privateIps = stunClient.GetLocalIpAddresses().Select(ip => ip.ToString()).Distinct().ToList();
-    return new ZConnectionOptionSet(context, publicIps, privateIps);
+    // var portOffset = new Random().Next(0, MaxPortNumber - PublicPortStart - 100); // avoid port collisions wherever possible
+    var (port, publicIps) = await stunClient.GetConnectionOptions(PublicPortStart);
+    var privateIps = stunClient.GetLocalIpAddresses().Distinct().ToList();
+    return new ZConnectionOptionSet(context, port, publicIps, privateIps);
   }
 
-  public override string ToString() => $"<IPs Public={string.Join(", ", PublicIps)} Private={string.Join(", ", LocalIps)} />";
+  public override string ToString() => $"<IPs Public={string.Join(", ", PublicIps)} Private={string.Join(", ", LocalIps)} Port={ListenPort} />";
 }

@@ -9,6 +9,7 @@ using System.Threading;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
+using IZ.Core.Data.Attributes;
 using IZ.Core.Utils;
 
 #endregion
@@ -58,6 +59,7 @@ public static class ZApi {
         .Where(m => m.IsPublic && m.ReturnType.HasAssignableType(typeof(IZResult))).ToList();
       Dictionary<string, ZMethodDescriptor>? dict = methods.Select(m => new ZMethodDescriptor(m))
         .ToDictionary(m => m.FieldName, m => m);
+      ZEnv.Log.Debug("[SCHEMA] add {t}: {methods}", t, dict.Values.Select(m => m.ToString()));
       ret.Add(t, dict);
       foreach (string key in dict.Keys) {
         methodNames[key] = dict[key];
@@ -75,11 +77,16 @@ public static class ZApi {
 
   private static SemaphoreSlim _startup = new SemaphoreSlim(1, 1);
 
+  // Any subclass of ApiObject that meets these criteria will be in the schema
+  private static bool IsTypeExplicitlyIncluded(Type t) => t is {IsAbstract: false, IsGenericType: false, IsPublic: true} &&
+                                                          (t.GetCustomAttribute<ApiPacketAttribute>() != null);
+
   internal static void EnsureSchema() {
     _startup.Wait();
     try {
       if (_hasSchema) return;
       ZEnv.Log.Debug("[SCHEMA] loading...");
+
       CacheApiMethods<ZQueryBase>();
       ZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
 
@@ -89,11 +96,9 @@ public static class ZApi {
       CacheApiMethods<ZSubscriptionBase>();
       ZEnv.Log.Debug("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
 
-      var allowedTypes = GetSubclasses(typeof(ApiObject))
-        .Where(t => t is {IsAbstract: false, IsGenericType: false}).ToList();
-      var foundTypes = allowedTypes
+      var foundTypes = GetSubclasses(typeof(ApiObject))
+        .Where(IsTypeExplicitlyIncluded)
         .Select(o => ZTypeDescriptor.FromType(o))
-        .Where(t => t.ObjectDescriptor.PacketDiscriminator > 0)
         .ToArray();
 
       ZTypeDescriptor.ExpandTypeTree(foundTypes);

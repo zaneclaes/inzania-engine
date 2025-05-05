@@ -32,6 +32,17 @@ public class GraphError {
 
   public GraphErrorExtensions Extensions { get; set; } = null!;
 
+  public string FormattedMessage {
+    get {
+      var msg = Message.Replace("\\n", "\n");
+      if (msg.StartsWith("\\\"")) msg = msg.Substring(2);
+      if (msg.StartsWith("\"")) msg = msg.Substring(1);
+      if (msg.EndsWith("\\\"")) msg = msg.Substring(0, msg.Length - 2);
+      if (msg.EndsWith("\"")) msg = msg.Substring(0, msg.Length - 1);
+      return msg;
+    }
+  }
+
   public override string ToString() => $"{Message} ({string.Join(".", Path)})";
 }
 
@@ -42,11 +53,11 @@ public class GraphResult<TData> : GraphResult {
     // TODO: P2 this may need some better error detection/handling
     if (doc.Exception != null) throw doc.Exception;
     if (doc.Body == null) {
-      Log.Warning("[DOC] {@data}", doc.ContextData);
+      Log.Warning("[GQL] {@data}", doc.ContextData);
       throw new NullReferenceException(nameof(doc.Body));
     }
     if (doc.Body.RootElement.ValueKind != JsonValueKind.Object) {
-      Log.Warning("[DOC] {@data}", doc.Body);
+      Log.Warning("[GQL] {@data}", doc.Body);
       throw new NullReferenceException("Root: " + doc.Body.RootElement.ValueKind.ToString());
     }
     GraphError[]? errors = null;
@@ -54,24 +65,25 @@ public class GraphResult<TData> : GraphResult {
       if (errJson.ValueKind == JsonValueKind.Array) {
         errors = errJson.Deserialize<GraphError[]>(SystemJson.DeserializeOptionsForContext(Context));
         if (errors == null || errors.Length == 0) {
-          Log.Warning("[DOC] empty graphQL errors {errors}", errJson);
+          Log.Warning("[GQL] empty graphQL errors {errors}", errJson);
         }
       } else {
-        Log.Warning("[DOC] graphQL errors are {kind} {errors}", errJson.ValueKind, errJson);
+        Log.Warning("[GQL] graphQL errors are {kind} {errors}", errJson.ValueKind, errJson);
       }
     }
 
     if (!doc.Body.RootElement.TryGetProperty("data", out var data) ||
         (data.ValueKind != JsonValueKind.Object && data.ValueKind != JsonValueKind.Array)) {
       if (errors == null || !errors.Any()) throw new NullReferenceException("NULL data with no errors? Data kind: " + data.ValueKind.ToString());
-      throw new RemoteZException(context, string.Join("; ", errors.Select(e => e.ToString())));
+      var msg = string.Join("\n", errors.Select(e => e.FormattedMessage));
+      throw new RemoteZException(context, msg);
     }
 
     if (errors is {Length: > 0})
-      Log.Warning("[DOC] {count} non-fatal errors: {errors}", errors.Length, errors);
+      Log.Warning("[GQL] {count} non-fatal errors: {errors}", errors.Length, errors);
 
     var res = data.GetProperty("result");
     Result = res.Deserialize<TData>(SystemJson.DeserializeOptionsForContext(Context)) ??
-             throw new ArgumentException($"Failed to deserialize graph result: {data}");
+             throw new ArgumentException($"Failed to deserialize graph result: {doc.Body.RootElement}");
   }
 }

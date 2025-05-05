@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
+using IZ.Core.Observability.Logging;
 
 #endregion
 
@@ -54,9 +55,10 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
       var result = new ExecutionResult(Context, plan, Args);
       return await Context.ExecuteRequiredTask(() => serverConnection.ExecuteApiRequest<TData>(result));
     }
+    // On the server, tasks log errors as Debug because they will be caught by GraphQL handlers
     var ret = _data != null ?
-      Context.ExecuteRequired(() => _data(plan)) :
-      await Context.ExecuteRequiredTask(() => _task!(plan));
+      Context.ExecuteRequired(() => _data(plan), ZEventLevel.Debug) :
+      await Context.ExecuteRequiredTask(() => _task!(plan), ZEventLevel.Debug);
     try {
       await Context.Data.SaveAsync();
     } catch (Exception e) {

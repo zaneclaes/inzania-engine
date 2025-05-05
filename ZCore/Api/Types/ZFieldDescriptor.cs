@@ -40,11 +40,11 @@ public abstract class ZFieldDescriptor : IAmInternal {
     };
 
   public List<ZTypeDescriptor> ExpandTypes(List<ZTypeDescriptor> breadcrumbs) {
-    ZEnv.Log.Verbose("[EXPAND] {type}", this);
+    ZEnv.Log.Debug("[EXPAND] {type}", this);
     List<ZTypeDescriptor> ret = new List<ZTypeDescriptor>();
     foreach (var desc in GetTypeDescriptors()) {
       if (!breadcrumbs.Contains(desc)) {
-        ZEnv.Log.Debug("[ADD] {type} from {t}", desc, desc.ObjectDescriptor);
+        ZEnv.Log.Debug("[ADD] {type} from {t}", desc, this);
         ret.Add(desc);
         breadcrumbs.Add(desc);
       } else {

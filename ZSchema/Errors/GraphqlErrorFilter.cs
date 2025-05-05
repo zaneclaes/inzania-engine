@@ -21,24 +21,24 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
 
   public IError OnError(IError error) {
     var ex = error.Exception;
-    var ext = (error.Extensions?.Any() ?? false) ?
-      string.Join(", ", error.Extensions.Select(e => e.Key + ": " + e.Value)) : "";
     if (ex != null) {
       error = error
         .WithCode(GetExceptionErrorCode(ex))
         .WithMessage(ex.Message);
-      Log.Error(ex, "[GQL] exception {code}: {msg} {ext}", error.Code, error.Message, ext);
+      Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
     } else {
-      Log.Error("[GQL] unknown error {code}: {msg} {ext}", error.Code, error.Message, ext);
+      var ext = (error.Extensions?.Any() ?? false) ?
+        "\n" + string.Join(", ", error.Extensions.Select(e => e.Key + ": " + e.Value)) : "";
+      Log.Error("[GQL] unknown error {code}: {msg}{ext}", error.Code, error.Message, ext);
     }
     return error;
   }
-
-  public static bool IsWarning(IError err) {
-    if (err.Exception is ArgumentException) return true;
-    // if (err.Exception is ApiException) return true;
-    return IsWarningMessage(err.Message);
-  }
-
-  public static bool IsWarningMessage(string message) => false; // Warnings.Any(message.ToLowerInvariant().Contains);
+  //
+  // public static bool IsWarning(IError err) {
+  //   // if (err.Exception is ArgumentException) return true;
+  //   // if (err.Exception is ApiException) return true;
+  //   return IsWarningMessage(err.Message);
+  // }
+  //
+  // public static bool IsWarningMessage(string message) => false; // Warnings.Any(message.ToLowerInvariant().Contains);
 }

@@ -1,23 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
+using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
 public class ZStunClient : LogicBase {
-  public string StunServer { get; private set; }
-
   public uint StunPort { get; private set; }
 
   public int Timeout { get; private set; }
 
-  public ZStunClient(IZContext ctx, string stunServer = "stun.l.google.com", uint stunPort = 19302, int timeout = 2000) : base(ctx) {
-    StunServer = stunServer;
+  private readonly List<string> _stunServers = new List<string>() {
+    "stun.l.google.com",
+    "stun1.l.google.com",
+  };
+
+  public ZStunClient(IZContext ctx, uint stunPort = 19302, int timeout = 2000) : base(ctx) {
     StunPort = stunPort;
     Timeout = timeout;
   }
@@ -43,47 +47,93 @@ public class ZStunClient : LogicBase {
     ip.GetAddressBytes()[0] == 100 &&
     (ip.GetAddressBytes()[1] >= 64 && ip.GetAddressBytes()[1] <= 127);
 
-  public async Task<List<IPEndPoint>> GetConnectionOptions() {
-    var hostAddr = await Dns.GetHostAddressesAsync(StunServer);
-    var remoteEp = new IPEndPoint(hostAddr[0], (int) StunPort);
+  public async Task<Tuple<int, List<IPEndPoint>>> GetConnectionOptions(int port = 0) {
     List<IPAddress> localIPs = GetLocalIpAddresses();
 
-    List<IPEndPoint> discoveredEndpoints = new List<IPEndPoint>();
-    foreach (var localIp in localIPs) {
-      try {
-        using var udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        udpClient.Bind(new IPEndPoint(localIp, 0));
-        udpClient.ReceiveTimeout = Timeout;
+    var tasks = new List<Task<Tuple<int, IPEndPoint?>>>();
+    IPEndPoint? firstAddress = null;
 
-        // udpClient.Connect(remoteEp);
-        byte[] request = BuildBindingRequest();
-        await udpClient.SendToAsync(new ArraySegment<byte>(request), SocketFlags.None, remoteEp);
-
-        var buffer = new byte[512];
-        var receiveTask = udpClient.ReceiveFromAsync(new ArraySegment<byte>(buffer), SocketFlags.None, remoteEp);
-        var timeoutTask = Task.Delay(Timeout);
-        var completed = await Task.WhenAny(receiveTask, timeoutTask);
-
-        if (completed == receiveTask) {
-          var received = receiveTask.Result;
-          var trimmed = new byte[received.ReceivedBytes];
-          Array.Copy(buffer, trimmed, trimmed.Length);
-
-          if (TryParseBindingResponse(trimmed, out var publicEp)) {
-            // Log.Information("[STUN] parsed {localIp} => {publicEp}", localIp, publicEp);
-            discoveredEndpoints.Add(publicEp);
-          } else {
-            Log.Warning("[STUN] failed to parse response for {localIp}", localIp);
-          }
-        } else {
-          Log.Warning("[STUN] timed out waiting for {localIP}", localIp);
-        }
-
-      } catch (SocketException e) {
-        Log.Warning(e, "[STUN] failed to load {localIp}", localIp);
+    for (int i=0; i<localIPs.Count; i++) {
+      if (firstAddress == null) {
+        (port, firstAddress) = await ConnectFromIp(localIPs[i], port);
+      } else {
+        tasks.Add(ConnectFromIp(localIPs[i], port));
       }
     }
-    return discoveredEndpoints;
+    await Task.WhenAll(tasks);
+    if (firstAddress == null) return new Tuple<int, List<IPEndPoint>>(0, new List<IPEndPoint>());
+    return new Tuple<int, List<IPEndPoint>>(port, new List<IPEndPoint>() {
+      firstAddress
+    }.Union(tasks.Select(t => t.Result.Item2).Where(ep => ep != null).Cast<IPEndPoint>()).ToList());
+  }
+
+  private async Task<Tuple<int, IPEndPoint?>> ConnectFromIp(IPAddress localIp, int localPort = 0, int tries = 0) {
+    using var udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+    try {
+      udpClient.Bind(new IPEndPoint(localIp, localPort));
+      udpClient.ReceiveTimeout = Timeout;
+    } catch (SocketException e) {
+      if (localPort > 0 && tries < 10) {
+        Log.Information("[STUN] failed to bind {ip}:{port}; trying next port...", localIp, localPort);
+        return await ConnectFromIp(localIp, localPort + 1, tries + 1);
+      }
+      Log.Warning(e, "[STUN] failed to bind {ip}:{port}", localIp, localPort);
+      return new Tuple<int, IPEndPoint?>(localPort, null);
+    } catch (Exception e) {
+      Log.Warning(e, "[STUN] failed to bind {ip}:{port}", localIp, localPort);
+      return new Tuple<int, IPEndPoint?>(localPort, null);
+    }
+
+    List<Task<IPEndPoint?>> tasks = new List<Task<IPEndPoint?>>();
+    foreach (var stunServer in _stunServers) {
+      tasks.Add(ConnectToStun(localIp, udpClient, stunServer));
+    }
+    await Task.WhenAll(tasks);
+    var endpoints = tasks.Select(t => t.Result).Where(ep => ep != null).ToList();
+    if (endpoints.Count < 2) {
+      if (endpoints.Any()) Log.Warning("[STUN] only got {cnt} STUN responses", endpoints.Count);
+      return new Tuple<int, IPEndPoint?>(localPort, null);
+    }
+    if (endpoints[0]!.Port != endpoints[1]!.Port) {
+      Log.Warning("[STUN] got different responses: {addr1} v. {addr2}; NAT punching may fail", endpoints[0], endpoints[1]);
+    }
+    return new Tuple<int, IPEndPoint?>(localPort, endpoints[0]);
+  }
+
+  private async Task<IPEndPoint?> ConnectToStun(IPAddress localIp, Socket udpClient, string stunServer) {
+    try {
+      // udpClient.Connect(remoteEp);
+      var hostAddr = await Dns.GetHostAddressesAsync(stunServer);
+      var remoteEp = new IPEndPoint(hostAddr[0], (int) StunPort);
+
+      byte[] request = BuildBindingRequest();
+      await udpClient.SendToAsync(new ArraySegment<byte>(request), SocketFlags.None, remoteEp);
+
+      var buffer = new byte[512];
+      var receiveTask = udpClient.ReceiveFromAsync(new ArraySegment<byte>(buffer), SocketFlags.None, remoteEp);
+      var timeoutTask = Task.Delay(Timeout);
+      var completed = await Task.WhenAny(receiveTask, timeoutTask);
+
+      if (completed == receiveTask) {
+        var received = receiveTask.Result;
+        var trimmed = new byte[received.ReceivedBytes];
+        Array.Copy(buffer, trimmed, trimmed.Length);
+
+        if (TryParseBindingResponse(trimmed, out var publicEp)) {
+          // Log.Information("[STUN] parsed {localIp} => {publicEp}", localIp, publicEp);
+          return publicEp;
+        } else {
+          Log.Warning("[STUN] failed to parse response for {localIp}", localIp);
+          return null;
+        }
+      } else {
+        Log.Warning("[STUN] timed out waiting for {localIP}", localIp);
+        return null;
+      }
+    } catch (Exception e) {
+      Log.Warning(e, "[STUN] failed to load {localIp}", localIp);
+      return null;
+    }
   }
 
   static byte[] BuildBindingRequest() {

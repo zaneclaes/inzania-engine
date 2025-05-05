@@ -77,6 +77,7 @@ public static class HostingExtensions {
     .AddTransient<IZAuthenticator, TAuth>()
     // .AddScoped<ISubscriptionDiagnosticEventsListener, ZSubscriptionDiagnostics>()
     .AddGraphQLServer()
+    .ModifyRequestOptions(opt => opt.IncludeExceptionDetails = true)
     // .AddType<WorkMutation>()
     .AddSchemaQuery(app)
     .AddZSubscriptions()

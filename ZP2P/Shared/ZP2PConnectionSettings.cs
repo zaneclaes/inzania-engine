@@ -3,7 +3,8 @@ using System;
 namespace IZ.P2P.Shared;
 
 public class ZP2PConnectionSettings {
-  public TimeSpan PingInterval = TimeSpan.FromSeconds(1);
+  // Fast pings for clock sync
+  public TimeSpan PingInterval = TimeSpan.FromSeconds(0.25);
 
   public TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(10);
 

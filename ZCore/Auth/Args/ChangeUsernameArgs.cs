@@ -11,3 +11,9 @@ public class ChangeUsernameArgs : TransientObject {
 
   public string Username { get; set; } = null!;
 }
+
+public class AuthChangeUsernameArgs {
+  public string UserId { get; set; } = null!;
+
+  public string Username { get; set; } = null!;
+}

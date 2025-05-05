@@ -98,7 +98,7 @@ public class ZTypeDescriptor {
   private List<ZTypeDescriptor> ExpandTypeTree(List<ZTypeDescriptor> breadcrumbs) {
     List<ZTypeDescriptor> added = new List<ZTypeDescriptor>();
     foreach (string key in ObjectDescriptor.FieldMap.Keys) {
-      // ZEnv.Log.Information("[EXPAND] TREE {type} :: {key} => {field}", this, key, ObjectDescriptor.FieldMap[key]);
+      ZEnv.Log.Debug("[EXPAND] TREE {type} :: {key} => {field}", this, key, ObjectDescriptor.FieldMap[key]);
       added.AddRange(ObjectDescriptor.FieldMap[key].ExpandTypes(breadcrumbs));
     }
     return added;

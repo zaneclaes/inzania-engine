@@ -11,3 +11,9 @@ public class ChangeUserRoleArgs : TransientObject {
 
   public ZUserRole Role { get; set; }
 }
+
+public class AuthChangeUserRoleArgs {
+  public string UserId { get; set; } = null!;
+
+  public ZUserRole Role { get; set; }
+}

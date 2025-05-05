@@ -21,6 +21,7 @@ using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
+using IZ.Core.Observability.Logging;
 using IZ.Schema.Conventions;
 using IZ.Schema.Errors;
 using IZ.Schema.Loaders;
@@ -100,7 +101,7 @@ public static class ZSchema {
     } else if (descriptor.ObjectDescriptor.IsScalar) return descriptor.OrigType;
     var schemaType = descriptor.ObjectDescriptor.ObjectType;
     if (descriptor.ObjectDescriptor.IsFile) {
-      if (generic != typeof(ZInputType<>)) throw new ArgumentException($"{descriptor} found on {generic} (not an input type)");
+      // if (generic != typeof(ZInputType<>)) throw new ArgumentException($"{descriptor} found on {generic} (not an input type)");
       schemaType = typeof(UploadType);
     } else if (generic != null) {
       schemaType = generic.MakeGenericType(descriptor.ObjectDescriptor.ObjectType);
@@ -175,8 +176,9 @@ public static class ZSchema {
       try {
         return await resolve(resolver, mi, resolver.ResolveInputVariables(mi.Parameters));
       } catch (Exception e) {
-        var ctxt = resolver.RequestServices.GetCurrentContext();
-        ctxt.Log.Error(e, "[GQL] failed to resolve method {name}", fieldName);
+        // var ctxt = resolver.RequestServices.GetCurrentContext();
+        // ctxt.Log.Error(e, "[GQL] failed to resolve method {name}", fieldName);
+        e.Data["method"] = fieldName;
         throw;
       }
     }, doReturn);
@@ -184,7 +186,7 @@ public static class ZSchema {
   }
 
   public static void AddZRequestDescriptors<TRequest>(this IObjectTypeDescriptor descriptor, ApiExecutionType et) where TRequest : ZRequestBase {
-    Dictionary<Type, Dictionary<string, ZMethodDescriptor>>? apiMethods = ZApi.GetMethodImplementor(et);
+    Dictionary<Type, Dictionary<string, ZMethodDescriptor>> apiMethods = ZApi.GetMethodImplementor(et);
 
     foreach (var t in apiMethods.Keys) {
       List<ZMethodDescriptor> methods = apiMethods[t].Values.ToList();
@@ -195,7 +197,7 @@ public static class ZSchema {
           return await context.ExecuteRequiredTask(async () => {
             var result = (method.Invoke(context, queryObj, args) as IZResult)!;
             return await result.ExecuteObject();
-          });
+          }, ZEventLevel.Debug); // server execution = let GraphQL error handler catch
         }, mi);
 
         if (et == ApiExecutionType.Subscription) field.ZSubscribe(mi);

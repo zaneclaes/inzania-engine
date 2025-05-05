@@ -127,56 +127,56 @@ public static class ZContexts {
   //   return items;
   // }
 
-  public static TRes ExecuteRequired<TRes>(this IZContext context, Func<TRes> task) {
+  public static TRes ExecuteRequired<TRes>(this IZContext context, Func<TRes> task, ZEventLevel logLevel = ZEventLevel.Error) {
     try {
       return task();
     } catch (Exception e) {
-      context.HandleException(e, ExecTag, typeof(TRes).Name);
+      context.HandleException(e, ExecTag, typeof(TRes).Name, logLevel);
       throw;
     }
   }
 
-  public static TRes? ExecuteOptional<TRes>(this IZContext context, Func<TRes?> task) {
+  public static TRes? ExecuteOptional<TRes>(this IZContext context, Func<TRes?> task, ZEventLevel logLevel = ZEventLevel.Error) {
     try {
       return task();
     } catch (Exception e) {
-      context.HandleException(e, ExecTag, typeof(TRes).Name);
+      context.HandleException(e, ExecTag, typeof(TRes).Name, logLevel);
       throw;
     }
   }
 
-  public static void ExecuteVoid(this IZContext context, Action task) {
+  public static void ExecuteVoid(this IZContext context, Action task, ZEventLevel logLevel = ZEventLevel.Error) {
     try {
       task();
     } catch (Exception e) {
-      context.HandleException(e, ExecTag, "void");
+      context.HandleException(e, ExecTag, "void", logLevel);
       throw;
     }
   }
 
-  public static async Task<TRes> ExecuteRequiredTask<TRes>(this IZContext context, Func<Task<TRes>> task) {
+  public static async Task<TRes> ExecuteRequiredTask<TRes>(this IZContext context, Func<Task<TRes>> task, ZEventLevel logLevel = ZEventLevel.Error) {
     try {
       return await task();
     } catch (Exception e) {
-      context.HandleException(e, ExecTag, typeof(TRes).Name);
+      context.HandleException(e, ExecTag, typeof(TRes).Name, logLevel);
       throw;
     }
   }
 
-  public static async Task<TRes?> ExecuteOptionalTask<TRes>(this IZContext context, Func<Task<TRes?>> task) {
+  public static async Task<TRes?> ExecuteOptionalTask<TRes>(this IZContext context, Func<Task<TRes?>> task, ZEventLevel logLevel = ZEventLevel.Error) {
     try {
       return await task();
     } catch (Exception e) {
-      context.HandleException(e, ExecTag, typeof(TRes).Name);
+      context.HandleException(e, ExecTag, typeof(TRes).Name, logLevel);
       throw;
     }
   }
 
-  public static async Task ExecuteVoidTask(this IZContext context, Func<Task> task) {
+  public static async Task ExecuteVoidTask(this IZContext context, Func<Task> task, ZEventLevel logLevel = ZEventLevel.Error) {
     try {
       await task();
     } catch (Exception e) {
-      context.HandleException(e, ExecTag, "void");
+      context.HandleException(e, ExecTag, "void", logLevel);
       throw;
     }
   }
