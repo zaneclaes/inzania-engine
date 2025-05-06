@@ -77,7 +77,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       Socket.OnError -= HandleError;
       Socket.OnClose -= HandleClose;
       Socket.OnMessage -= HandleMessage;
-      Log.Information("[GQL-WS] socket disposed");
+      Log.Debug("[GQL-WS] socket disposed");
     }
     Socket = null;
   }
@@ -227,7 +227,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       Log.Information("[GQL-WS] Closed");
     } catch (Exception e) {
       // Known to close without handshake
-      if (e.Message.Contains("without completing the close")) Log.Information("[GQL-WS] failed to close");
+      if (e.Message.Contains("without completing the close")) Log.Debug("[GQL-WS] failed to close");
       else Log.Warning(e, "[GQL-WS] failed to close");
     }
   }

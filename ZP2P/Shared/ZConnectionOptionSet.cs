@@ -17,7 +17,7 @@ public class ZConnectionOptionSet : TransientObject {
   // LocalIPs don't have a port, because they can be connected to via the ListenPort
   public List<IPAddress> LocalIps { get; private set; }
 
-  public int ListenPort { get; private set; }
+  public int ListenPort { get; set; }
 
   // Nearby to the legacy 26000 Quake port, which is widely supported by routers
   private const int PublicPortStart = 25678; // 50000;
@@ -43,6 +43,7 @@ public class ZConnectionOptionSet : TransientObject {
     // var portOffset = new Random().Next(0, MaxPortNumber - PublicPortStart - 100); // avoid port collisions wherever possible
     var (port, publicIps) = await stunClient.GetConnectionOptions(PublicPortStart);
     var privateIps = stunClient.GetLocalIpAddresses().Distinct().ToList();
+    if (!publicIps.Any() && !privateIps.Any()) throw new SystemException("No IP addresses found!");
     return new ZConnectionOptionSet(context, port, publicIps, privateIps);
   }
 

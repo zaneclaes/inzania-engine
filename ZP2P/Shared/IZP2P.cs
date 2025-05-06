@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using IZ.Core.Api.GraphQLWebSockets;
@@ -5,7 +6,7 @@ using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
-public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDelegate<TMsg>
+public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDelegate<TMsg>, IDisposable
   where TMsg : IZP2PMessage<TSession, TMember>
   where TSession : IZP2PSession<TMember>
   where TMember : IZP2PMember

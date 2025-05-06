@@ -46,6 +46,13 @@ public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey> {
     ret.LoadIdFromParent(id, this);
     return ret;
   }
+
+  public virtual TData CreateChildModelId<TData>(string? id = null) where TData : ModelKey<string>, new() {
+    id ??= ModelId.GenerateId();
+    var ret = Context.CreateModelId<TData, string>(id); // Id + separator + typeof(TData).Name + id
+    ret.LoadIdFromParent(id, this);
+    return ret;
+  }
 }
 
 public abstract class ModelNumber : ModelKey<long>, IModelChildren<long> {

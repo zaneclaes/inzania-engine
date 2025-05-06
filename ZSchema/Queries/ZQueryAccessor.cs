@@ -60,7 +60,8 @@ public class ZQueryAccessor : IOperationDocumentStorage {
     var exec = ExecutionPlan.Load(_provider, executionType, fieldName, set);
     string query = exec.ToGraphQLDocument();
     ZEnv.Log.Debug("[QUERY] {id} => {q}", queryId, query);
-    return new OperationDocument(Utf8GraphQLParser.Parse(query));
+    var doc = new OperationDocument(Utf8GraphQLParser.Parse(query));
+    return doc;
   }
 
   public ValueTask<IOperationDocument?> TryReadAsync(
