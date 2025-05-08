@@ -16,5 +16,7 @@ public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHa
 
   public void OnMemberUpdated(TMember member);
 
+  public void OnSessionUpdated(TSession session);
+
   public void OnMemberDisconnected(TMember member);
 }

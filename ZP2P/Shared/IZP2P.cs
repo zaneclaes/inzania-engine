@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using IZ.Core.Api.GraphQLWebSockets;
 using IZ.P2P.Data;
+using IZ.P2P.Packets;
 
 namespace IZ.P2P.Shared;
 
@@ -10,6 +11,7 @@ public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDele
   where TMsg : IZP2PMessage<TSession, TMember>
   where TSession : IZP2PSession<TMember>
   where TMember : IZP2PMember
+  where TPacket : ZPacket
 {
   // public ushort? PortNumber { get; }
 

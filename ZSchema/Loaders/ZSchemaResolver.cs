@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -18,7 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Schema.Loaders;
 
 public class ZSchemaResolver : LogicBase, IZResolver {
-  private readonly Dictionary<string, IDataLoader> _dataLoaders = new Dictionary<string, IDataLoader>();
+  private readonly ConcurrentDictionary<string, IDataLoader> _dataLoaders = new ConcurrentDictionary<string, IDataLoader>();
 
   public ZSchemaResolver(IZContext context) : base(context) {
     Log.Verbose("[RES] new resolver {res} for {context} : {stack}", this, context.Root, new ZTrace(new StackTrace().ToString()).ToString());
