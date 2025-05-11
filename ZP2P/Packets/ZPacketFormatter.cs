@@ -44,8 +44,9 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
           if (!string.IsNullOrEmpty(sval)) writer.WriteString(Encoding.UTF8.GetBytes(sval));
         } else if (prop.FieldType == typeof(byte[])) {
           var sval = val as byte[];
-          writer.WriteStringHeader(sval?.Length ?? 0);
-          if (sval != null) writer.WriteString(sval);
+          writer.WriteBinHeader(sval?.Length ?? 0);
+          // writer.WriteStringHeader(sval?.Length ?? 0);
+          if (sval != null) writer.WriteRaw(sval);
         } else if (prop.FieldType.IsEnum) {
           var ut = Enum.GetUnderlyingType(prop.FieldType);
           if (!WriteValue(ref writer, ut, val)) Log.Error("[PACKET] ENUM {type} = {val} ({valType}) failed to write", prop.FieldType, val, ut);
@@ -102,7 +103,7 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
             var seq = reader.ReadStringSequence() ?? throw new ArgumentException($"NULL sequence for {desc}.{prop}");
             val = Encoding.UTF8.GetString(seq.ToArray());
           } else if (prop.FieldType == typeof(byte[])) {
-            val = reader.ReadStringSequence() ?? throw new ArgumentException($"NULL sequence for {desc}.{prop}");
+            val = reader.ReadBytes()?.ToArray() ?? throw new ArgumentException($"NULL sequence for {desc}.{prop}");
           } else if (prop.FieldType.IsEnum) {
             val = ReadValue(ref reader, Enum.GetUnderlyingType(prop.FieldType));
           } else {

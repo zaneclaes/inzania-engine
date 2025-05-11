@@ -33,7 +33,8 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
 
   private ZVisitorIdentity? _visitor;
 
-  public async Task Configure(IAnalyticsSink sink, IZIdentity? identity = null) {
+  public async Task Configure(IAnalyticsSink? sink, IZIdentity? identity = null) {
+    if (sink == null) return;
     if (identity == null) {
       if (_visitor == null) {
         Log.Warning("[ANALYTICS] falling back on auto-generated identity");

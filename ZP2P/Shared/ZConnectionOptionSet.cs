@@ -38,10 +38,10 @@ public class ZConnectionOptionSet : TransientObject {
     LocalIps = localIps;
   }
 
-  public static async Task<ZConnectionOptionSet> Create(IZContext context) {
+  public static async Task<ZConnectionOptionSet> Create(IZContext context, int portOffset = 0) {
     using var stunClient = new ZStunClient(context);
     // var portOffset = new Random().Next(0, MaxPortNumber - PublicPortStart - 100); // avoid port collisions wherever possible
-    var (port, publicIps) = await stunClient.GetConnectionOptions(PublicPortStart);
+    var (port, publicIps) = await stunClient.GetConnectionOptions(PublicPortStart + portOffset);
     var privateIps = stunClient.GetLocalIpAddresses().Distinct().ToList();
     if (!publicIps.Any() && !privateIps.Any()) throw new SystemException("No IP addresses found!");
     return new ZConnectionOptionSet(context, port, publicIps, privateIps);

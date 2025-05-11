@@ -31,6 +31,12 @@ public class ClientContext : RootContext {
     RestoreSession()
   };
 
+  protected virtual List<Task> GetReadyTasks() => new List<Task> {
+    Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity)
+  };
+
+  private IAnalyticsSink? _analyticsSink;
+
   protected virtual void OnStartupComplete() { }
 
   public bool IsStarted { get; private set; }
@@ -43,7 +49,7 @@ public class ClientContext : RootContext {
 
   public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted);
 
-  public async Task Startup(string installId, IAnalyticsSink sink) {
+  public async Task Startup(string installId, IAnalyticsSink? sink = null) {
     if (IsStarted) return;
     if (_isStarting) {
       await Tasks.WaitUntilAsync(() => !_isStarting);
@@ -52,18 +58,21 @@ public class ClientContext : RootContext {
     ClientApp.InstallId = installId;
 
     _isStarting = true;
+    _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
     Log.Information("[START] Chordzy starting...");
 
-    await Task.WhenAll(GetStartupTasks().ToArray());
-    await Context.Analytics!.Configure(sink, Context.CurrentIdentity);
-
-    if (CurrentIdentity == null) {
-      Log.Warning("[START] Chordzy logged out.");
-    } else {
-      Log.Information("[START] Chordzy ready.");
+    try {
+      await Task.WhenAll(GetStartupTasks().ToArray());
+      await Task.WhenAll(GetReadyTasks().ToArray());
+      if (CurrentIdentity == null) {
+        Log.Warning("[START] Chordzy logged out.");
+      } else {
+        Log.Information("[START] Chordzy ready.");
+      }
+      IsStarted = true;
+    } finally {
+      _isStarting = false;
     }
-    IsStarted = true;
-    _isStarting = false;
   }
 
   protected async Task RestoreSession() {

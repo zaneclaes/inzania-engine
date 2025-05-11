@@ -35,7 +35,7 @@ public interface IZAnalytics : IHaveContext, IDisposable {
   // i.e., "Score" + scoreId
   public Task SelectContent(string contentType, string contentId);
 
-  public Task Configure(IAnalyticsSink sink, IZIdentity? identity = null);
+  public Task Configure(IAnalyticsSink? sink, IZIdentity? identity = null);
 
   public Task SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props);
 

@@ -174,15 +174,16 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     } else if (msg.Type.Equals("data")) {
       object payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
       // var jsonData = payload.GetProperty("data");
+      TData? data = null;
       try {
-        var data = await _parser((JsonElement)payload);//  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
-
-        // Log.Information("[GQL-WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
-        if (data != null) Delegate.OnGraphQLWebSocketData(data);
-        else throw new InternalZException(Context, "No data object returned");
+        data = await _parser((JsonElement)payload);//  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
       } catch (Exception e) {
         Log.Error(e, "[GQL-WS] failed to parse {type} from {payloadType} {data}", typeof(TData).Name, payload.GetType(), payload.ToString());
       }
+
+      // Log.Information("[GQL-WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
+      if (data != null) Delegate.OnGraphQLWebSocketData(data);
+      else throw new InternalZException(Context, "No data object returned");
     } else if (msg.Type.Equals("ka")) {
       // NO-OP (keep-alive)
     } else {
