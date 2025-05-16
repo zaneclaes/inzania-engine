@@ -20,7 +20,7 @@ public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDele
   // Who are we?
   public TMember Member { get; }
 
-  public List<TMember> Members { get; }
+  public Dictionary<string, TMember> Members { get; }
 
   public Task SendPacket(TPacket packet, string? memberId = null); // null implies BROADCAST
 

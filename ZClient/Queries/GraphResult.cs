@@ -50,7 +50,6 @@ public class GraphResult<TData> : GraphResult {
   public TData Result { get; }
 
   public GraphResult(IZContext context, Response<JsonDocument> doc) : base(context, doc) {
-    // TODO: P2 this may need some better error detection/handling
     if (doc.Exception != null) throw doc.Exception;
     if (doc.Body == null) {
       Log.Warning("[GQL] {@data}", doc.ContextData);
@@ -78,6 +77,8 @@ public class GraphResult<TData> : GraphResult {
       var msg = string.Join("\n", errors.Select(e => e.FormattedMessage));
       throw new RemoteZException(context, msg);
     }
+
+    Log.Verbose("[GQL] data {json}", data);
 
     if (errors is {Length: > 0})
       Log.Warning("[GQL] {count} non-fatal errors: {errors}", errors.Length, errors);
