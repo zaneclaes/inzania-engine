@@ -25,9 +25,9 @@ public static class MachineHost {
     p.StartInfo.Arguments = $"-i :{port}";
     p.Start();
     string txt = p.StandardOutput.ReadToEnd();
-#if Z_UNITY
-      UnityEngine.Debug.Log($"[PROCS] {txt}");
-#endif
+// #if Z_UNITY
+//       UnityEngine.Debug.Log($"[PROCS] {txt}");
+// #endif
     Dictionary<long, string> output = txt.Trim().Split('\n')
       .Select(s => s.Trim()).Where(s => s.Contains("(LISTEN)"))
       .GroupBy(s => long.TryParse(s.Split(" ")[1], out long v) ? v : 0)

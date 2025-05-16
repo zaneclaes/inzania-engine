@@ -17,6 +17,12 @@ public interface IModelId<TKey> {
   TKey Id { get; set; }
 }
 
+public interface IItemizable<TKey> {
+  public TKey ItemId { get; }
+}
+
+public interface IItemizable : IItemizable<string> { }
+
 public interface IStringKeyData : IModelId<string> { }
 
 public abstract class ModelKey : DataObject {
@@ -28,7 +34,7 @@ public abstract class ModelKey : DataObject {
   protected override string UuidId => KeyId ?? base.UuidId;
 }
 
-public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey> {
+public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey>, IItemizable<TKey> {
 
   protected ModelKey(IZContext? context = null) : base(context) { }
 
@@ -36,6 +42,8 @@ public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey> {
   public override string? KeyId => Id?.ToString();
 
   public abstract TKey Id { get; set; }
+
+  public TKey ItemId => Id;
 
   protected virtual void LoadIdFromParent<TParent>(TKey id, TParent? parent = null) where TParent : class {
     Id = id;
@@ -59,7 +67,7 @@ public abstract class ModelNumber : ModelKey<long>, IModelChildren<long> {
   [Key] public override long Id { get; set; }
 }
 
-public abstract class ModelId : ModelKey<string>, IStringKeyData, IModelChildren<string> {
+public abstract class ModelId : ModelKey<string>, IStringKeyData, IItemizable, IModelChildren<string> {
   public const int MaxIdLength = 128; // Guid length (32), plus lots of space for children expansion
 
   protected ModelId(IZContext? context = null, string? id = null) : base(context) {
