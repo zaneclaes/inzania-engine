@@ -40,8 +40,9 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
         var val = prop.GetValue(value);
         if (prop.FieldType == typeof(string)) {
           var sval = val as string;
-          writer.WriteStringHeader(sval?.Length ?? 0);
-          if (!string.IsNullOrEmpty(sval)) writer.WriteString(Encoding.UTF8.GetBytes(sval));
+          writer.Write(sval);
+          // writer.WriteStringHeader(sval?.Length ?? 0);
+          // if (sval != null) writer.WriteString(Encoding.UTF8.GetBytes(sval));
         } else if (prop.FieldType == typeof(byte[])) {
           var sval = val as byte[];
           writer.WriteBinHeader(sval?.Length ?? 0);
@@ -58,6 +59,15 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
   }
 
   private bool WriteValue(ref MessagePackWriter writer, Type type,object? val) {
+    var nullableType = Nullable.GetUnderlyingType(type);
+    if (nullableType != null) {
+      if (val == null) {
+        writer.WriteNil();
+        return true;
+      }
+      return WriteValue(ref writer, nullableType, val);
+    }
+
     if (type == typeof(byte)) writer.WriteUInt8((byte)(val ?? 0));
     else if (type == typeof(ushort)) writer.WriteUInt16((ushort)(val ?? 0));
     else if (type == typeof(uint)) writer.WriteUInt32((uint)(val ?? 0));
@@ -71,6 +81,12 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
   }
 
   private object? ReadValue(ref MessagePackReader reader, Type type) {
+    var nullableType = Nullable.GetUnderlyingType(type);
+    if (nullableType != null) {
+      if (reader.TryReadNil()) return null;
+      return ReadValue(ref reader, nullableType);
+    }
+
     if (type == typeof(byte)) return reader.ReadByte();
     else if (type == typeof(ushort)) return reader.ReadUInt16();
     else if (type == typeof(uint)) return reader.ReadUInt32();
@@ -98,7 +114,7 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
         var group = orderGroups[order];
         if (group.Count > 1) Log.Warning("[PACKET] {type} has {count} entries for {order}", desc, group.Count, order);
         foreach (var prop in group) {
-          object? val = prop.GetValue(packet);
+          object? val = null;
           if (prop.FieldType == typeof(string)) {
             var seq = reader.ReadStringSequence() ?? throw new ArgumentException($"NULL sequence for {desc}.{prop}");
             val = Encoding.UTF8.GetString(seq.ToArray());
@@ -110,6 +126,7 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
             val = ReadValue(ref reader, prop.FieldType);
           }
           prop.SetValue(packet, val);
+          Log.Verbose("[PACKET] {p} = {val}", prop.Name, val);;
         }
       }
       return packet;

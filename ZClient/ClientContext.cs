@@ -50,7 +50,7 @@ public class ClientContext : RootContext {
 
   public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted);
 
-  private Stopwatch _startupTimer;
+  public readonly Stopwatch Uptimer;
 
   public async Task Startup(string installId, IAnalyticsSink? sink = null) {
     if (IsStarted) return;
@@ -62,21 +62,21 @@ public class ClientContext : RootContext {
 
     _isStarting = true;
     _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
-    Log.Debug("[START] Chordzy starting after {ms}ms...", _startupTimer.ElapsedMilliseconds);;
+    Log.Debug("[START] Chordzy starting after {ms}ms...", Uptimer.ElapsedMilliseconds);;
 
     try {
       await Task.WhenAll(GetStartupTasks().ToArray());
-      Log.Information("[START] Chordzy entering ready state after {ms}ms...", _startupTimer.ElapsedMilliseconds);
+      Log.Information("[START] Chordzy entering ready state after {ms}ms...", Uptimer.ElapsedMilliseconds);
       await Task.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] Chordzy ready for {user} after {ms}ms", CurrentIdentity?.UserSession?.IZUser, _startupTimer.ElapsedMilliseconds);
+      Log.Information("[START] Chordzy ready for {user} after {ms}ms", CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds);
       IsStarted = true;
     } finally {
-      _startupTimer.Stop();
+      Uptimer.Stop();
       _isStarting = false;
     }
   }
 
-  protected async Task RestoreSession() {
+  private async Task RestoreSession() {
     var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
     if (storedSession.AccessToken == null) {
       _userIdentity = null;
@@ -96,7 +96,7 @@ public class ClientContext : RootContext {
   }
 
   protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
-    _startupTimer = Stopwatch.StartNew();
+    Uptimer = Stopwatch.StartNew();
     Log.Information("[START] Chordzy Entrypoint...");
   }
 
