@@ -8,6 +8,8 @@ namespace IZ.Client;
 public abstract class ZClientApp : ZApp {
   public string? InstallId { get; set; }
 
+  public string? Version { get; set; }
+
   protected ZClientApp(
     string productName, string domainName,
     ZEnvironment env, IZLogger? log = null, ZTarget? target = null,

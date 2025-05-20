@@ -52,13 +52,14 @@ public class ClientContext : RootContext {
 
   public readonly Stopwatch Uptimer;
 
-  public async Task Startup(string installId, IAnalyticsSink? sink = null) {
+  public async Task Startup(string installId, string version, IAnalyticsSink? sink = null) {
     if (IsStarted) return;
     if (_isStarting) {
       await Tasks.WaitUntilAsync(() => !_isStarting);
       return;
     }
     ClientApp.InstallId = installId;
+    ClientApp.Version = version;
 
     _isStarting = true;
     _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
@@ -68,7 +69,7 @@ public class ClientContext : RootContext {
       await Task.WhenAll(GetStartupTasks().ToArray());
       Log.Information("[START] Chordzy entering ready state after {ms}ms...", Uptimer.ElapsedMilliseconds);
       await Task.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] Chordzy ready for {user} after {ms}ms", CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds);
+      Log.Information("[START] Chordzy v{version} ready for {user} after {ms}ms", version, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds);
       IsStarted = true;
     } finally {
       Uptimer.Stop();

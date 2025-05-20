@@ -34,6 +34,10 @@ public static class HttpExtensions {
     return string.IsNullOrWhiteSpace(auth) ? null : auth;
   }
 
+  public static string? GetApplicationVersion(this HttpContext http) {
+    string? auth = http.Request.Headers[ZHeaders.ApplicationVersion].ToString();
+    return string.IsNullOrWhiteSpace(auth) ? null : auth;
+  }
 
   private static List<ZUserRole> GetZRoles(this ClaimsPrincipal curUser) =>
     ZRoles.AllRoles.Where(r => curUser.IsInRole(r.ToString())).ToList();

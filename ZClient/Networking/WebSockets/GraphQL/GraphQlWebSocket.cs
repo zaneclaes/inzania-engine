@@ -114,6 +114,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       Payload = new ZWebSocketConnectionPayload() {
         Authorization = _headers[ZHeaders.Authorization],
         InstallId = _headers[ZHeaders.InstallId],
+        ApplicationVersion = _headers[ZHeaders.ApplicationVersion],
         RequestId = _headers[ZHeaders.RequestId],
         Env = _headers[ZHeaders.Env],
       },
