@@ -37,7 +37,7 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
   // Low-cardinality grouping of objects used for metric tags & event property groups
   protected abstract string ContextualObjectGroup { get; }
 
-  [ApiIgnore] [JsonIgnore]
+  [ApiIgnore] [JsonIgnore] [NotMapped]
   public Dictionary<string, object> EventProperties => _eventProperties ??= BuildEventProperties();
   private Dictionary<string, object>? _eventProperties;
   private Dictionary<string, object> BuildEventProperties() => Context.EventProperties

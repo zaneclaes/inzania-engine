@@ -20,6 +20,10 @@ namespace IZ.Core.Json.System;
 public class ZArrayConverter<TObj> : JsonConverter<TObj[]> {
   private readonly JsonConverter<object> _converter;
 
+  private JsonSerializerOptions SerializerOptions =>
+    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
+  private JsonSerializerOptions? _serializerOptions;
+
   public ZArrayConverter(JsonConverter<object> inner) {
     _converter = inner;
   }
@@ -37,13 +41,21 @@ public class ZArrayConverter<TObj> : JsonConverter<TObj[]> {
   }
 
   public override void Write(Utf8JsonWriter writer, TObj[] value, JsonSerializerOptions options) {
-    JsonSerializer.Serialize(writer, value, value.GetType(), SystemJson.DeserializeOptionsForContext(null));
+    JsonSerializer.Serialize(writer, value, value.GetType(), SerializerOptions);
   }
 }
 
 public class ZContextConverter : JsonConverter<object>, IHaveContext {
   public IZContext Context { get; }
   public IZLogger Log { get; }
+
+  private JsonSerializerOptions DeserializerOptions =>
+    _deserializerOptions ??= SystemJson.DeserializeOptionsForContext(Context);
+  private JsonSerializerOptions? _deserializerOptions;
+
+  private JsonSerializerOptions SerializerOptions =>
+    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
+  private JsonSerializerOptions? _serializerOptions;
 
   public ZContextConverter(IZContext context) {
     Context = context;
@@ -89,6 +101,31 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     return null;
   }
 
+  private IDictionary ReadDictionary(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
+    var dict = (IDictionary) Activator.CreateInstance(type)!;
+    var dictionaryInterface = type
+      .GetInterfaces()
+      .Append(type) // also check the type itself
+      .FirstOrDefault(i =>
+        i.IsGenericType &&
+        i.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+      ) ?? throw new ArgumentException($"Type {type} does not implement IDictionary<,> or is not a generic type");
+    var generics = dictionaryInterface.GetGenericArguments();
+    if (generics[0] != typeof(string)) throw new ArgumentException($"Type {type} does not implement IDictionary<string,>");
+    var valueType = generics[1];
+
+    if (reader.TokenType == JsonTokenType.StartObject) reader.Read();
+    while (reader.TokenType != JsonTokenType.EndObject) {
+      var key = reader.GetString() ?? throw new ArgumentException($"Read non-string key {reader.TokenType}");
+      reader.Read();
+      var val = JsonSerializer.Deserialize(ref reader, valueType, DeserializerOptions); //eadObject(ref reader, valueType, AddBreadcrumb("value", breadcrumbs));
+      reader.Read();
+      dict.Add(key, val);
+    }
+    reader.Read();
+    return dict;
+  }
+
   private object? ReadObject(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
     Log.Debug("[JSON] OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
 
@@ -116,9 +153,9 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       object? val = null;
       if (reader.TokenType == JsonTokenType.StartObject) {
         if (prop?.FieldType.IsAssignableToBaseType(typeof(IDictionary)) ?? false) {
-          Log.Warning("[JSON] PROP {p} ON {type} INVALID", prop, type);
-          while (reader.TokenType != JsonTokenType.EndObject) reader.Read();
-          reader.Read();
+          val = ReadDictionary(ref reader, prop.FieldType, AddBreadcrumb(propName, breadcrumbs));
+        } else if (prop?.FieldType == typeof(string)) {
+          val = reader.GetString();
         } else {
           bool isList = prop?.FieldType.IsListType() ?? false;
           var ft = isList ? (prop!.FieldType.GetListType()!) : (prop?.FieldType ?? typeof(object));
@@ -139,7 +176,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
               && reader.TokenType != JsonTokenType.True && reader.TokenType != JsonTokenType.False)
             Context.Log.Warning("[JSON] READ JSON {token}", reader.TokenType);
           if (reader.TokenType != JsonTokenType.Null)
-            val = JsonSerializer.Deserialize(ref reader, prop.FieldType, SystemJson.DeserializeOptionsForContext(Context)); // reader.GetDouble();
+            val = JsonSerializer.Deserialize(ref reader, prop.FieldType, DeserializerOptions); // reader.GetDouble();
         }
         reader.Read();
 
@@ -173,6 +210,6 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) {
-    JsonSerializer.Serialize(writer, value, value.GetType(), SystemJson.DeserializeOptionsForContext(null));
+    JsonSerializer.Serialize(writer, value, value.GetType(), SerializerOptions);
   }
 }

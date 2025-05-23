@@ -53,7 +53,7 @@ public static class TimeStampData {
       var c = (ICreatedAt) cre.Entity;
 #pragma warning disable CS8073 // The result of the expression is always the same since a value of this type is never equal to 'null'
       // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-      if (cre.State == EntityState.Added || c.CreatedAt == null || c.CreatedAt.Year < 2000)
+      if (cre.State == EntityState.Added && (c.CreatedAt == null || c.CreatedAt.Year < 2000))
 #pragma warning restore CS8073 // The result of the expression is always the same since a value of this type is never equal to 'null'
         c.CreatedAt = ZEnv.Now;
     }
