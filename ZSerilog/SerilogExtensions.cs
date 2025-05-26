@@ -28,10 +28,7 @@ public static class SerilogExtensions {
 
     // Convert dictionary to LogEventProperty list
     var logProperties = props
-      .Select(kvp => {
-        var scalar = new ScalarValue(kvp.Value);
-        return new LogEventProperty(kvp.Key, scalar);
-      })
+      .Select(kvp => new LogEventProperty(kvp.Key, new ScalarValue(kvp.Value)))
       .ToList();
 
     // Create a dummy LogEvent (you can customize timestamp, level, etc.)

@@ -26,20 +26,51 @@ public class ZStunClient : LogicBase {
     Timeout = timeout;
   }
 
-  public List<IPAddress> GetLocalIpAddresses() {
-    List<IPAddress> localIPs = new List<IPAddress>();
+  private List<ZNetworkInterface> GetLocalIpAddresses() {
+    List<ZNetworkInterface> results = new List<ZNetworkInterface>();
 
     foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces()) {
       if (ni.OperationalStatus != OperationalStatus.Up)
         continue;
 
-      foreach (UnicastIPAddressInformation ipInfo in ni.GetIPProperties().UnicastAddresses) {
+      var props = ni.GetIPProperties();
+      IPAddress ipv4 = null;
+      IPAddress ipv6 = null;
+
+      foreach (var ipInfo in props.UnicastAddresses) {
+        if (IPAddress.IsLoopback(ipInfo.Address))
+          continue;
+
         if (ipInfo.Address.AddressFamily == AddressFamily.InterNetwork && !IsCgnat(ipInfo.Address) && ipInfo.Address.ToString() != "127.0.0.1") {
-          localIPs.Add(ipInfo.Address);
+          ipv4 = ipInfo.Address;
+        } else if (ipInfo.Address.AddressFamily == AddressFamily.InterNetworkV6) {
+          if (IsGlobalIPv6(ipInfo.Address)) ipv6 = ipInfo.Address;
         }
       }
+
+      if (ipv4 != null || ipv6 != null) {
+        if (ipv4 == null) {
+          Log.Warning("[STUN] got IPv6 {addr} for {name}, but no IPv4!", ipv6, ni.Name);
+          continue;
+        }
+        results.Add(new ZNetworkInterface {
+          InterfaceName = ni.Name,
+          PrivateIPv4 = ipv4,
+          GlobalIPv6 = ipv6
+        });
+      }
     }
-    return localIPs;
+    return results;
+  }
+
+  private static bool IsGlobalIPv6(IPAddress ip) => !ip.IsIPv6LinkLocal &&
+                                                    !ip.IsIPv6Multicast &&
+                                                    !ip.IsIPv6SiteLocal &&
+                                                    !IsUniqueLocalIPv6(ip);
+
+  private static bool IsUniqueLocalIPv6(IPAddress ip) {
+    var bytes = ip.GetAddressBytes();
+    return (bytes[0] & 0xFE) == 0xFC; // fc00::/7
   }
 
   private static bool IsCgnat(IPAddress ip) =>
@@ -47,27 +78,15 @@ public class ZStunClient : LogicBase {
     ip.GetAddressBytes()[0] == 100 &&
     (ip.GetAddressBytes()[1] >= 64 && ip.GetAddressBytes()[1] <= 127);
 
-  public async Task<Tuple<int, List<IPEndPoint>>> GetConnectionOptions(int port = 0) {
-    List<IPAddress> localIPs = GetLocalIpAddresses();
-
-    var tasks = new List<Task<Tuple<int, IPEndPoint?>>>();
-    IPEndPoint? firstAddress = null;
-
-    for (int i=0; i<localIPs.Count; i++) {
-      if (firstAddress == null) {
-        (port, firstAddress) = await ConnectFromIp(localIPs[i], port);
-      } else {
-        tasks.Add(ConnectFromIp(localIPs[i], port));
-      }
+  public async Task<List<ZNetworkInterface>> GetInterfaceAddresses(int port = 0) {
+    var addrs = GetLocalIpAddresses();
+    foreach (var addr in addrs) {
+      (addr.BindPort, addr.PublicIPv4) = await ConnectFromIPv4(addr.PrivateIPv4, port);
     }
-    await Task.WhenAll(tasks);
-    if (firstAddress == null) return new Tuple<int, List<IPEndPoint>>(0, new List<IPEndPoint>());
-    return new Tuple<int, List<IPEndPoint>>(port, new List<IPEndPoint>() {
-      firstAddress
-    }.Union(tasks.Select(t => t.Result.Item2).Where(ep => ep != null).Cast<IPEndPoint>()).ToList());
+    return addrs;
   }
 
-  private async Task<Tuple<int, IPEndPoint?>> ConnectFromIp(IPAddress localIp, int localPort = 0, int tries = 0) {
+  private async Task<Tuple<int, IPEndPoint?>> ConnectFromIPv4(IPAddress localIp, int localPort = 0, int tries = 0) {
     using var udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
     try {
       udpClient.Bind(new IPEndPoint(localIp, localPort));
@@ -75,7 +94,7 @@ public class ZStunClient : LogicBase {
     } catch (SocketException e) {
       if (localPort > 0 && tries < 10) {
         Log.Information("[STUN] failed to bind {ip}:{port}; trying next port...", localIp, localPort);
-        return await ConnectFromIp(localIp, localPort + 1, tries + 1);
+        return await ConnectFromIPv4(localIp, localPort + 1, tries + 1);
       }
       Log.Warning(e, "[STUN] failed to bind {ip}:{port}", localIp, localPort);
       return new Tuple<int, IPEndPoint?>(localPort, null);
@@ -92,9 +111,9 @@ public class ZStunClient : LogicBase {
     var endpoints = tasks.Select(t => t.Result).Where(ep => ep != null).ToList();
     if (endpoints.Count < 2) {
       if (endpoints.Any()) Log.Warning("[STUN] only got {cnt} STUN responses", endpoints.Count);
-      return new Tuple<int, IPEndPoint?>(localPort, null);
+      if (!endpoints.Any()) return new Tuple<int, IPEndPoint?>(localPort, null);
     }
-    if (endpoints[0]!.Port != endpoints[1]!.Port) {
+    if (endpoints.Count > 1 && endpoints[0]!.Port != endpoints[1]!.Port) {
       Log.Warning("[STUN] got different responses: {addr1} v. {addr2}; NAT punching may fail", endpoints[0], endpoints[1]);
     }
     return new Tuple<int, IPEndPoint?>(localPort, endpoints[0]);
@@ -103,8 +122,13 @@ public class ZStunClient : LogicBase {
   private async Task<IPEndPoint?> ConnectToStun(IPAddress localIp, Socket udpClient, string stunServer) {
     try {
       // udpClient.Connect(remoteEp);
-      var hostAddr = await Dns.GetHostAddressesAsync(stunServer);
-      var remoteEp = new IPEndPoint(hostAddr[0], (int) StunPort);
+      var hostAddrs = await Dns.GetHostAddressesAsync(stunServer);
+      var hostAddr = hostAddrs.FirstOrDefault(h => h.AddressFamily == AddressFamily.InterNetwork);
+      if (hostAddr == null) {
+        Log.Warning("[STUN] could not find inter-network address for {server} among {addrs}", stunServer, string.Join(", ", hostAddrs.Select(h => h.ToString())));
+        hostAddr = hostAddrs.FirstOrDefault() ?? throw new ArgumentException($"No host address found for {stunServer}");
+      }
+      var remoteEp = new IPEndPoint(hostAddr, (int) StunPort);
 
       byte[] request = BuildBindingRequest();
       await udpClient.SendToAsync(new ArraySegment<byte>(request), SocketFlags.None, remoteEp);
