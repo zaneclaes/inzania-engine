@@ -21,7 +21,7 @@ public class DataCacheRepository : DataRepositoryBase, IZDataRepository {
 
   public void Initialize() { }
 
-  public IZQueryable<TData> QueryFor<TData>(IZContext context, ResultSet? set = null) where TData : DataObject {
+  public IZQueryable<TData> QueryFor<TData>(IZContext context, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full) where TData : DataObject {
     if (!Caches.ContainsKey(typeof(TData))) Caches[typeof(TData)] = new DataCache<TData>(this);
     // Log.Information("[CACHE] {type} {@cache}", typeof(TData).Name, Caches[typeof(Song)]);
     return (Caches[typeof(TData)] as IZQueryable<TData>)!;

@@ -18,4 +18,6 @@ public interface IZQueryable<out T> : IOrderedQueryable<T>, IZQueryable
 #if !Z_UNITY
   , IAsyncEnumerable<T>
 #endif
-{ }
+{
+  // public IZQueryable<T> ApplyTracking(DataModelTracking tracking);
+}

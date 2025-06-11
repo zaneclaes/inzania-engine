@@ -200,8 +200,8 @@ public static class ZContexts {
   }
 
   public static IZQueryable<TData> QueryFor<TData>(
-    this IZContext context, ResultSet? set = null
-  ) where TData : DataObject => context.Data.QueryFor<TData>(context, set);
+    this IZContext context, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full
+  ) where TData : DataObject => context.Data.QueryFor<TData>(context, set, tracking);
 
   public static IZQueryProvider GetQueryProvider<TData>(this IZContext context) where TData : DataObject
     => context.Data.QueryFor<TData>(context).QueryProvider; // we create a new Query to ensure it's attached to the PASSED context

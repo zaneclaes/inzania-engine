@@ -26,64 +26,12 @@ public class ZStunClient : LogicBase {
     Timeout = timeout;
   }
 
-  private List<ZNetworkInterface> GetLocalIpAddresses() {
-    List<ZNetworkInterface> results = new List<ZNetworkInterface>();
-
-    foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces()) {
-      if (ni.OperationalStatus != OperationalStatus.Up)
-        continue;
-
-      var props = ni.GetIPProperties();
-      IPAddress ipv4 = null;
-      IPAddress ipv6 = null;
-
-      foreach (var ipInfo in props.UnicastAddresses) {
-        if (IPAddress.IsLoopback(ipInfo.Address))
-          continue;
-
-        if (ipInfo.Address.AddressFamily == AddressFamily.InterNetwork && !IsCgnat(ipInfo.Address) && ipInfo.Address.ToString() != "127.0.0.1") {
-          ipv4 = ipInfo.Address;
-        } else if (ipInfo.Address.AddressFamily == AddressFamily.InterNetworkV6) {
-          if (IsGlobalIPv6(ipInfo.Address)) ipv6 = ipInfo.Address;
-        }
-      }
-
-      if (ipv4 != null || ipv6 != null) {
-        if (ipv4 == null) {
-          Log.Warning("[STUN] got IPv6 {addr} for {name}, but no IPv4!", ipv6, ni.Name);
-          continue;
-        }
-        results.Add(new ZNetworkInterface {
-          InterfaceName = ni.Name,
-          PrivateIPv4 = ipv4,
-          GlobalIPv6 = ipv6
-        });
-      }
-    }
-    return results;
-  }
-
-  private static bool IsGlobalIPv6(IPAddress ip) => !ip.IsIPv6LinkLocal &&
-                                                    !ip.IsIPv6Multicast &&
-                                                    !ip.IsIPv6SiteLocal &&
-                                                    !IsUniqueLocalIPv6(ip);
-
-  private static bool IsUniqueLocalIPv6(IPAddress ip) {
-    var bytes = ip.GetAddressBytes();
-    return (bytes[0] & 0xFE) == 0xFC; // fc00::/7
-  }
-
-  private static bool IsCgnat(IPAddress ip) =>
-    ip.AddressFamily == AddressFamily.InterNetwork &&
-    ip.GetAddressBytes()[0] == 100 &&
-    (ip.GetAddressBytes()[1] >= 64 && ip.GetAddressBytes()[1] <= 127);
-
-  public async Task<List<ZNetworkInterface>> GetInterfaceAddresses(int port = 0) {
-    var addrs = GetLocalIpAddresses();
-    foreach (var addr in addrs) {
+  public async Task<List<ZNetworkInterface>> GetInterfaceAddresses(List<ZNetworkInterface> interfaces, int port = 0) {
+    foreach (var addr in interfaces) {
+      if (addr.PrivateIPv4 == null) continue;
       (addr.BindPort, addr.PublicIPv4) = await ConnectFromIPv4(addr.PrivateIPv4, port);
     }
-    return addrs;
+    return interfaces;
   }
 
   private async Task<Tuple<int, IPEndPoint?>> ConnectFromIPv4(IPAddress localIp, int localPort = 0, int tries = 0) {
@@ -114,7 +62,8 @@ public class ZStunClient : LogicBase {
       if (!endpoints.Any()) return new Tuple<int, IPEndPoint?>(localPort, null);
     }
     if (endpoints.Count > 1 && endpoints[0]!.Port != endpoints[1]!.Port) {
-      Log.Warning("[STUN] got different responses: {addr1} v. {addr2}; NAT punching may fail", endpoints[0], endpoints[1]);
+      Log.Warning("[STUN] got different responses: {addr1} v. {addr2}; NAT punching will fail", endpoints[0], endpoints[1]);
+      return new Tuple<int, IPEndPoint?>(localPort, null);
     }
     return new Tuple<int, IPEndPoint?>(localPort, endpoints[0]);
   }
@@ -151,11 +100,15 @@ public class ZStunClient : LogicBase {
           return null;
         }
       } else {
-        Log.Warning("[STUN] timed out waiting for {localIP}", localIp);
+        Log.Debug("[STUN] timed out waiting for {localIP}", localIp);
         return null;
       }
     } catch (Exception e) {
-      Log.Warning(e, "[STUN] failed to load {localIp}", localIp);
+      if (e is SocketException se && se.Message.Contains("No route to host")) {
+        Log.Information("[STUN] no route to host from {localIp}", localIp);
+      } else {
+        Log.Warning(e, "[STUN] failed to load {localIp}", localIp);
+      }
       return null;
     }
   }

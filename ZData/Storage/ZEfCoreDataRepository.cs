@@ -20,6 +20,7 @@ using IZ.Data.Resolvers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Type = System.Type;
 
@@ -68,22 +69,23 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     Db.RejectChanges();
   }
 
-  public DbSet<TData> GetDbSet<TData>(IZContext context) where TData : DataObject {
-    return (DbSet<TData>) DataProps.GetOrAdd(typeof(TData), (t) => {
+  private IQueryable<TData> GetDbSet<TData>(IZContext context, DataModelTracking tracking) where TData : DataObject {
+    var ret = (DbSet<TData>) (DataProps.GetOrAdd(typeof(TData), (t) => {
       var retType = typeof(DbSet<>).MakeGenericType(t);
       var prop = Db.GetType().GetProperties().FirstOrDefault(p => p.PropertyType == retType) ??
                      throw new ParameterZException(context, $"No database models for {typeof(TData).Name}");
       return prop;
-    }).GetValue(Db)!;
+    }).GetValue(Db)!);
+    if (tracking == DataModelTracking.IdentityResolution) return ret.AsNoTrackingWithIdentityResolution();
+    if (tracking == DataModelTracking.None) return ret.AsNoTracking();
+    return ret;
   }
 
-  public IZQueryProvider CreateQueryProvider<TData>(IZContext context, DbSet<TData>? db = null) where TData : DataObject {
-    db ??= GetDbSet<TData>(context);
-    return new ZEfCoreQueryProvider(context, this, (db.AsQueryable().Provider as IAsyncQueryProvider)!);
-  }
+  private IZQueryProvider CreateQueryProvider<TData>(IZContext context, IQueryable<TData> db) where TData : DataObject =>
+    new ZEfCoreQueryProvider(context, this, (db.AsQueryable().Provider as IAsyncQueryProvider)!);
 
-  IZQueryable<TData> IZDataRepository.QueryFor<TData>(IZContext context, ResultSet? set) {
-    DbSet<TData> db = GetDbSet<TData>(context);
+  public IZQueryable<TData> QueryFor<TData>(IZContext context, ResultSet? set, DataModelTracking tracking = DataModelTracking.Full) where TData : DataObject {
+    IQueryable<TData> db = GetDbSet<TData>(context, tracking);
     return new DataModelQueryable<TData>(CreateQueryProvider(context, db), db);
   }
 

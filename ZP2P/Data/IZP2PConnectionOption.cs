@@ -18,6 +18,8 @@ public interface IZP2PConnectionOption {
 
   public string? ContentType { get; set; }
 
+  public bool IsIpV6 => IpAddress.Contains(":");
+
   public bool IsLocal => Accessibility == ZP2PAccessibility.Local;
   public bool IsPublic => Accessibility == ZP2PAccessibility.Public;
 

@@ -58,6 +58,11 @@ public static class SerilogExtensions {
       entry.Log.Warning("[LOG] message {len} > {max}", msgStr.Length, LogEntry.MaxMessageLength);
       msgStr = msgStr.Substring(0, LogEntry.MaxMessageLength);
     }
+    var exStr = entry.Exception;
+    if (exStr?.Length > LogEntry.MaxExceptionLength) {
+      entry.Log.Warning("[LOG] exception {len} > {max}", exStr.Length, LogEntry.MaxExceptionLength);
+      exStr = exStr.Substring(0, LogEntry.MaxExceptionLength);
+    }
     var propStr = ZJson.SerializeObject(entry.Properties);
     if (propStr.Length > LogEntry.MaxPropsLength) {
       entry.Log.Warning("[LOG] properties {len} > {max}", propStr.Length, LogEntry.MaxPropsLength);
@@ -70,6 +75,7 @@ public static class SerilogExtensions {
       UserId = userId,
       LineNumber = lineNum,
       Message = msgStr,
+      Exception = exStr,
       Properties = propStr,
       Level = entry.Level,
       LoggedAt = DateTimeOffset.Parse(entry.Timestamp).UtcDateTime,

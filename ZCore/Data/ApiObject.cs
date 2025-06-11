@@ -55,7 +55,8 @@ public abstract class ApiObject : ContextualObject {
     //   Log.Information("[RESOLVE] {type}#{id} => {existing}", typeof(TData), localId, existing);
     // }
     var ret = await Context.Resolver.LoadOptional(localProp.FieldName, async keys =>
-        await (q ?? Context.QueryFor<TData>())
+        // When auto-resolving, tracking can conflict; modifications are not allowed, so we use IdentityResolution
+        await (q ?? Context.QueryFor<TData>(null, DataModelTracking.IdentityResolution))
           .FilterKeyIn(foreignPropName, keys.ToArray())
           .LoadDictionaryAsync(l => (TKey) foreignProp.GetValue(l)!),
       localId, existing, o => (TKey) foreignProp.GetValue(o)!);

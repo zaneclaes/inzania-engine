@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using IZ.Client.GoogleAnalytics;
 using IZ.Core.Auth;
@@ -50,7 +51,26 @@ public class ClientContext : RootContext {
 
   public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted);
 
+  public bool IsSessionRestored { get; private set; }
+
   public readonly Stopwatch Uptimer;
+
+  private Dictionary<string, Stopwatch> _taskTimers = new Dictionary<string, Stopwatch>();
+
+  public void StartTaskTimer(string taskName, string? functionName = null) {
+    if (!string.IsNullOrWhiteSpace(functionName)) taskName = $"{taskName}.{functionName}";
+    _taskTimers.Remove(taskName);
+    _taskTimers.Add(taskName, Stopwatch.StartNew());
+  }
+
+  public void StopTaskTimer(string taskName, string? functionName = null) {
+    if (!string.IsNullOrWhiteSpace(functionName)) taskName = $"{taskName}.{functionName}";
+    if (!_taskTimers.ContainsKey(taskName)) {
+      Log.Warning("[TIMER] invalid task timer {name}", taskName);
+      return;
+    }
+    _taskTimers[taskName].Stop();
+  }
 
   public async Task Startup(string installId, string version, IAnalyticsSink? sink = null) {
     if (IsStarted) return;
@@ -61,15 +81,17 @@ public class ClientContext : RootContext {
     ClientApp.InstallId = installId;
     ClientApp.Version = version;
 
+    IsSessionRestored = false;
     _isStarting = true;
     _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
     Log.Debug("[START] Chordzy starting after {ms}ms...", Uptimer.ElapsedMilliseconds);;
 
     try {
       await Task.WhenAll(GetStartupTasks().ToArray());
-      Log.Information("[START] Chordzy entering ready state after {ms}ms...", Uptimer.ElapsedMilliseconds);
+      // Log.Information("[START] Chordzy entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await Task.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] Chordzy v{version} ready for {user} after {ms}ms", version, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds);
+      Log.Information("[START] Chordzy v{version} ready for {user} after {ms}ms; breakdown: {tasks}", version, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
+        _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
     } finally {
       Uptimer.Stop();
@@ -81,14 +103,18 @@ public class ClientContext : RootContext {
     var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
     if (storedSession.AccessToken == null) {
       _userIdentity = null;
+      IsSessionRestored = true;
       return;
     }
+    StartTaskTimer(nameof(RestoreSession));
     try {
       _userIdentity = await storedSession.RestoreUserSession();
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       Logout();
     }
+    IsSessionRestored = true;
+    StopTaskTimer(nameof(RestoreSession));
   }
 
   protected virtual void Logout() {

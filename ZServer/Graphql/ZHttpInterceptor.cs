@@ -29,6 +29,7 @@ public class ZHttpInterceptor : DefaultHttpRequestInterceptor {
       // var auth = ctxt.GetRequiredService<IZAuthenticator>();
       string? authToken = http.GetAuthToken();
       string? installId = http.GetInstallId();
+      // ctxt.Log.Information("[CTXT] {type} {ra}", ctxt.Root.GetType().Name, ctxt.Root.ResourceAction);
       var identity = await auth.Authenticate(ctxt, installId, authToken, http.User);
       builder.SetGlobalState(nameof(ClaimsPrincipal), identity.Principal);
       http.ClaimZIdentity(identity);

@@ -86,7 +86,7 @@ public class ZDbContext : DbContext, IHaveContext {
       return ChangeTracker.Entries().ToList();
     } catch (Exception ex) {
       if (tries < 3) {
-        Log.Warning(ex, "[DB] failed to get changes ({type}: {err}); trying again", ex.GetType(), ex.Message);
+        Log.Information("[DB] {context} failed to get changes x{tries} ({type}: {err}); trying again", Context.ResourceAction, tries, ex.GetType(), ex.Message);
         return GetChanges(tries+1);
       }
       throw;

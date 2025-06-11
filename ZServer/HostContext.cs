@@ -2,6 +2,7 @@
 
 using System;
 using System.Diagnostics;
+using HotChocolate.Execution;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Observability.Metrics;
@@ -27,7 +28,13 @@ public class HostContext : RootContext {
     internal set => _httpContext = value;
   }
 
+  public IRequestContext? RequestContext => (IRequestContext?) HttpContext?.RequestServices.GetService(typeof(IRequestContext));
+
   // public override IServiceProvider ServiceProvider => HttpContext?.RequestServices ?? base.ServiceProvider;
+
+  public override string Resource => RequestContext?.Operation?.Type.ToString() ?? (HttpContext?.Request.Method ?? "HTTP");
+
+  public override string? Action => RequestContext?.Operation == null ? HttpContext?.Request.Path.Value : (RequestContext.Operation.Name ?? RequestContext.OperationId);
 
   public HostContext(
     ZApp app,

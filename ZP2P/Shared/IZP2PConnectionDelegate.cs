@@ -1,10 +1,11 @@
+using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
 public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHaveContext where TMsg : class {
-  public IZP2PSessionApi<TSession, TMsg> SessionApi { get; }
+  public IZP2PSessionApi<TSession, TMsg, TMember> SessionApi { get; }
 
   public void OnConnectionState(ZP2PConnectionState state);
 
@@ -16,7 +17,7 @@ public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHa
 
   public void OnMemberUpdated(TMember member);
 
-  public void OnSessionUpdated(TSession session);
+  public Task OnSessionUpdated(TSession session);
 
   public void OnMemberDisconnected(TMember member);
 }

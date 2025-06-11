@@ -18,7 +18,7 @@ public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDele
   public bool IsRunning { get; }
 
   // Who are we?
-  public TMember Member { get; }
+  public TMember? Self { get; }
 
   public bool IsMemberConnected(string memberId);
 

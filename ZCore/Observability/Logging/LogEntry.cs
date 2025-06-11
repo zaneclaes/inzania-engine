@@ -10,7 +10,9 @@ namespace IZ.Core.Observability.Logging;
 public class LogEntry : DataObject {
   public const int MaxMessageLength = 5000;
 
-  public const int MaxPropsLength = 10000;
+  public const int MaxExceptionLength = 2000;
+
+  public const int MaxPropsLength = 8000;
 
   [MaxLength(255)] public string InstallId { get; set; } = null!;
 
@@ -23,6 +25,8 @@ public class LogEntry : DataObject {
   [MaxLength(32)] public string Level { get; set; } = null!;
 
   [MaxLength(MaxMessageLength)] public string Message { get; set; } = null!;
+
+  [MaxLength(MaxExceptionLength)] public string? Exception { get; set; }
 
   [MaxLength(MaxPropsLength)] public string Properties { get; set; } = null!;
 

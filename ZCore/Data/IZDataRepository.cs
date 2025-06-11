@@ -14,6 +14,12 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Data;
 
+public enum DataModelTracking {
+  Full,
+  IdentityResolution,
+  None
+}
+
 public interface IZDataRepository : IHaveContext, IDisposable {
   public string Uuid { get; }
 
@@ -21,7 +27,7 @@ public interface IZDataRepository : IHaveContext, IDisposable {
   public void Initialize();
 
   [ApiDocs("Get a queryable object for a data type (falls back on in-memory cache)")]
-  public IZQueryable<TData> QueryFor<TData>(IZContext context, ResultSet? set = null) where TData : DataObject;
+  public IZQueryable<TData> QueryFor<TData>(IZContext context, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full) where TData : DataObject;
 
   [ApiDocs("Wrap a loader in a semaphore for thread safety")]
   public Task<TData> ExecuteLocked<TData>(Func<Task<TData>> loader);

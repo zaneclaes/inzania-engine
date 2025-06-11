@@ -17,6 +17,8 @@ public class LogFileEntryJson : TransientObject {
 
   public string MessageTemplate { get; set; } = null!;
 
+  public string? Exception { get; set; }
+
   public Dictionary<string, object> Properties { get; set; } = null!;
 }
 
@@ -27,6 +29,8 @@ public class LogFileEntry : TransientObject {
   public string Level { get; set; } = null!;
 
   public string MessageTemplate { get; set; } = null!;
+
+  public string? Exception { get; set; }
 
   public string Properties { get; set; } = null!;
 
@@ -39,6 +43,7 @@ public class LogFileEntry : TransientObject {
         Timestamp = json.Timestamp,
         Level = json.Level,
         MessageTemplate = json.MessageTemplate,
+        Exception = json.Exception,
         Properties = ZJson.SerializeObject(json.Properties)
       };
     } catch (Exception e) {

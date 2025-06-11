@@ -56,6 +56,8 @@ public interface IZContext : IServiceScope, IAmInternal, IEventEnricher {
   public IZChildContext ScopeAction(Type? t, string? reason = null, IZLogger? logger = null);
 
   public Dictionary<string, object> DataBag { get; }
+
+  public string ResourceAction => string.IsNullOrWhiteSpace(Action) ? Resource : $"{Resource}.{Action}";
 }
 
 public interface IZRootContext : IZContext { }
