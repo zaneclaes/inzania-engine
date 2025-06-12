@@ -44,6 +44,14 @@ public static class Tasks {
     // return resultProperty!.GetValue(task);
   }
 
+  public static void AwaitSync(this Task? task) {
+    if (task != null) task.GetAwaiter().GetResult();
+  }
+
+  public static T? AwaitResultSync<T>(this Task<T>? task) {
+    return task == null ? default(T) : task.GetAwaiter().GetResult();
+  }
+
 #if ENABLE_UNITYWEBREQUEST
     public static void Forget(this Task? task) {
       if (task != null) task.AsUniTask().Forget();

@@ -30,6 +30,7 @@ public class ZStunClient : LogicBase {
     foreach (var addr in interfaces) {
       if (addr.PrivateIPv4 == null) continue;
       (addr.BindPort, addr.PublicIPv4) = await ConnectFromIPv4(addr.PrivateIPv4, port);
+      if (port != 0) port++; // do not reuse ports; this can create a CGNAT scenario, where BindPort != public port
     }
     return interfaces;
   }
@@ -105,7 +106,7 @@ public class ZStunClient : LogicBase {
       }
     } catch (Exception e) {
       if (e is SocketException se && se.Message.Contains("No route to host")) {
-        Log.Information("[STUN] no route to host from {localIp}", localIp);
+        Log.Debug("[STUN] no route to host from {localIp}", localIp);
       } else {
         Log.Warning(e, "[STUN] failed to load {localIp}", localIp);
       }

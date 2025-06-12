@@ -14,8 +14,9 @@ namespace IZ.P2P.Shared;
 [Flags]
 public enum NetworkInterfaceAccessibility {
   PrivateIPv4     = 1 << 0,
-  GlobalIPv6      = 1 << 1,
-  PublicIPv4      = 1 << 2,
+  PublicIPv4CgNat = 1 << 1,
+  GlobalIPv6      = 1 << 2,
+  PublicIPv4      = 1 << 3,
 }
 
 // Represents a physical NIC, with IPv4 and/or IPv6
@@ -34,7 +35,10 @@ public class ZNetworkInterface : TransientObject {
   public int BindPort { get; set; }
 
   // GLOBAL IPv6 works both privately and publicly
-  public IPAddress? GlobalIPv6 { get; private set; } = null!;
+  public List<IPAddress> GlobalIPv6 { get; private set; }
+
+  public IPAddress ListenIPv4 => PrivateIPv4 ?? IPAddress.Any;
+  public IPAddress ListenIPv6 => !GlobalIPv6.Any() ? IPAddress.IPv6None : (GlobalIPv6.Count > 1 ? IPAddress.IPv6Any : GlobalIPv6.First());
 
   // Port translation is done by the carrier (carrier grade NAT)
   public bool IsCgNat => PublicIPv4 != null && PublicIPv4.Port != BindPort;
@@ -43,8 +47,11 @@ public class ZNetworkInterface : TransientObject {
     get {
       NetworkInterfaceAccessibility accessibility = 0;
       if (PrivateIPv4 != null) accessibility |= NetworkInterfaceAccessibility.PrivateIPv4;
-      if (PublicIPv4 != null) accessibility |= NetworkInterfaceAccessibility.PublicIPv4;
-      if (GlobalIPv6 != null) accessibility |= NetworkInterfaceAccessibility.GlobalIPv6;
+      if (PublicIPv4 != null) {
+        if (IsCgNat)  accessibility |= NetworkInterfaceAccessibility.PublicIPv4CgNat;
+        else accessibility |= NetworkInterfaceAccessibility.PublicIPv4;
+      }
+      if (GlobalIPv6.Any()) accessibility |= NetworkInterfaceAccessibility.GlobalIPv6;
       return accessibility;
     }
   }
@@ -57,25 +64,26 @@ public class ZNetworkInterface : TransientObject {
       options.Add(CreateConnectionString(PrivateIPv4, BindPort, ZP2PAccessibility.Local, contentType));
     if (PublicIPv4 != null)
       options.Add(CreateConnectionString(PublicIPv4.Address, PublicIPv4.Port, ZP2PAccessibility.Public, contentType));
-    if (GlobalIPv6 != null)
-      options.Add(CreateConnectionString(GlobalIPv6, BindPort, ZP2PAccessibility.Public, contentType));
+    foreach (var ipv6 in GlobalIPv6)
+      options.Add(CreateConnectionString(ipv6, BindPort, ZP2PAccessibility.Public, contentType));
     return options;
   }
 
   private string CreateConnectionString(IPAddress ip, int port, ZP2PAccessibility accessibility, string? contentType = null) =>
     $"{ip}|{port}|{accessibility}" + (contentType != null ? $"|{contentType}" : "");
 
-  public override string ToString() => $"<NIC {InterfaceName} {InterfaceType} v4={PrivateIPv4} public={PublicIPv4} v6={GlobalIPv6} />";
+  public override string ToString() => $"<NIC {InterfaceName} {InterfaceType} {(IsCgNat ? "CGNAT " : "")}" +
+                                       $"v4={PrivateIPv4}:{BindPort} public={PublicIPv4} v6=[{string.Join(", ", GlobalIPv6.Select(ip => ip.ToString()))}] />";
 
   private const int PublicPortStart = 25678; // 50000;
 
   private const int MaxPortNumber = 40000; // 65535;
 
-  private ZNetworkInterface(IZContext context, string name, NetworkInterfaceType type, IPAddress? privateIPv4, IPAddress? globalIPv6) : base(context) {
+  private ZNetworkInterface(IZContext context, string name, NetworkInterfaceType type, IPAddress? privateIPv4, params IPAddress[] globalIPv6) : base(context) {
     InterfaceName = name;
     InterfaceType = type;
     PrivateIPv4 = privateIPv4;
-    GlobalIPv6 = globalIPv6;
+    GlobalIPv6 = globalIPv6.ToList();
   }
 
   public static List<ZNetworkInterface> AllInterfaces { get; private set; } = new List<ZNetworkInterface>();
@@ -103,7 +111,7 @@ public class ZNetworkInterface : TransientObject {
 
       var props = ni.GetIPProperties();
       IPAddress? ipv4 = null;
-      IPAddress? ipv6 = null;
+      List<IPAddress> ipv6 = new  List<IPAddress>();
 
       foreach (var ipInfo in props.UnicastAddresses) {
         if (IPAddress.IsLoopback(ipInfo.Address))
@@ -112,11 +120,11 @@ public class ZNetworkInterface : TransientObject {
         if (ipInfo.Address.AddressFamily == AddressFamily.InterNetwork && !IsCgnat(ipInfo.Address) && ipInfo.Address.ToString() != "127.0.0.1") {
           ipv4 = ipInfo.Address;
         } else if (ipInfo.Address.AddressFamily == AddressFamily.InterNetworkV6) {
-          if (IsGlobalIPv6(ipInfo.Address)) ipv6 = ipInfo.Address;
+          if (IsGlobalIPv6(ipInfo.Address)) ipv6.Add(ipInfo.Address);
         }
       }
-      if (ipv6 == null && ipv4 == null) continue;
-      results.Add(new ZNetworkInterface(ctx, ni.Name, ni.NetworkInterfaceType, ipv4, ipv6));
+      if (!ipv6.Any() && ipv4 == null) continue;
+      results.Add(new ZNetworkInterface(ctx, ni.Name, ni.NetworkInterfaceType, ipv4, ipv6.ToArray()));
     }
     return results;
   }
