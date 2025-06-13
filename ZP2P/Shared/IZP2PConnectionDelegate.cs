@@ -4,6 +4,12 @@ using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
+public enum P2PCloseReason {
+  HostEnded,
+  ServerConnectionLost,
+  AllMembersLeft,
+}
+
 public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHaveContext where TMsg : class {
   public IZP2PSessionApi<TSession, TMsg, TMember> SessionApi { get; }
 
@@ -20,4 +26,6 @@ public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHa
   public Task OnSessionUpdated(TSession session);
 
   public void OnMemberDisconnected(TMember member);
+
+  public void OnRemoteClosed(P2PCloseReason reason);
 }

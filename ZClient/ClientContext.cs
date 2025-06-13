@@ -72,13 +72,13 @@ public class ClientContext : RootContext {
     _taskTimers[taskName].Stop();
   }
 
-  public async Task Startup(string installId, string version, IAnalyticsSink? sink = null) {
+  public async Task Startup(string clientId, string version, IAnalyticsSink? sink = null) {
     if (IsStarted) return;
     if (_isStarting) {
       await Tasks.WaitUntilAsync(() => !_isStarting);
       return;
     }
-    ClientApp.InstallId = installId;
+    ClientApp.ClientId = clientId;
     ClientApp.Version = version;
 
     IsSessionRestored = false;

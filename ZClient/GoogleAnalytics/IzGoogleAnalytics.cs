@@ -42,7 +42,7 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
       }
       identity = _visitor;
     }
-    await (_sink = sink).Config(Stream, identity.InstallId, identity.SessionId, identity.IZUser?.Id);
+    await (_sink = sink).Config(Stream, identity.ClientId, identity.SessionId, identity.IZUser?.Id);
     await ((IZAnalytics) this).SetIdentity(identity);
     ProcessQueue();
   }

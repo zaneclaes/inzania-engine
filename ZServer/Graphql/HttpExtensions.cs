@@ -30,7 +30,7 @@ public static class HttpExtensions {
   }
 
   public static string? GetInstallId(this HttpContext http) {
-    string? auth = http.Request.Headers[ZHeaders.InstallId].ToString();
+    string? auth = http.Request.Headers[ZHeaders.ClientId].ToString();
     return string.IsNullOrWhiteSpace(auth) ? null : auth;
   }
 

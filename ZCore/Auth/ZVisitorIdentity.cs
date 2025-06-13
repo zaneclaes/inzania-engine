@@ -13,7 +13,7 @@ public class ZVisitorIdentity : TransientObject, IZIdentity {
 
   public string? Name => null;
 
-  public string InstallId { get; }
+  public string ClientId { get; }
 
   public string SessionId { get; }
 
@@ -24,12 +24,12 @@ public class ZVisitorIdentity : TransientObject, IZIdentity {
 
   public ClaimsPrincipal Principal { get; }
 
-  public ZVisitorIdentity(IZContext context, string installId, string? sessionId = null, params ClaimsIdentity[] identities) : base(context) {
+  public ZVisitorIdentity(IZContext context, string clientId, string? sessionId = null, params ClaimsIdentity[] identities) : base(context) {
     Principal = new GenericPrincipal(this, new[] {
       ZUserRole.Visitor.ToString()
     });
     Principal.AddIdentities(identities);
-    InstallId = installId;
+    ClientId = clientId;
     SessionId = sessionId ?? ModelId.GenerateId();
   }
 }

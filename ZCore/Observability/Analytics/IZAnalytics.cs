@@ -52,7 +52,7 @@ public interface IZAnalytics : IHaveContext, IDisposable {
       else props["user_age"] = "years";
       // props["user_id"] = ;
     }
-    return SetUserProperties(identity.InstallId, identity.SessionId, user?.Id, props);
+    return SetUserProperties(identity.ClientId, identity.SessionId, user?.Id, props);
   }
 
   private Task SendEvent(string name) => SendEvent(new AnalyticsEvent<NullParams>(name, new NullParams()));

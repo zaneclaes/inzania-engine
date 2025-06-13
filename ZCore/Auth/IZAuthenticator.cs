@@ -20,5 +20,5 @@ public interface IZAuthenticator : IHaveContext {
 
   public Task<T> ChangeUsername<T>(ChangeUsernameArgs args) where T : class, IZUser;
 
-  public Task<IZIdentity> Authenticate(IZContext context, string? installId, string? authToken, ClaimsPrincipal user);
+  public Task<IZIdentity> Authenticate(IZContext context, string? clientId, string? authToken, ClaimsPrincipal user);
 }

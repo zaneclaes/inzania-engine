@@ -113,7 +113,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       Type = "connection_init",
       Payload = new ZWebSocketConnectionPayload() {
         Authorization = _headers[ZHeaders.Authorization],
-        InstallId = _headers[ZHeaders.InstallId],
+        ClientId = _headers[ZHeaders.ClientId],
         ApplicationVersion = _headers[ZHeaders.ApplicationVersion],
         RequestId = _headers[ZHeaders.RequestId],
         Env = _headers[ZHeaders.Env],
@@ -238,7 +238,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     var socket = Socket;
     DisposeSocket();
     if (socket?.State == System.Net.WebSockets.WebSocketState.Connecting || socket?.State == System.Net.WebSockets.WebSocketState.Open) CloseSocket(socket).Forget();
-    Log.Information("[GQL-WS] Disconnect: Disposed & Disconnected");
+    Log.Debug("[GQL-WS] Disconnect: Disposed & Disconnected");
   }
 
   public void Update() {

@@ -6,7 +6,7 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Client;
 
 public abstract class ZClientApp : ZApp {
-  public string? InstallId { get; set; }
+  public string? ClientId { get; set; }
 
   public string? Version { get; set; }
 

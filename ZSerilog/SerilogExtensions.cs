@@ -47,12 +47,12 @@ public static class SerilogExtensions {
     return writer.ToString();
   }
 
-  public static List<LogEntry> ToLogEntries(this List<LogFileEntry> entries, string fn, string installId, string? userId = null) {
+  public static List<LogEntry> ToLogEntries(this List<LogFileEntry> entries, string fn, string clientId, string? userId = null) {
     if (fn.Length > 255) fn = fn.Substring(0, 255);
-    return entries.Select((e, i) => e.ToLogEntry(fn, installId, userId, i)).ToList();
+    return entries.Select((e, i) => e.ToLogEntry(fn, clientId, userId, i)).ToList();
   }
 
-  private static LogEntry ToLogEntry(this LogFileEntry entry, string fn, string installId, string? userId, int lineNum) {
+  private static LogEntry ToLogEntry(this LogFileEntry entry, string fn, string clientId, string? userId, int lineNum) {
     var msgStr = entry.RenderMessage();
     if (msgStr.Length > LogEntry.MaxMessageLength) {
       entry.Log.Warning("[LOG] message {len} > {max}", msgStr.Length, LogEntry.MaxMessageLength);
@@ -71,7 +71,7 @@ public static class SerilogExtensions {
     return new LogEntry() {
       Context = entry.Context,
       FileName = fn,
-      InstallId = installId,
+      ClientId = clientId,
       UserId = userId,
       LineNumber = lineNum,
       Message = msgStr,

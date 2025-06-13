@@ -36,7 +36,7 @@ public class ZSocketInterceptor : DefaultSocketSessionInterceptor {
         var auth = ctxt.GetRequiredService<IZAuthenticator>();
         var http = session.Connection.HttpContext;
         var authToken = HttpExtensions.GetAuthTokenFromString(obj.Authorization);
-        var identity = await auth.Authenticate(ctxt, obj.InstallId, authToken, http.User) ??
+        var identity = await auth.Authenticate(ctxt, obj.ClientId, authToken, http.User) ??
                        throw new Exception("No user identity returned");
         // builder.SetGlobalState(nameof(ClaimsPrincipal), identity.Principal);
         http.ClaimZIdentity(identity);

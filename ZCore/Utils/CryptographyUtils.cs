@@ -1,6 +1,8 @@
 #region
 
 using System;
+using System.Linq;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using IZ.Core.Utils.Cryptography;
@@ -23,6 +25,30 @@ public static class CryptographyUtils {
 
       return Convert.ToBase64String(hash);
     }
+  }
+
+  // A secure hashing function with a predictable length; the max length is 48, but it can be auto-truncated
+  public static string ToSecureAlphanumericHash(this string input, string key, int? length = null) {
+    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
+    var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(input));
+    var base62 = Base62Encode(hash);
+    return length == null ? base62 : base62.Substring(0, Math.Min(length.Value, base62.Length));
+  }
+
+  // Encoding as base62 provides the shortest possible ALPHANUMERIC length
+  private const string Base62Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  private static string Base62Encode(byte[] data) {
+    // Convert hash bytes to BigInteger (unsigned, little-endian)
+    var value = new BigInteger(data.Append((byte)0).ToArray()); // prevent sign bit issues
+
+    var sb = new StringBuilder();
+    while (value > 0)
+    {
+      value = BigInteger.DivRem(value, 62, out var remainder);
+      sb.Insert(0, Base62Alphabet[(int)remainder]);
+    }
+
+    return sb.ToString();
   }
 
   public static string ToBase64String(this string str) => Convert.ToBase64String(Encoding.UTF8.GetBytes(str));

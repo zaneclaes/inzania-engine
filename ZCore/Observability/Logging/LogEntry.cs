@@ -5,8 +5,8 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Observability.Logging;
 
-[ApiKey(nameof(InstallId), nameof(FileName), nameof(LineNumber))]
-[ApiIndex(nameof(InstallId), nameof(FileName), nameof(LoggedAt))]
+[ApiKey(nameof(ClientId), nameof(FileName), nameof(LineNumber))]
+[ApiIndex(nameof(ClientId), nameof(FileName), nameof(LoggedAt))]
 public class LogEntry : DataObject {
   public const int MaxMessageLength = 5000;
 
@@ -14,7 +14,7 @@ public class LogEntry : DataObject {
 
   public const int MaxPropsLength = 8000;
 
-  [MaxLength(255)] public string InstallId { get; set; } = null!;
+  [MaxLength(128)] public string ClientId { get; set; } = null!;
 
   [MaxLength(255)] public string FileName { get; set; } = null!;
 

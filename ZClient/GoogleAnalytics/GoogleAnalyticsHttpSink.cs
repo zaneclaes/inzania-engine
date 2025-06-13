@@ -54,11 +54,11 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 #endif
   }
 
-  public Task Config(AnalyticsStream stream, string installId, string sessionId, string? userId, Dictionary<string, object>? userProps = null) {
+  public Task Config(AnalyticsStream stream, string clientId, string sessionId, string? userId, Dictionary<string, object>? userProps = null) {
     _stream = stream;
     _client = null;
     _userId = userId;
-    _installId = installId;
+    _installId = clientId;
     _sessionId = sessionId;
     if (userProps != null) _userProps = userProps;
     return Task.CompletedTask;

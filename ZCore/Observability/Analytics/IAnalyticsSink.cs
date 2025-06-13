@@ -11,5 +11,5 @@ namespace IZ.Core.Observability.Analytics;
 public interface IAnalyticsSink : IDisposable {
   public Task<bool> SendEvent(AnalyticsEvent e); //  where T : IEventParams;
 
-  public Task Config(AnalyticsStream stream, string installId, string sessionId, string? userId = null, Dictionary<string, object>? userProps = null);
+  public Task Config(AnalyticsStream stream, string clientId, string sessionId, string? userId = null, Dictionary<string, object>? userProps = null);
 }

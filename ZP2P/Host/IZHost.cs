@@ -13,5 +13,5 @@ public interface IZHost<TMsg, TPacket, TSession, TMember> : IZP2P<TMsg, TPacket,
 {
   public Task<TSession> StartHosting(params string[] contentTypes);
 
-  public Task StopHosting();
+  // public Task StopHosting();
 }

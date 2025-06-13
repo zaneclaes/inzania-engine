@@ -3,7 +3,7 @@ namespace IZ.Core;
 public class ZHeaders {
   public static readonly string Authorization = "Authorization";
 
-  public static readonly string InstallId = "X-Install-ID";
+  public static readonly string ClientId = "X-Client-ID";
 
   public static readonly string ApplicationVersion = "X-App-Version";
 
