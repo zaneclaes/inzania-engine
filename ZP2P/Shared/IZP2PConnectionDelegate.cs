@@ -13,6 +13,8 @@ public enum P2PCloseReason {
 public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHaveContext where TMsg : class {
   public IZP2PSessionApi<TSession, TMsg, TMember> SessionApi { get; }
 
+  public Task<ZNetworkInterface> ChooseNetworkInterface();
+
   public void OnConnectionState(ZP2PConnectionState state);
 
   public void OnMemberPing(TMember member, ushort ping);

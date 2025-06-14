@@ -207,7 +207,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     Log.Debug("[GQL-WS] Connect");
     Socket!.Connect().Forget();
     await WaitUntil(GqlWebSocketState.Subscribed);
-    Log.Information("[GQL-WS] Subscribed: {id}", _request.Id);
+    Log.Debug("[GQL-WS] Subscribed: {id}", _request.Id);
 
     // return UniTask.CompletedTask;
 // #if UNITY_WEBGL && !UNITY_EDITOR
