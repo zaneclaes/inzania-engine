@@ -78,8 +78,7 @@ public static class ZContexts {
   public static IZRootContext GetRootContext(this IServiceProvider serviceProvider) {
     var context = serviceProvider.TryGetRootContext();
     if (context != null) return context;
-    // context = ZEnv.SpawnRootContext();
-    return serviceProvider.GetService<IZBackgroundContext>() ?? serviceProvider.GetRequiredService<IZRootContext>();
+    return serviceProvider.GetService<IZBackgroundContext>() ?? serviceProvider.GetService<IZRootContext>() ?? ZEnv.SpawnRootContext();
   }
 
   public static IZContext GetCurrentContext(this IServiceProvider serviceProvider) {
