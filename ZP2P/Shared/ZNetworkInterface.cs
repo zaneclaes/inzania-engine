@@ -10,7 +10,6 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Utils;
 using IZ.P2P.Data;
-using Lib.Utils;
 
 namespace IZ.P2P.Shared;
 
@@ -141,7 +140,7 @@ public class ZNetworkInterface : TransientObject {
   private static readonly List<IPAddress> _lastIpAddresses = new List<IPAddress>();
 
   public static bool HaveInterfacesChanged =>
-    !_lastIpAddresses.IsSameSet(GetAvailableInterfaces().Select(ni => GetIpAddresses(ni).Item1).Where(v => v != null).ToList());
+    !_lastIpAddresses.IsSameSet(GetAvailableInterfaces().Select(ni => GetIpAddresses(ni).Item1).Where(v => v != null).Cast<IPAddress>().ToList());
 
   private static List<NetworkInterface> GetAvailableInterfaces() =>
     NetworkInterface.GetAllNetworkInterfaces().Where(ni => ni.OperationalStatus == OperationalStatus.Up).ToList();
@@ -160,7 +159,7 @@ public class ZNetworkInterface : TransientObject {
         ipv6.Add(ipInfo.Address);
       }
     }
-    return new Tuple<IPAddress, List<IPAddress>>(ipv4, ipv6);
+    return new Tuple<IPAddress?, List<IPAddress>>(ipv4, ipv6);
   }
 
   private static List<ZNetworkInterface> GetLocalInterfaces(IZContext ctx, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator) {

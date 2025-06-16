@@ -127,9 +127,9 @@ public static class ZSchema {
       .BindRuntimeType<ulong, UnsignedLongType>()
       .AddType<UnsignedShortType>()
       .BindRuntimeType<ushort, UnsignedShortType>()
-      .AddQueryType<ZQueryType>()
-      .AddMutationType<ZMutationType>()
-      .AddSubscriptionType<ZSubscriptionType>()
+      // .AddQueryType<ZQueryType>()
+      // .AddMutationType<ZMutationType>()
+      // .AddSubscriptionType<ZSubscriptionType>()
       .AddType<ZModelIdType>()
       // .UseField(next => async (context) => {
       //   var ctxt = context.Service<IZContext>();
@@ -137,6 +137,13 @@ public static class ZSchema {
       //   await next(context);
       // })
       ;
+
+    if (ZApi.GetApiMethodNames<ZQueryBase>().Any())
+      descriptor = descriptor.AddQueryType<ZQueryType>();
+    if (ZApi.GetApiMethodNames<ZMutationBase>().Any())
+      descriptor = descriptor.AddMutationType<ZMutationType>();
+    if (ZApi.GetApiMethodNames<ZSubscriptionBase>().Any())
+      descriptor = descriptor.AddSubscriptionType<ZSubscriptionType>();
 
     List<ZObjectDescriptor> types = ZObjectDescriptor.ObjectTypes.Values.ToList();
     foreach (var t in types) {
