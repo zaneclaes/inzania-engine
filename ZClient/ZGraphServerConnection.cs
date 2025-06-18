@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IZ.Client.Networking.WebSockets.GraphQL;
 using IZ.Client.Queries;
+using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Contexts;
@@ -79,5 +80,5 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     return cws;
   }
 
-  public ZGraphServerConnection(IZContext context) : base(context) { }
+  public ZGraphServerConnection() : base(ZEnv.SpawnRootContext()) { }
 }

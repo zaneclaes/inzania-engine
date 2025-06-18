@@ -22,7 +22,7 @@ public static class ClientExtensions {
   public static IServiceCollection AddTuneQueries<TSession, TConn>(this IServiceCollection c, Func<IServiceProvider, TConn> connBuilder)
     where TSession : class, IStoredUserSession where TConn : class, IHttpConnection => c
     .AddSingleton<IStoredUserSession, TSession>()
-    .AddSingleton<IServerConnection>(sp => new ZGraphServerConnection(sp.GetCurrentContext()))
+    .AddSingleton<IServerConnection, ZGraphServerConnection>()
     .AddSingleton<IHttpConnection, TConn>(connBuilder) //
     // .AddTuneQuery().Services
     .AddSingleton<IEntityStore, EntityStore>()
