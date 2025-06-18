@@ -11,6 +11,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using Semver;
 
 #endregion
 
@@ -72,7 +73,7 @@ public class ClientContext : RootContext {
     _taskTimers[taskName].Stop();
   }
 
-  public async Task Startup(string clientId, string version, IAnalyticsSink? sink = null) {
+  public async Task Startup(string clientId, SemVersion version, IAnalyticsSink? sink = null) {
     if (IsStarted) return;
     if (_isStarting) {
       await Tasks.WaitUntilAsync(() => !_isStarting);
