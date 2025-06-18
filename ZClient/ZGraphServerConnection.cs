@@ -55,8 +55,13 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
       () => sp.GetRequiredService<IResultPatcher<JsonDocument>>(),
       sp.GetRequiredService<IOperationStore>());
     var execDoc = new GraphExecutionDocument(result);
-    IOperationResult<GraphResult<TData>>? res = await opExecutor.ExecuteAsync(
-      execDoc.ToOperationRequest(), ct ?? context.CancellationToken);
+    IOperationResult<GraphResult<TData>>? res;
+    try {
+      res = await opExecutor.ExecuteAsync(
+        execDoc.ToOperationRequest(), ct ?? context.CancellationToken);
+    } catch (Exception e) {
+      throw new SystemException($"[GQL] Failed to execute {execDoc}", e);
+    }
 
     if (res.Data == null) throw new NullReferenceException(nameof(TData));
     var data = res.Data!.Result;

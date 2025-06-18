@@ -51,4 +51,6 @@ public class GraphExecutionDocument : TransientObject, IDocument {
     Args,
     Files,
     RequestStrategy.Default);
+
+  public override string ToString() => $"<GqlDoc Id={Id} Op={_executionResult.Plan.OperationName} Kind={Kind} />";
 }
