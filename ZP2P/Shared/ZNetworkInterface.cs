@@ -104,9 +104,11 @@ public class ZNetworkInterface : TransientObject {
   private static List<ZNetworkInterface> AllInterfaces { get; set; } = new List<ZNetworkInterface>();
 
   public static async Task<List<ZNetworkInterface>> Discover(IZContext context, int portOffset = 0, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator = null) {
+#if !UNITY_WEBGL
     using var stunClient = new ZStunClient(context);
     AllInterfaces = await stunClient.GetInterfaceAddresses(GetLocalInterfaces(context, creator), PublicPortStart + portOffset);
     AllInterfaces.Sort((a, b) => b.Priority.CompareTo(a.Priority));
+#endif
     return AllInterfaces;
   }
 
