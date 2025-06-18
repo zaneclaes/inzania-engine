@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="GoogleAnalyticsTracker.Simple" Version="7.0.1"/>
-    <PackageReference Include="StrawberryShake.Transport.Http" Version="15.1.3" />
+    <PackageReference Include="StrawberryShake.Transport.Http" Version="15.1.5" />
   </ItemGroup>
 
 </Project>
