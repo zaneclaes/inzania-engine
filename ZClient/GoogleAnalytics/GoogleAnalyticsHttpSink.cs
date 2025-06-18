@@ -1,7 +1,9 @@
 #region
 
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
@@ -33,17 +35,17 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   private HttpClient? _client;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-    [DllImport("__Internal")]
-    private static extern void GAEvent(string name, string json);
+  [DllImport("__Internal")]
+  private static extern void GAEvent(string name, string json);
 #endif
 
   public Task<bool> SendEvent(AnalyticsEvent e) {
 #if UNITY_WEBGL && !UNITY_EDITOR
       try {
-        GAEvent(e.Name, ZJson.SerializeObject(e.Params));
+        GAEvent(e.Name, ZJson.SerializeObject(e.EventParams));
         return Task.FromResult(true);
       } catch (Exception ex) {
-        Log.Error(ex, "Failed to send event {name} {@params}", e.Name, e.Params);
+        Log.Error(ex, "Failed to send event {name} {@params}", e.Name, e.EventParams);
         return Task.FromResult(false);
       }
 #else

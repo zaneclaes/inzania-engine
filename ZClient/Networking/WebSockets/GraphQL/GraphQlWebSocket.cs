@@ -242,9 +242,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   }
 
   public void Update() {
-// #if !UNITY_WEBGL || UNITY_EDITOR
     Socket?.DispatchMessageQueue();
-// #endif
   }
 
   public override void Dispose() {
