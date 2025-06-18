@@ -70,11 +70,15 @@ public abstract class ZApp : IGetLogged {
 
   public string Fqdn => $"{(SubDomain == null ? "" : $"{SubDomain}.")}{DomainName}{(DomainName == "localhost" ? ":5292" : "")}";
 
-  public string Url => $"{(SecureProtocol ? "https" : "http")}://{Fqdn}";
+  private string HttpProtocol => SecureProtocol ? "https" : "http";
+
+  public string Url => $"{HttpProtocol}://{Fqdn}";
 
   public string Cdn => $"https://{(Env == ZEnvironment.Production ? "assets" : "assets-staging")}.{ProductDomainName}";
 
-  public string Gql => $"{Url}/api/graphql";
+  private string GqlFqdn => Env == ZEnvironment.Production ? $"production.{DomainName}" : Fqdn;
+
+  public string Gql => $"{HttpProtocol}://{GqlFqdn}/api/graphql";
 
   public ZAuthOptions Auth { get; }
 
