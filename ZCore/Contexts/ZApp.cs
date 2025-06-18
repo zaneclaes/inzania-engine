@@ -39,6 +39,7 @@ public abstract class ZApp : IGetLogged {
       SubDomain = env == ZEnvironment.Production ? "www" : env.ToString().ToLower();
       SecureProtocol = true;
     }
+    ProductDomainName = domainName;
     ZEnv.App = this;
     // Sitemap = new Sitemap($"https://www.{ZEnv.DomainName}");
     ZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
@@ -55,6 +56,8 @@ public abstract class ZApp : IGetLogged {
 
   public string DomainName { get; }
 
+  public string ProductDomainName { get; }
+
   public string? SubDomain { get; }
 
   public bool SecureProtocol { get; }
@@ -69,8 +72,7 @@ public abstract class ZApp : IGetLogged {
 
   public string Url => $"{(SecureProtocol ? "https" : "http")}://{Fqdn}";
 
-  public string Cdn => Env <= ZEnvironment.Development ? Url :
-    $"https://{(Env == ZEnvironment.Production ? "assets" : "assets-staging")}.{ZEnv.DomainName}";
+  public string Cdn => $"https://{(Env == ZEnvironment.Production ? "assets" : "assets-staging")}.{ProductDomainName}";
 
   public string Gql => $"{Url}/api/graphql";
 

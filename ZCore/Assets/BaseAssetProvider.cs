@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
@@ -12,6 +14,8 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
 
   public string AssetDirectory => _assetDir ??= LoadAssetDir();
   private string? _assetDir;
+
+  private HashSet<string> _activeDownloads = new HashSet<string>();
 
   public string GetAssetPath(string relativePath) => Path.Combine(AssetDirectory, relativePath);
 
@@ -36,6 +40,39 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
   public virtual byte[]? GetResourceContents(string relativePath) {
     string fn = GetAssetPath(relativePath);
     return File.Exists(fn) ? File.ReadAllBytes(fn) : null;
+  }
+
+  public async Task<string> CacheAsset(string relativePath, CancellationToken ct = new CancellationToken()) {
+    string fp = GetAssetPath(relativePath);
+    if (File.Exists(fp)) {
+      Log.Debug("[ASSET] got cached {fp}", fp);
+      return fp;
+    }
+
+    if (!_activeDownloads.Add(relativePath)) {
+      await Tasks.WaitUntilAsync(() => !_activeDownloads.Contains(relativePath), ct);
+      if (!File.Exists(fp)) throw new NullReferenceException($"Asset does not exist at {fp}");
+    } else {
+      await DownloadAsset(relativePath, ct);
+    }
+    return fp;
+  }
+
+  // Download a remote file directly and return the path for consumption
+  private async Task DownloadAsset(string relativePath, CancellationToken ct = new CancellationToken()) {
+    try {
+      string fp = GetAssetPath(relativePath);
+      Directory.CreateDirectory(Path.GetDirectoryName(fp)!);
+
+      var unixPath = relativePath.Replace("\\\\", "/").Replace("\\", "/");
+      var url = $"{Context.App.Cdn}/{unixPath}";
+      Log.Information("[ASSET] download {url} to {fp}", url, fp);
+      var data = await GetAssetContents(relativePath, url, ct) ??
+                 throw new NullReferenceException($"Failed to get contents from {url}");
+      await File.WriteAllBytesAsync(fp, data, ct);
+    } finally {
+      _activeDownloads.Remove(relativePath);
+    }
   }
 
   protected virtual async Task<byte[]> GetUrl(string url) {

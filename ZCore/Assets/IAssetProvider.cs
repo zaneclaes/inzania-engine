@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -22,24 +23,7 @@ public interface IAssetProvider : IHaveContext {
 
   public byte[]? GetResourceContents(string relativePath);
 
-  // Download a remote file directly and return the path for consumption
-  public async Task<string> DownloadAsset(string relativePath, CancellationToken ct = new CancellationToken()) {
-    string fp = GetAssetPath(relativePath);
-    if (File.Exists(fp)) {
-      Log.Debug("[ASSET] got cached {fp}", fp);
-      return fp;
-    }
-    Directory.CreateDirectory(Path.GetDirectoryName(fp)!);
-
-    var unixPath = relativePath.Replace("\\\\", "/").Replace("\\", "/");
-    var url = $"{Context.App.Cdn}/{unixPath}";
-    Log.Information("[ASSET] download {url} to {fp}", url, fp);
-    var data = await GetAssetContents(relativePath, url, ct) ??
-               throw new NullReferenceException($"Failed to get contents from {url}");
-    await File.WriteAllBytesAsync(fp, data, ct);
-
-    return fp;
-  }
+  public Task<string> CacheAsset(string relativePath, CancellationToken ct = new CancellationToken());
 
   public string? GetResourceText(string name, Encoding? enc = null) {
     byte[]? data = GetResourceContents(name);
