@@ -11,6 +11,7 @@ using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Contexts;
+using IZ.Core.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Transport.Http;
@@ -60,6 +61,7 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
       res = await opExecutor.ExecuteAsync(
         execDoc.ToOperationRequest(), ct ?? context.CancellationToken);
     } catch (Exception e) {
+      if (e is RemoteZException) throw;
       throw new SystemException($"[GQL] Failed to execute {execDoc}", e);
     }
 

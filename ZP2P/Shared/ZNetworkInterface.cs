@@ -145,7 +145,11 @@ public class ZNetworkInterface : TransientObject {
     !_lastIpAddresses.IsSameSet(GetAvailableInterfaces().Select(ni => GetIpAddresses(ni).Item1).Where(v => v != null).Cast<IPAddress>().ToList());
 
   private static List<NetworkInterface> GetAvailableInterfaces() =>
+#if !UNITY_WEBGL
     NetworkInterface.GetAllNetworkInterfaces().Where(ni => ni.OperationalStatus == OperationalStatus.Up).ToList();
+#else
+    new List<NetworkInterface>();
+#endif
 
   private static Tuple<IPAddress?, List<IPAddress>> GetIpAddresses(NetworkInterface ni) {
     var props = ni.GetIPProperties();
