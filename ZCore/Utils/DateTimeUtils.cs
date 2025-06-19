@@ -23,4 +23,14 @@ public static class DateTimeUtils {
   public static DateTime ToDateTimeUnixUtc(this long unixTimestamp) => new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc).AddSeconds(unixTimestamp);
 
   public static int GetSortableYMD(this DateTime dt) => dt.Year * 10000 + dt.Month * 100 + dt.Day;
+
+  public static string ToAgeHoursDays (this TimeSpan t) {
+    if (t.TotalDays <= 1) {
+      int th = (int) (t.TotalHours);
+      return $"{th} hour" + (th != 1 ? "s" : "");
+    }
+
+    int td = (int) t.TotalDays;
+    return $"{td} day" + (td > 1 ? "s" : "");
+  }
 }
