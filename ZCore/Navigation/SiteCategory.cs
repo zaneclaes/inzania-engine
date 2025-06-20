@@ -5,6 +5,7 @@ public enum SiteCategory {
   Login = -1,
   Home,
   Songs,
+  Play,
   MusicTheory,
   Account,
   Settings,

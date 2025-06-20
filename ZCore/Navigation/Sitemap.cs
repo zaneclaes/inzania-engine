@@ -16,9 +16,9 @@ public abstract class Sitemap : LogicBase {
 
   protected override bool AllowRootContext => true;
 
-  protected List<SitePage> Pages { get; }
+  private List<SitePage> Pages { get; }
 
-  public Sitemap(ZApp app, params SitePage[] pages) {
+  protected Sitemap(ZApp app, params SitePage[] pages) {
     Pages = pages.ToList();
     Fqdn = app.Fqdn;
     Map = GetRouteTypeMap(Pages);
