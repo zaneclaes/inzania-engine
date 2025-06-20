@@ -22,8 +22,11 @@ public class ClientContext : RootContext {
 
   public ZClientApp ClientApp => App as ZClientApp ?? throw new SystemException($"ClientApp is a {App?.GetType()}");
 
-  public override IZIdentity? CurrentIdentity => _userIdentity;
+  public override IZIdentity? CurrentIdentity => _userIdentity ?? (_visitorIdentity ??= GetVisitorIdentity());
   private IZIdentity? _userIdentity;
+
+  protected virtual ZVisitorIdentity? GetVisitorIdentity() => null;
+  private ZVisitorIdentity? _visitorIdentity;
 
   public IZUser? CurrentUser => _userIdentity?.IZUser;
 
