@@ -16,6 +16,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Core.Contexts;
 
 public static class ZContexts {
+  public static bool IsLoggedIn(this IZContext context) => (context.CurrentIdentity?.IsAuthenticated ?? false) && context.CurrentIdentity?.IZUser != null;
+
   public static IZChildContext ScopeAction<T>(this IZContext context, string? reason = null) => context.ScopeAction(typeof(T), reason);
 
   // public static Dictionary<string, object> GetMetricTags(this IEventEnricher obj) =>
