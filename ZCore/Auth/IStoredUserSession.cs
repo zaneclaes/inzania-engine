@@ -11,7 +11,7 @@ public interface IStoredUserSession {
 
   public string? Username { get; }
 
-  public void LoadUserSession(IZSession? session);
+  public IZIdentity? LoadUserSession(IZSession? session);
 
   public Task<IZIdentity> RestoreUserSession(); // Only called if there's a token
 }

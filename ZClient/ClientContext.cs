@@ -112,7 +112,7 @@ public class ClientContext : RootContext {
     }
     StartTaskTimer(nameof(RestoreSession));
     try {
-      _userIdentity = await storedSession.RestoreUserSession();
+      Login(await storedSession.RestoreUserSession());
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       Logout();
@@ -121,7 +121,11 @@ public class ClientContext : RootContext {
     StopTaskTimer(nameof(RestoreSession));
   }
 
-  protected virtual void Logout() {
+  public virtual void Login(IZIdentity userIdentity) {
+    _userIdentity = userIdentity;
+  }
+
+  public virtual void Logout() {
     _userIdentity = null;
     ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(null);
   }
