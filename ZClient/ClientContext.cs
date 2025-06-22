@@ -47,13 +47,13 @@ public class ClientContext : RootContext {
 
   public bool IsStarted { get; private set; }
 
-  private bool _isStarting;
-
   public bool IsShutDown { get; private set; }
 
   public virtual bool IsRunning => IsStarted && !IsShutDown;
 
-  public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted);
+  public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted || StartupException != null);
+
+  public Exception? StartupException { get; private set; }
 
   public bool IsSessionRestored { get; private set; }
 
@@ -77,29 +77,27 @@ public class ClientContext : RootContext {
   }
 
   public async Task Startup(string clientId, SemVersion version, IAnalyticsSink? sink = null) {
-    if (IsStarted) return;
-    if (_isStarting) {
-      await Tasks.WaitUntilAsync(() => !_isStarting);
-      return;
-    }
     ClientApp.ClientId = clientId;
     ClientApp.Version = version;
+    _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
 
     IsSessionRestored = false;
-    _isStarting = true;
-    _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
-    Log.Debug("[START] Chordzy starting after {ms}ms...", Uptimer.ElapsedMilliseconds);;
+    StartupException = null;
+
+    Log.Debug("[START] starting after {ms}ms...", Uptimer.ElapsedMilliseconds);;
 
     try {
       await Task.WhenAll(GetStartupTasks().ToArray());
       // Log.Information("[START] Chordzy entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await Task.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] Chordzy v{version} ready for {user} after {ms}ms; breakdown: {tasks}", version, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
+      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", version, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
+    } catch (Exception e) {
+      Log.Error(e, "[START] fatal error!");
+      StartupException = e;
     } finally {
       Uptimer.Stop();
-      _isStarting = false;
     }
   }
 
@@ -132,7 +130,7 @@ public class ClientContext : RootContext {
 
   protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
     Uptimer = Stopwatch.StartNew();
-    Log.Information("[START] Chordzy Entrypoint...");
+    Log.Information("[START] entrypoint...");
   }
 
   public override void Dispose() {
