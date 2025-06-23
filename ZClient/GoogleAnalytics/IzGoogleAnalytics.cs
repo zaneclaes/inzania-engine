@@ -11,6 +11,15 @@ using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 
+#if Z_UNITY
+using Cysharp.Threading.Tasks;
+using ZTask = Cysharp.Threading.Tasks.UniTask;
+using Tasks = Cysharp.Threading.Tasks.UniTask;
+#else
+using ZTask = System.Threading.Tasks.Task;
+#endif
+
+
 #endregion
 
 namespace IZ.Client.GoogleAnalytics;
@@ -33,7 +42,7 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
 
   private ZVisitorIdentity? _visitor;
 
-  public async Task Configure(IAnalyticsSink? sink, IZIdentity? identity = null) {
+  public async ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null) {
     if (sink == null) return;
     if (identity == null) {
       if (_visitor == null) {
@@ -49,10 +58,10 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
 
   public IzGoogleAnalytics(IZContext context) : base(context) { }
 
-  public Task SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props) =>
+  public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props) =>
     _sink!.Config(Stream, installId, sessionId, userId, props);
 
-  public async Task SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
+  public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
     if (_sink == null) {
       _queue.Enqueue(e);
     } else {
@@ -68,8 +77,8 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     }
   }
 
-  public Task PageView(string path, string? title = null) {
-    if (_path == path) return Task.CompletedTask;
+  public ZTask PageView(string path, string? title = null) {
+    if (_path == path) return ZTask.CompletedTask;
     _path = path;
 
     return ((IZAnalytics) this).SendEvent("page_view", new PageViewEventParams {
@@ -78,51 +87,51 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     }); // data
   }
 
-  public Task ScreenView(string name, string? klass = null) =>
+  public ZTask ScreenView(string name, string? klass = null) =>
     ((IZAnalytics) this).SendEvent("screen_view", new ScreenViewEventParams {
       Name = name,
       Class = klass
     }); // data
 
-  public Task Share(string method) =>
+  public ZTask Share(string method) =>
     ((IZAnalytics) this).SendEvent("share", new MethodEventParams {
       Method = method
     });
 
-  public Task LoginBegin(string method) =>
+  public ZTask LoginBegin(string method) =>
     ((IZAnalytics) this).SendEvent("login_begin", new MethodEventParams {
       Method = method
     });
 
-  public Task LoginEnd(string method) =>
+  public ZTask LoginEnd(string method) =>
     ((IZAnalytics) this).SendEvent("login", new MethodEventParams {
       Method = method
     });
 
-  public Task SignUp(string method) =>
+  public ZTask SignUp(string method) =>
     ((IZAnalytics) this).SendEvent("sign_up", new MethodEventParams {
       Method = method
     });
 
-  public Task Search(string searchTerm) =>
+  public ZTask Search(string searchTerm) =>
     ((IZAnalytics) this).SendEvent("search", new SearchEventParams {
       SearchTerm = searchTerm
     });
 
-  public Task EarnPoints(long score, int? level = null, string? character = null) =>
+  public ZTask EarnPoints(long score, int? level = null, string? character = null) =>
     ((IZAnalytics) this).SendEvent("post_score", new ScoreEventParams {
       Score = score,
       Level = level,
       Character = character
     });
 
-  public Task SelectContent(string contentType, string contentId) =>
+  public ZTask SelectContent(string contentType, string contentId) =>
     ((IZAnalytics) this).SendEvent("select_content", new ContentEventParams {
       ContentType = contentType,
       ContentId = contentId
     });
 
-  public Task Exception(string desc, bool fatal = false) =>
+  public ZTask Exception(string desc, bool fatal = false) =>
     ((IZAnalytics) this).SendEvent("exception", new ExceptionEventParams {
       Description = desc,
       IsFatal = fatal

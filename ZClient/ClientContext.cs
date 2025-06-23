@@ -12,6 +12,14 @@ using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 
+#if Z_UNITY
+using Cysharp.Threading.Tasks;
+using ZTask = Cysharp.Threading.Tasks.UniTask;
+using Tasks = Cysharp.Threading.Tasks.UniTask;
+#else
+using ZTask = System.Threading.Tasks.Task;
+#endif
+
 #endregion
 
 namespace IZ.Client;
@@ -32,11 +40,11 @@ public class ClientContext : RootContext {
   public override IZAnalytics? Analytics => _analytics ??= new IzGoogleAnalytics(this);
   private IZAnalytics? _analytics;
 
-  protected virtual List<Task> GetStartupTasks() => new List<Task> {
+  protected virtual List<ZTask> GetStartupTasks() => new List<ZTask> {
     RestoreSession()
   };
 
-  protected virtual List<Task> GetReadyTasks() => new List<Task> {
+  protected virtual List<ZTask> GetReadyTasks() => new List<ZTask> {
     Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity)
   };
 
@@ -50,9 +58,9 @@ public class ClientContext : RootContext {
 
   public virtual bool IsRunning => IsStarted && !IsShutDown;
 
-  public Installation Install { get; private set; }
+  public Installation Install { get; private set; } = null!;
 
-  public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted || StartupException != null);
+  public ZTask AwaitStart() => Tasks.WaitUntil(() => IsStarted || StartupException != null);
 
   public Exception? StartupException { get; private set; }
 
@@ -77,7 +85,7 @@ public class ClientContext : RootContext {
     _taskTimers[taskName].Stop();
   }
 
-  public async Task Startup(Installation install, IAnalyticsSink? sink = null) {
+  public async ZTask Startup(Installation install, IAnalyticsSink? sink = null) {
     Install = install;
     ClientApp.ClientId = install.ClientId;
     ClientApp.Version = install.SemVer;
@@ -88,9 +96,9 @@ public class ClientContext : RootContext {
 
     Log.Information("[START] starting after {ms}ms...", Uptimer.ElapsedMilliseconds);
     try {
-      await Task.WhenAll(GetStartupTasks().ToArray());
+      await ZTask.WhenAll(GetStartupTasks().ToArray());
       // Log.Information("[START] Chordzy entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
-      await Task.WhenAll(GetReadyTasks().ToArray());
+      await ZTask.WhenAll(GetReadyTasks().ToArray());
       Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
@@ -102,7 +110,7 @@ public class ClientContext : RootContext {
     }
   }
 
-  private async Task RestoreSession() {
+  private async ZTask RestoreSession() {
     var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
     if (storedSession.AccessToken == null) {
       _userIdentity = null;

@@ -19,7 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Core.Utils;
 
 public static class Tasks {
-  public static async Task WaitUntilAsync(Func<bool> condition, CancellationToken? ct = null, int pollDelay = 25) {
+  public static async Task WaitUntil(Func<bool> condition, CancellationToken? ct = null, int pollDelay = 25) {
     try {
       while (!condition()) {
         await Task.Delay(pollDelay, ct ?? new CancellationToken()).ConfigureAwait(true);

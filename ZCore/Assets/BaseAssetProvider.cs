@@ -50,7 +50,7 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
     }
 
     if (!_activeDownloads.Add(relativePath)) {
-      await Tasks.WaitUntilAsync(() => !_activeDownloads.Contains(relativePath), ct);
+      await Tasks.WaitUntil(() => !_activeDownloads.Contains(relativePath), ct);
       if (!File.Exists(fp)) throw new NullReferenceException($"Asset does not exist at {fp}");
     } else {
       await DownloadAsset(relativePath, ct);

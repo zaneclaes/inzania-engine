@@ -4,12 +4,20 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
+#if Z_UNITY
+using Cysharp.Threading.Tasks;
+using ZTask = Cysharp.Threading.Tasks.UniTask;
+using Tasks = Cysharp.Threading.Tasks.UniTask;
+#else
+using ZTask = System.Threading.Tasks.Task;
+#endif
+
 #endregion
 
 namespace IZ.Core.Observability.Analytics;
 
 public interface IAnalyticsSink : IDisposable {
-  public Task<bool> SendEvent(AnalyticsEvent e); //  where T : IEventParams;
+  public ZTask SendEvent(AnalyticsEvent e); //  where T : IEventParams;
 
-  public Task Config(AnalyticsStream stream, string clientId, string sessionId, string? userId = null, Dictionary<string, object>? userProps = null);
+  public ZTask Config(AnalyticsStream stream, string clientId, string sessionId, string? userId = null, Dictionary<string, object>? userProps = null);
 }

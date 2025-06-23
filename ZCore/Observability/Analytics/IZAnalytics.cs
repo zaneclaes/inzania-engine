@@ -6,40 +6,49 @@ using System.Threading.Tasks;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 
+#if Z_UNITY
+using Cysharp.Threading.Tasks;
+using ZTask = Cysharp.Threading.Tasks.UniTask;
+using Tasks = Cysharp.Threading.Tasks.UniTask;
+#else
+using ZTask = System.Threading.Tasks.Task;
+#endif
+
+
 #endregion
 
 namespace IZ.Core.Observability.Analytics;
 
 public interface IZAnalytics : IHaveContext, IDisposable {
-  public Task SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams;
+  public ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams;
 
-  public Task PageView(string path, string? title = null);
+  public ZTask PageView(string path, string? title = null);
 
-  public Task ScreenView(string name, string? klass = null);
+  public ZTask ScreenView(string name, string? klass = null);
 
-  public Task LoginBegin(string method);
+  public ZTask LoginBegin(string method);
 
-  public Task LoginEnd(string method);
+  public ZTask LoginEnd(string method);
 
-  public Task SignUp(string method);
+  public ZTask SignUp(string method);
 
-  public Task Search(string searchTerm);
+  public ZTask Search(string searchTerm);
 
-  public Task Share(string method);
+  public ZTask Share(string method);
 
-  public Task Exception(string desc, bool fatal = false);
+  public ZTask Exception(string desc, bool fatal = false);
 
   // Record points earned
-  public Task EarnPoints(long points, int? skillLevel = null, string? character = null);
+  public ZTask EarnPoints(long points, int? skillLevel = null, string? character = null);
 
   // i.e., "Score" + scoreId
-  public Task SelectContent(string contentType, string contentId);
+  public ZTask SelectContent(string contentType, string contentId);
 
-  public Task Configure(IAnalyticsSink? sink, IZIdentity? identity = null);
+  public ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null);
 
-  public Task SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props);
+  public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props);
 
-  public Task SetIdentity(IZIdentity identity) {
+  public ZTask SetIdentity(IZIdentity identity) {
     Dictionary<string, object>? props = new Dictionary<string, object> {
       ["env"] = Context.App.Env.ToString()
     };
@@ -55,8 +64,8 @@ public interface IZAnalytics : IHaveContext, IDisposable {
     return SetUserProperties(identity.ClientId, identity.SessionId, user?.Id, props);
   }
 
-  private Task SendEvent(string name) => SendEvent(new AnalyticsEvent<NullParams>(name, new NullParams()));
-  public Task SendEvent<T>(string name, T pars) where T : IEventParams => SendEvent(new AnalyticsEvent<T>(name, pars));
+  private ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<NullParams>(name, new NullParams()));
+  public ZTask SendEvent<T>(string name, T pars) where T : IEventParams => SendEvent(new AnalyticsEvent<T>(name, pars));
 
   // public Task SelectScorePart(ScorePart part) => SelectContent(nameof(ScorePart), part.GetScoreUuid());
 

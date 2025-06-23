@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using IZ.Core.Data;
+using IZ.Core.Data.Attributes;
 using Semver;
 
 namespace IZ.Core.Auth;
@@ -42,7 +43,7 @@ public class Installation : TransientObject {
 
   public string Version { get; set; } = null!;
 
-  [JsonIgnore] public SemVersion SemVer {
+  [JsonIgnore] [ApiIgnore] public SemVersion SemVer {
     get => _semVersion ??= SemVersion.Parse(Version);
     set {
       _semVersion = value;

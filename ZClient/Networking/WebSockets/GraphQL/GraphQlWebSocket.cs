@@ -93,7 +93,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
 
   private Task WaitUntil(GqlWebSocketState state) {
     Log.Debug("[GQL-WS] WaitUntil {state}", state);
-    return Tasks.WaitUntilAsync(() => {
+    return Tasks.WaitUntil(() => {
       // Log.Debug("[GQL-WS] Wait: {State} != {state}", State, state);
       Update(); // send data while waiting...
       return State >= state;
