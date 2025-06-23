@@ -11,7 +11,6 @@ using IZ.Core.Contexts;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
-using Semver;
 
 #endregion
 
@@ -51,6 +50,8 @@ public class ClientContext : RootContext {
 
   public virtual bool IsRunning => IsStarted && !IsShutDown;
 
+  public Installation Install { get; private set; }
+
   public Task AwaitStart() => Tasks.WaitUntilAsync(() => IsStarted || StartupException != null);
 
   public Exception? StartupException { get; private set; }
@@ -76,21 +77,21 @@ public class ClientContext : RootContext {
     _taskTimers[taskName].Stop();
   }
 
-  public async Task Startup(string clientId, SemVersion version, IAnalyticsSink? sink = null) {
-    ClientApp.ClientId = clientId;
-    ClientApp.Version = version;
+  public async Task Startup(Installation install, IAnalyticsSink? sink = null) {
+    Install = install;
+    ClientApp.ClientId = install.ClientId;
+    ClientApp.Version = install.SemVer;
     _analyticsSink = sink ?? new GoogleAnalyticsHttpSink(this);
 
     IsSessionRestored = false;
     StartupException = null;
 
-    Log.Debug("[START] starting after {ms}ms...", Uptimer.ElapsedMilliseconds);;
-
+    Log.Information("[START] starting after {ms}ms...", Uptimer.ElapsedMilliseconds);
     try {
       await Task.WhenAll(GetStartupTasks().ToArray());
       // Log.Information("[START] Chordzy entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await Task.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", version, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
+      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
     } catch (Exception e) {

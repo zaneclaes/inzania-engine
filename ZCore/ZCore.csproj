@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="HotChocolate.Abstractions" Version="15.1.5" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Semver" Version="3.0.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0"/>
   </ItemGroup>
 
