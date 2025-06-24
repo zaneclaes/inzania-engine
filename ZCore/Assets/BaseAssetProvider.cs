@@ -20,7 +20,7 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
   public string GetAssetPath(string relativePath) => Path.Combine(AssetDirectory, relativePath);
 
   private string LoadAssetDir() {
-    var dir = FilePaths.GetAbsolutePath(Path.Combine(Context.App.Storage.UserDir, "Assets"));
+    var dir = FilePaths.GetAbsolutePath(Path.Combine(ZEnv.App.Storage.UserDir, "Assets"));
     if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
     return dir;
   }
