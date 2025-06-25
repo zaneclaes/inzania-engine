@@ -16,9 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="HotChocolate.AspNetCore" Version="15.1.5" />
-    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="15.1.5" />
-    <PackageReference Include="HotChocolate.Subscriptions.Redis" Version="15.1.5" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="15.1.6" />
+    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="15.1.6" />
+    <PackageReference Include="HotChocolate.Subscriptions.Redis" Version="15.1.6" />
     <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="9.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0" />

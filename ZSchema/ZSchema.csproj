@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="15.1.5" />
-    <PackageReference Include="HotChocolate.Types.Scalars" Version="15.1.5" />
-    <PackageReference Include="HotChocolate.Types.Scalars.Upload" Version="15.1.5" />
+    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="15.1.6" />
+    <PackageReference Include="HotChocolate.Types.Scalars" Version="15.1.6" />
+    <PackageReference Include="HotChocolate.Types.Scalars.Upload" Version="15.1.6" />
   </ItemGroup>
 
   <ItemGroup>
