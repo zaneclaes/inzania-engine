@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using HotChocolate.Language;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
@@ -75,7 +76,12 @@ public class ExecutionPlan {
 
     for (int i = 0; i < _method.Parameters.Count; i++) {
       var zType = ZTypeDescriptor.FromType(_method.Parameters[i].ParameterType);
-      object? argVal = i >= args.Count ? null : PrepareArg(args[i]);
+      object? argVal = i >= args.Count ? null :
+#if Z_UNITY
+        PrepareArgJson(args[i]);
+#else
+        PrepareArgGql(args[i]);
+#endif
 
       if (_method.Parameters[i].ParameterType == typeof(IFileUpload) && args[i] is IFileUpload upload) {
         // ZEnv.Log.Information("COERCE {arg}",args[i]?.GetType());
@@ -95,14 +101,14 @@ public class ExecutionPlan {
     throw new ArgumentException($"{parent.Name} is neither query nor mutation");
   }
 
-  private static JsonNode? PrepareArg(object? arg) {
+  private static JsonNode? PrepareArgJson(object? arg) {
     if (arg == null) return null;
     if (arg is IList list) {
       var arr = new JsonArray();
       // List<object?> ret = new List<object?>();
       for (int i = 0; i < list.Count; i++) {
         // ret.Add(PrepareArg(list[i]));
-        arr.Add(PrepareArg(list[i]));
+        arr.Add(PrepareArgJson(list[i]));
       }
       return arr;
     }
@@ -113,9 +119,47 @@ public class ExecutionPlan {
     var mapped = new JsonObject();
     // mapped["__typename"] = desc.TypeName;
     foreach (string inputName in desc.ObjectDescriptor.Inputs.Keys) {
-      mapped[inputName] = PrepareArg(desc.ObjectDescriptor.Inputs[inputName].GetValue(arg));
+      mapped[inputName] = PrepareArgJson(desc.ObjectDescriptor.Inputs[inputName].GetValue(arg));
     }
     return mapped;
+  }
+
+  private static IValueNode PrepareArgGql(object? arg) {
+    if (arg == null) return NullValueNode.Default;
+    if (arg is IList list) {
+      var arr = new List<IValueNode>();
+      for (int i = 0; i < list.Count; i++) {
+        arr.Add(PrepareArgGql(list[i]));
+      }
+      return new ListValueNode(arr);
+    }
+    var desc = ZTypeDescriptor.FromType(arg.GetType());
+
+    if (desc.ObjectDescriptor.IsScalar) {
+      if (arg is string stringVal) return new StringValueNode(stringVal);
+      if (arg is sbyte sbyteVal) return new IntValueNode(sbyteVal);
+      if (arg is byte byteVal) return new IntValueNode(byteVal);
+      if (arg is int intVal) return new IntValueNode(intVal);
+      if (arg is uint uintVal) return new IntValueNode(uintVal);
+      if (arg is short shortVal) return new IntValueNode(shortVal);
+      if (arg is ushort ushortVal) return new IntValueNode(ushortVal);
+      if (arg is bool boolVal) return new BooleanValueNode(boolVal);
+      if (arg is long longVal) return new IntValueNode(longVal);
+      if (arg is ulong ulongVal) return new IntValueNode(ulongVal);
+      if (arg is float floatVal) return new FloatValueNode(floatVal);
+      if (arg is double doubleVal) return new FloatValueNode(doubleVal);
+      if (arg is decimal decVal) return new FloatValueNode(decVal);
+      if (arg is Enum e) return new EnumValueNode(e.ToString());
+      throw new ArgumentException($"{arg.GetType().Name} cannot be translated into a value node");
+    }
+    // if (!(arg is ApiObject obj)) return arg;
+
+    List<ObjectFieldNode> fields = new List<ObjectFieldNode>();
+    foreach (var inputName in desc.ObjectDescriptor.Inputs.Keys) {
+      var node = PrepareArgGql(desc.ObjectDescriptor.Inputs[inputName].GetValue(arg));
+      fields.Add(new ObjectFieldNode(inputName, node));
+    }
+    return new ObjectValueNode(fields);
   }
 
   public string ToGraphQLDocument() {

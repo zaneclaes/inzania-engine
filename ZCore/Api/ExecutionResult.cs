@@ -15,7 +15,7 @@ public class ExecutionResult : TransientObject {
 
   public ExecutionPlan Plan { get; }
 
-  public Dictionary<string, Tuple<ZTypeDescriptor, object?>> Args { get; } = new Dictionary<string, Tuple<ZTypeDescriptor, object?>>();
+  public Dictionary<string, Tuple<ZTypeDescriptor, object?>> Args { get; }
 
   public ExecutionResult(
     IZContext context, ExecutionPlan plan, List<object?> args

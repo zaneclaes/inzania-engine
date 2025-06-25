@@ -50,8 +50,6 @@ public class ClientContext : RootContext {
 
   private IAnalyticsSink? _analyticsSink;
 
-  protected virtual void OnStartupComplete() { }
-
   public bool IsStarted { get; private set; }
 
   public bool IsShutDown { get; private set; }
@@ -119,7 +117,7 @@ public class ClientContext : RootContext {
     }
     StartTaskTimer(nameof(RestoreSession));
     try {
-      Login(await storedSession.RestoreUserSession());
+      Login(await storedSession.RestoreUserSession(Install));
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       Logout();

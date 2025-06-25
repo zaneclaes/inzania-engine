@@ -50,19 +50,19 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
   ) where TData : class {
     var context = result.Context;
     var sp = context.ServiceProvider;
-    OperationExecutor<JsonDocument, GraphResult<TData>>? opExecutor = new OperationExecutor<JsonDocument, GraphResult<TData>>(
+    OperationExecutor<JsonDocument, GraphResult<TData>> opExecutor = new OperationExecutor<JsonDocument, GraphResult<TData>>(
       connection,
       () => new GraphBuilder<TData>(context),
       () => sp.GetRequiredService<IResultPatcher<JsonDocument>>(),
       sp.GetRequiredService<IOperationStore>());
     var execDoc = new GraphExecutionDocument(result);
     IOperationResult<GraphResult<TData>>? res;
+    var opReq = execDoc.ToOperationRequest();
     try {
-      res = await opExecutor.ExecuteAsync(
-        execDoc.ToOperationRequest(), ct ?? context.CancellationToken);
+      res = await opExecutor.ExecuteAsync(opReq, ct ?? context.CancellationToken);
     } catch (Exception e) {
       if (e is RemoteZException) throw;
-      throw new SystemException($"[GQL] Failed to execute {execDoc}", e);
+      throw new SystemException($"[GQL] Failed to execute {execDoc} => {opReq.Id}", e);
     }
 
     if (res.Data == null) throw new NullReferenceException(nameof(TData));

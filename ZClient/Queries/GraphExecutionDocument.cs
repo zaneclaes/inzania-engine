@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using IZ.Core.Api;
+using IZ.Core.Contexts;
 using IZ.Core.Data;
+using IZ.Core.Json;
 using IZ.Core.Utils;
 using StrawberryShake;
 
@@ -32,6 +34,7 @@ public class GraphExecutionDocument : TransientObject, IDocument {
   public GraphExecutionDocument(ExecutionResult executionResult) : base(executionResult.Context) {
     _executionResult = executionResult;
     Args = executionResult.Args.ToDictionary(a => a.Key, a => a.Value.Item2);
+    // Log.Information("[ARGS] {serialized}", ZJson.SerializeObject());
     // if (Args.ContainsKey("file") && Args["file"] is IFileUpload upload) {
     //   // Files = new Dictionary<string, Upload?>() {
     //   //   ["variables.file"] = new Upload(upload.OpenReadStream(), upload.Name),
@@ -50,7 +53,13 @@ public class GraphExecutionDocument : TransientObject, IDocument {
     this,
     Args,
     Files,
-    RequestStrategy.Default);
+#if Z_UNITY
+    RequestStrategy.Default
+#else
+    RequestStrategy.PersistedOperation
+#endif
+
+    );
 
   public override string ToString() => $"<GqlDoc Id={Id} Op={_executionResult.Plan.OperationName} Kind={Kind} />";
 }
