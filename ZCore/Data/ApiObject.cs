@@ -96,14 +96,14 @@ public abstract class ApiObject : ContextualObject {
     string localId, string localArrayPropName, string? foreignKeyName = null, IZQueryable<TData>? q = null
   ) where TData : DataObject => ResolveArrayItems(localId, localArrayPropName, foreignKeyName, q);
 
-  protected async Task<TData[]> ResolveArrayItems<TKey, TData>(
+  private async Task<TData[]> ResolveArrayItems<TKey, TData>(
     TKey localId, string localArrayPropName, string? foreignKeyName = null, IZQueryable<TData>? q = null
   ) where TData : DataObject where TKey : notnull {
     foreignKeyName ??= "Id";
     var (localArrayProp, foreignProp) = ResolvePropertyMap<TData>(localArrayPropName, foreignKeyName);
 
-    List<TData>? existing = (localArrayProp.GetValue(this) as IEnumerable<TData>)?.ToList() ?? new List<TData>();
-    TData[]? ret = await Context.Resolver.LoadArray(localArrayProp.FieldName, async keys =>
+    List<TData> existing = (localArrayProp.GetValue(this) as IEnumerable<TData>)?.ToList() ?? new List<TData>();
+    var ret = await Context.Resolver.LoadArray(localArrayProp.FieldName, async keys =>
       await (q ?? Context.QueryFor<TData>())
         .FilterKeyIn(foreignKeyName, keys.ToArray())
         .LoadLookupAsync(l => (TKey) foreignProp.GetValue(l)!), localId, existing);

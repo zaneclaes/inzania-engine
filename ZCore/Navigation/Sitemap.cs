@@ -27,6 +27,10 @@ public abstract class Sitemap : LogicBase {
 
   private Dictionary<string, SitePage> Map { get; }
 
+  public SitePage? GetPage(SiteCategory category) => Pages.FirstOrDefault(p => p.Category == category);
+
+  public SitePage GetPage<T>() where T : SitePage => Pages.First(p => p is T);
+
   public SitePage? GetPage(string path) {
     path = path.ToLowerInvariant();
     // if (path.StartsWith("/")) path = path.Substring(1);

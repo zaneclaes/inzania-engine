@@ -36,10 +36,10 @@ public static class ZContexts {
     Context = context
   };
 
-  private static string? CheckUserRole(IZIdentity? id, ZUserRole minRole, params string[] bypassIds) {
-    if (id?.IZUser == null) return nameof(IZContext.CurrentIdentity);
-    if (id.IZUser.Role >= minRole) return null;
-    if (!bypassIds.Contains(id.IZUser.Id)) return id.IZUser.Role.ToString();
+  private static string? CheckUserRole(IZUser? user, ZUserRole minRole, params string[] bypassIds) {
+    if (user == null) return nameof(user);
+    if (user.Role >= minRole) return null;
+    if (!bypassIds.Contains(user.Id)) return user.Role.ToString();
     return null;
   }
 
@@ -55,8 +55,15 @@ public static class ZContexts {
   public static IZUser RequireIZUser(this IZContext context) =>
     context.CurrentIdentity?.IZUser ?? throw new AccessViolationException("UserId not provided (and no current user)");
 
-  public static string RequireUserId(this IZContext context, string? userId = null) =>
-    userId ?? (context.CurrentIdentity?.IZUser?.Id ?? throw new AccessViolationException("UserId not provided (and no current user)"));
+  // Returns current user ID, but throws exception if it doesn't match the provided ID (and isn't an admin)
+  public static string CheckCurrentUserId(this IZContext context, string? userId = null) {
+    var curUser = context.CurrentIdentity?.IZUser;
+    if (curUser == null) throw new AccessViolationException("UserId not provided (and no current user)");
+    if (userId != null && userId != curUser.Id && curUser.Role < ZUserRole.Admin) {
+      throw new AccessViolationException("UserId mismatch");
+    }
+    return curUser.Id;
+  }
 
   public static string? GetOwnerId(this IOwned owned) {
     if (owned is IAmOwned own) return own.UserId;
@@ -64,17 +71,28 @@ public static class ZContexts {
     throw new SystemException($"{owned.GetType()} is IOwned, but not IAmOwned or IMightBeOwned");
   }
 
-  public static string? CheckOwnershipException(this IOwned owned, IZIdentity? id, ZUserRole bypassRole = ZUserRole.Admin) {
+  public static string? CheckOwnershipException(this IOwned owned, IZIdentity? id, ZUserRole bypassRole = ZUserRole.Admin) =>
+    owned.CheckOwnershipException(id?.IZUser, bypassRole);
+
+  public static string? CheckOwnershipException(this IOwned owned, IZUser? user, ZUserRole bypassRole = ZUserRole.Admin) {
     string? ownerId = owned.GetOwnerId();
-    return ownerId == null ? CheckUserRole(id, bypassRole) : CheckUserRole(id, bypassRole, ownerId);
+    return ownerId == null ? CheckUserRole(user, bypassRole) : CheckUserRole(user, bypassRole, ownerId);
   }
 
-  public static void EnsureOwnership(this IOwned owned, IZIdentity? id, ZUserRole bypassRole = ZUserRole.Admin) {
-    string? exception = owned.CheckOwnershipException(id, bypassRole);
+  public static void EnsureOwnership(this IOwned owned, IZIdentity? id, ZUserRole bypassRole = ZUserRole.Admin) =>
+    owned.EnsureOwnership(id?.IZUser, bypassRole);
+
+  public static void EnsureOwnership(this IOwned owned, IZUser? user, ZUserRole bypassRole = ZUserRole.Admin) {
+    string? exception = owned.CheckOwnershipException(user, bypassRole);
     if (exception != null) throw new UnauthorizedAccessException(exception);
   }
 
-  public static IZRootContext? TryGetRootContext(this IServiceProvider serviceProvider) =>
+  public static void EnsureRole(this IZUser? user, ZUserRole bypassRole) {
+    if (user == null) throw new UnauthorizedAccessException(nameof(user));
+    if (user.Role < bypassRole) throw new UnauthorizedAccessException(bypassRole.ToString());
+  }
+
+  private static IZRootContext? TryGetRootContext(this IServiceProvider serviceProvider) =>
     serviceProvider.GetService<IProvideRootContext>()?.GetRootContext(serviceProvider);
 
   public static IZRootContext GetRootContext(this IServiceProvider serviceProvider) {

@@ -36,7 +36,6 @@ namespace IZ.Schema;
 
 public static class ZSchema {
   public static IServiceCollection AddSchemaServices(this IServiceCollection services) => services
-    // .AddTransient<IZResolver, ZSchemaResolver>()
     // .AddTransient<IScoreProcessor, ScoreProcessor>()
     .AddSingleton<INamingConventions, ZNamingConventions>()
     .AddSingleton<IChangeTypeProvider, ZTypeConverter>()
@@ -44,7 +43,8 @@ public static class ZSchema {
     // .AddSingleton(new InputFormatter(new ZTypeConverter()))
     // .AddSingleton(new InputParser(new ZTypeConverter()))
     .AddSingleton<ITypeInspector, ZDataTypeInspector>()
-    .AddScoped<DataLoaderRegistry>()
+    .AddScoped<ZDataLoaderRegistry>()
+    .AddScoped<IZResolver, ZSchemaResolver>()
     .AddSingleton<ZQueryAccessor>()
   ;
 

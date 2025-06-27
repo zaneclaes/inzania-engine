@@ -10,4 +10,5 @@ public enum SiteCategory {
   Account,
   Settings,
   Jam,
+  MyMusic,
 }

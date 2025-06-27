@@ -25,11 +25,10 @@ public class RootContext : BaseContext, IZRootContext {
     ZApp app, IServiceProvider services
   ) : base(app, services) {
     Init();
-    Log.Verbose("[ROOT] created {type}#{id}: {stack}", GetType().Name, _uuid, new ZTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[ROOT] created {type}#{id}: {stack}", GetType().Name, _uuid, new ZTrace(new StackTrace().ToString()).ToString());
   }
 
-  public override IZResolver Resolver => _resolver ??=
-    ServiceProvider.GetService<IProvideRootContext>()?.GetResolver(this) ?? new ZDefaultResolver(this);
+  public override IZResolver Resolver => _resolver ??= ServiceProvider.GetRequiredService<IZResolver>();
 
   private IZResolver? _resolver;
 

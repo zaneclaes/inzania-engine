@@ -13,8 +13,8 @@ namespace IZ.Core.Navigation;
 public class SitePage : LogicBase { // Type type,
   protected override bool AllowRootContext => true;
 
-  public SitePage(
-    string path, string title, string? desc = null, string? author = null, params string[] keywords
+  protected SitePage(
+    SiteCategory cat, string path, string title, string? desc = null, string? author = null, params string[] keywords
   ) {
     // PageType = type;
     Template = path.Trim('/');
@@ -28,12 +28,7 @@ public class SitePage : LogicBase { // Type type,
     Keywords = keywords.ToList();
     Paths.Add(Path);
 
-    string[]? parts = Path.Split("/");
-    if (parts.Any()) {
-      if (Enum.TryParse(parts.First(), true, out SiteCategory section)) Category = section;
-    } else {
-      Category = SiteCategory.Home;
-    }
+    Category = cat;
   }
   // public Type PageType { get; }
 
@@ -45,7 +40,7 @@ public class SitePage : LogicBase { // Type type,
 
   public string[] Args { get; }
 
-  private string Template { get; }
+  public string Template { get; }
 
   public string? Author { get; }
 
@@ -53,5 +48,5 @@ public class SitePage : LogicBase { // Type type,
 
   public List<string> Keywords { get; }
 
-  public SiteCategory Category { get; } = SiteCategory.Unknown;
+  public SiteCategory Category { get; }
 }

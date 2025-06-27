@@ -1,4 +1,5 @@
 using System;
+using HotChocolate.Execution;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Logging;
@@ -16,9 +17,18 @@ public class HttpRootContextAccessor : IProvideRootContext {
     // if (http == null) return null; // background / work context
     // var scope = http.EnsureRootScope("Start");
     // return scope.Context;
-    return sp.GetRequiredService<IZRootContext>();
+    try {
+      return _requestContextAccessor.RequestContext.Services.GetRequiredService<IZRootContext>();
+    } catch (Exception e) {
+      // accessing the RequestContext outside a request throws :(
+      return sp.GetRequiredService<IZRootContext>();
+    }
   }
 
-  public IZResolver GetResolver(IZContext context) => _resolver ??= new ZSchemaResolver(context);
-  private ZSchemaResolver? _resolver;
+  // public IZResolver GetResolver(IZContext context) => _requestContextAccessor.RequestContext.Services.GetRequiredService<IZResolver>();
+
+  private readonly IRequestContextAccessor _requestContextAccessor;
+  public HttpRootContextAccessor(IRequestContextAccessor requestContextAccessor) {
+    _requestContextAccessor = requestContextAccessor;
+  }
 }

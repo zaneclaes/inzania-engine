@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using HotChocolate;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Instrumentation;
 using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
+using HotChocolate.Resolvers;
 using IZ.Core.Api;
 using IZ.Core.Contexts;
 using IZ.Core.Observability.Logging;
@@ -12,6 +15,7 @@ using IZ.Core.Utils;
 using IZ.Schema.Queries;
 using IZ.Schema.Types;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace IZ.Schema.Variables;
 
@@ -28,10 +32,12 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
   }
 
   // 	Scope that encloses the entire GraphQL request execution. Also the first diagnostic event raised during a GraphQL request.w
-  public override IDisposable ExecuteRequest(IRequestContext context) =>
+  public override IDisposable ExecuteRequest(IRequestContext context) {
     // FurRequest? req = context.Services.GetService(typeof(FurRequest)) as FurRequest;
     // return new FurSpan("GQL", nameof(ExecuteRequest), req?.RequestSpan);
-    AddRequestSpan(context, "Execute");
+
+    return AddRequestSpan(context, "Execute");
+  }
 
   private void ReplaceFragmentSpreads(
     IZContext context, IRequestContext requestContext, ISyntaxNode node, Dictionary<string, object> map
@@ -189,6 +195,13 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
   // public override IDisposable RunTask(IExecutionTask task) => TraceSpan.GraphQL(nameof(RunTask));
 
   // public override IDisposable ResolveFieldValue(IMiddlewareContext context) => TraceSpan.GraphQL(context.ResponseName);
+  //
+  // public override IDisposable ResolveFieldValue(IMiddlewareContext context) {
+  //
+  //   var tracker = (ExecutionTracker)context.GetGlobalState<ExecutionTracker>("Tracker");
+  //   tracker.IncrementAndCheckIfFinal();
+  //   return EmptyScope;
+  // }
 
   // public override IDisposable CoerceVariables(IRequestContext context) {
   //   throw new ArgumentException("CoerceVariables not shortcutted");

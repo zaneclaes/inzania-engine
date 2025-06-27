@@ -33,7 +33,7 @@ public class DeepLink : TransientObject {
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
     Page = context.GetRequiredService<Sitemap>().GetPage(string.Join("/", Parts));
     if (!IsValid) {
-      Log.Warning("[DL] invalid page {section}", Path);
+      Log.Warning("[DL] invalid page {section}", path);
     }
   }
 

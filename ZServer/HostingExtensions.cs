@@ -1,5 +1,7 @@
 #region
 
+using System.Threading.Tasks;
+using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Subscriptions.Diagnostics;
 using IZ.Core;
@@ -7,6 +9,7 @@ using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Utils;
 using IZ.Schema;
+using IZ.Schema.Loaders;
 using IZ.Server.Graphql;
 using IZ.Server.Health;
 using IZ.Server.Http;
@@ -19,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
 using StackExchange.Redis;
+using RequestDelegate = HotChocolate.Execution.RequestDelegate;
 
 #endregion
 
@@ -82,9 +86,16 @@ public static class HostingExtensions {
     .AddSchemaQuery(app)
     .AddZSubscriptions()
     .AddAuthorization()
+    // .UseRequest<DispatchMiddl>()
     .AddDiagnosticEventListener<ApiServerEventListener>()
     .AddHttpRequestInterceptor<ZHttpInterceptor>()
     .AddSocketSessionInterceptor<ZSocketInterceptor>()
+    // .UseField<ZResolverMiddleware>()
+    // .UseRequest(next => async (context) => {
+    //   var c = context.Services.GetRequiredService<IZContext>();
+    //   c.Log.Information("[NEXT] {c}", context);
+    //   await next(context);
+    // })
     .Services;
 
   public static void PrepareStaticFileHttpResponse(this HttpContext context) {
