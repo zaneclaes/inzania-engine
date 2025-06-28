@@ -20,17 +20,20 @@ public abstract class ApiObject : ContextualObject {
   protected override string ContextualObjectGroup => "Object";
 
   protected async Task<TData> ResolveRequiredId<TKey, TData>(
-    TKey localId, string localPropName, string? foreignPropName = null, IZQueryable<TData>? q = null
+    TKey localId, string localPropName, string? foreignPropName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : ModelKey<TKey> where TKey : notnull =>
-    await ResolveOptionalId(localId, localPropName, foreignPropName, q) ?? throw new NullReferenceException(nameof(localPropName));
+    await ResolveOptionalId(localId, localPropName, foreignPropName, beforeFilter, afterFilter) ?? throw new NullReferenceException(nameof(localPropName));
 
   protected async Task<TData> ResolveRequiredProp<TKey, TData>(
-    string localPropName, string? foreignPropName = null, IZQueryable<TData>? q = null
+    string localPropName, string? foreignPropName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : ModelKey<TKey> where TKey : notnull =>
-    await ResolveOptionalProp<TKey, TData>(localPropName, foreignPropName, q) ?? throw new NullReferenceException(nameof(localPropName));
+    await ResolveOptionalProp<TKey, TData>(localPropName, foreignPropName, beforeFilter, afterFilter) ?? throw new NullReferenceException(nameof(localPropName));
 
   protected Task<TData?> ResolveOptionalProp<TKey, TData>(
-    string localPropName, string? foreignPropName = null, IZQueryable<TData>? q = null
+    string localPropName, string? foreignPropName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : ModelKey<TKey> where TKey : notnull {
 
     string localIdFieldName = (localPropName + "Id").ToFieldName();
@@ -38,11 +41,22 @@ public abstract class ApiObject : ContextualObject {
       throw new ArgumentException($"Scalar ID Key '{localIdFieldName}' missing: {ApiType.ObjectDescriptor} among {ApiType.ObjectDescriptor.ScalarProperties}");
     var localIdProp = ApiType.ObjectDescriptor.ScalarProperties[localIdFieldName];
 
-    return ResolveOptionalId((TKey) localIdProp.GetValue(this)!, localPropName, foreignPropName, q);
+    return ResolveOptionalId((TKey) localIdProp.GetValue(this)!, localPropName, foreignPropName, beforeFilter, afterFilter);
+  }
+
+  private IZQueryable<TData> CreateQuery<TKey, TData>(
+    string foreignPropName, IReadOnlyList<TKey> keys, Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter
+  ) where TData : DataObject where TKey : notnull {
+    IZQueryable<TData> query = Context.QueryFor<TData>();
+    if (beforeFilter != null) query = beforeFilter(query);
+    query = query.FilterKeyIn(foreignPropName, keys.ToArray());
+    if (afterFilter != null) query = afterFilter(query);
+    return query;
   }
 
   protected async Task<TData?> ResolveOptionalId<TKey, TData>(
-    TKey? localId, string localPropName, string? foreignPropName = null, IZQueryable<TData>? q = null
+    TKey? localId, string localPropName, string? foreignPropName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : ModelKey<TKey> where TKey : notnull {
     foreignPropName ??= "Id";
     var (localProp, foreignProp) = ResolvePropertyMap<TData>(localPropName, foreignPropName);
@@ -55,10 +69,7 @@ public abstract class ApiObject : ContextualObject {
     //   Log.Information("[RESOLVE] {type}#{id} => {existing}", typeof(TData), localId, existing);
     // }
     var ret = await Context.Resolver.LoadOptional(localProp.FieldName, async keys =>
-        // When auto-resolving, tracking can conflict; modifications are not allowed, so we use IdentityResolution
-        await (q ?? Context.QueryFor<TData>(null, DataModelTracking.IdentityResolution))
-          .FilterKeyIn(foreignPropName, keys.ToArray())
-          .LoadDictionaryAsync(l => (TKey) foreignProp.GetValue(l)!),
+        await CreateQuery(foreignPropName, keys, beforeFilter, afterFilter).LoadDictionaryAsync(l => (TKey) foreignProp.GetValue(l)!),
       localId, existing, o => (TKey) foreignProp.GetValue(o)!);
     localProp.SetValue(this, ret);
     return ret;
@@ -93,19 +104,20 @@ public abstract class ApiObject : ContextualObject {
   // }
 
   protected Task<TData[]> ResolveArray<TData>(
-    string localId, string localArrayPropName, string? foreignKeyName = null, IZQueryable<TData>? q = null
-  ) where TData : DataObject => ResolveArrayItems(localId, localArrayPropName, foreignKeyName, q);
+    string localId, string localArrayPropName, string? foreignKeyName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
+  ) where TData : DataObject => ResolveArrayItems(localId, localArrayPropName, foreignKeyName, beforeFilter, afterFilter);
 
   private async Task<TData[]> ResolveArrayItems<TKey, TData>(
-    TKey localId, string localArrayPropName, string? foreignKeyName = null, IZQueryable<TData>? q = null
+    TKey localId, string localArrayPropName, string? foreignKeyName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : DataObject where TKey : notnull {
     foreignKeyName ??= "Id";
     var (localArrayProp, foreignProp) = ResolvePropertyMap<TData>(localArrayPropName, foreignKeyName);
 
     List<TData> existing = (localArrayProp.GetValue(this) as IEnumerable<TData>)?.ToList() ?? new List<TData>();
     var ret = await Context.Resolver.LoadArray(localArrayProp.FieldName, async keys =>
-      await (q ?? Context.QueryFor<TData>())
-        .FilterKeyIn(foreignKeyName, keys.ToArray())
+      await CreateQuery(foreignKeyName, keys, beforeFilter, afterFilter)
         .LoadLookupAsync(l => (TKey) foreignProp.GetValue(l)!), localId, existing);
     localArrayProp.SetValue(this, ret.ToList());
     return ret;

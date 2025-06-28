@@ -23,7 +23,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
   private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => !l.IsResolved && !l.IsResolving).ToList();
 
   // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued
-  private const int ResolveDelayMs = 3;
+  private const int ResolveDelayMs = 5;
 
   private long _resolveAt = 0;
 

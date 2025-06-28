@@ -81,7 +81,7 @@ public abstract class ZDataLoader<TKey, TValue> : LogicBase, IZDataLoader<TKey, 
     if (Data.TryGetValue(key, out var value)) return value;
     if (!_queued.Contains(key)) {
       if (IsResolved || IsResolving) {
-        Log.Warning("[QUEUE] returning to un-loaded state...");
+        Log.Warning("[QUEUE] {self} returning to un-loaded state...", this);
         IsResolved = false;
       }
       // Log.Information("[QUEUE] {key} into {self}", key, this);
