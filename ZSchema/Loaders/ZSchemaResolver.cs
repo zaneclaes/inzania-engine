@@ -23,23 +23,30 @@ public class ZSchemaResolver : LogicBase, IZResolver {
   private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => !l.IsResolved && !l.IsResolving).ToList();
 
   // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued
-  private const int ResolveDelayMs = 5;
+  // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to accrue
+  private int ResolveDelayMs => Math.Clamp((int)Math.Pow(_resolutions, 1/3f), 1, 10);
 
   private long _resolveAt = 0;
 
+  private int _resolutions = 0;
+
   private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
-  public async Task Resolve() {
+  private async Task Resolve() {
     var loaders = PendingLoaders;
     if (!loaders.Any()) return;
-    Log.Debug("[RES] {self} resolving {cnt}", this, loaders.Sum(l => l.PendingCount));
+    var cnt = loaders.Sum(l => l.PendingCount);
+    Log.Debug("[RES] {self} resolving {cnt}", this, cnt);
     await Task.WhenAll(loaders.Select(l => l.Resolve()));
+    _resolutions -= cnt;
+    if (_resolutions < 0) _resolutions = 0;
     await Resolve();
   }
 
   private Task? _resolutionTask;
 
-  public void ScheduleResolution() {
+  private void ScheduleResolution(int cnt) {
+    _resolutions += cnt;
     _resolveAt = _stopwatch.ElapsedMilliseconds + ResolveDelayMs;
     _resolutionTask ??= Task.Run(async () => {
       while (_stopwatch.ElapsedMilliseconds < _resolveAt) await Task.Delay(1);
@@ -76,7 +83,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
         return ret;
       }
 
-      ScheduleResolution();
+      ScheduleResolution(1);
       return await loader.LoadAsync(key) ??  new TData[] { };
     } catch (Exception e) {
       if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve array {name}", name);
@@ -104,7 +111,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       //   }
 
       // Log.Information("[LOAD ALL] {keys}", keys.ToList());
-      ScheduleResolution();
+      ScheduleResolution(keys.Count);
       return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null)
         .SelectMany(v => v!.ToList()).Where(v => v != null).ToImmutableList();
     } catch (Exception e) {
@@ -142,7 +149,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       // }
 
       // Log.Information("[LOAD ALL] {keys}", keys.ToList());
-      ScheduleResolution();
+      ScheduleResolution(keys.Count);
       return (await loader.LoadAsync(keys.ToArray())).Where(v => v != null).Cast<TData>().ToImmutableList();
     } catch (Exception e) {
       if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve all {name}", name);
