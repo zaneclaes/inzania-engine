@@ -39,7 +39,7 @@ public class ZTypeDescriptor {
     string key = $"{t}{(isOptional ? "?" : "!")}";
     if (ApiTypes.TryGetValue(key, out var d)) return d;
 
-    var innerType = StripIgnoredOuterTypes(t);
+    var innerType = ZMethodDescriptor.StripIgnoredOuterFunctionTypes(t);
     var ret = new ZTypeDescriptor();
     ZEnv.Log.Verbose("[TYPE] start {t}", innerType.Name);
     ret.OrigType = innerType;
@@ -69,17 +69,6 @@ public class ZTypeDescriptor {
     // if (task) t = typeof(Task<>).MakeGenericType(t);
     ApiTypes[key] = ret;
     return ret;
-  }
-
-  private static Type StripIgnoredOuterTypes(Type t) {
-    if (t.Name == "Task`1") { // ISAssignableTo(Task<>) seems to not work
-      t = t.GenericTypeArguments[0];
-    }
-    if (t.HasAssignableType(typeof(IZResult))) {
-      // ZEnv.Log.Information("T {old} -> {new}", t.Name, t.GenericTypeArguments[0].Name);
-      t = t.GenericTypeArguments[0];
-    }
-    return t;
   }
 
   public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) {

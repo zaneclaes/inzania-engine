@@ -15,12 +15,12 @@ public abstract class ZFieldDescriptor : IAmInternal {
 
   public string FieldName { get; protected set; } = null!;
 
-  public abstract Type FieldType { get; }
+  public Type FieldType { get; }
 
-  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, IsOptional);
+  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, _enforceOptional);
   private ZTypeDescriptor? _apiType;
 
-  public bool IsOptional { get; protected set; }
+  private readonly bool _enforceOptional = false;
 
   public HashSet<string?> Formats { get; }
 
@@ -28,10 +28,12 @@ public abstract class ZFieldDescriptor : IAmInternal {
 
   // private MemberInfo _member;
 
-  public ZFieldDescriptor(MemberInfo member) {
+  protected ZFieldDescriptor(MemberInfo member, Type fieldType, bool enforceOptional = false) {
     // _member = member;
+    FieldType = fieldType;
     Formats = member.GetCustomAttribute<ApiFormatAttribute>()?.FormatTags ?? new HashSet<string?>();
     Auth = member.GetCustomAttribute<ApiAuthorizeAttribute>();
+    _enforceOptional = enforceOptional;
   }
 
   protected virtual List<ZTypeDescriptor> GetTypeDescriptors() =>

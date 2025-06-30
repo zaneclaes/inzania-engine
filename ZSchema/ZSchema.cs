@@ -176,9 +176,9 @@ public static class ZSchema {
       field = field.Argument(param.FieldName, m => m.Type(doArg));
     }
     if (mi.Auth != null) field = field.AddApiAuthorization(mi.Auth);
-    var doReturn = GetZSchemaType(mi.FieldType, typeof(ZObjectType<>));
-    ZEnv.Log.Debug("[FUNC] {name}({@fields}): {t2} / {ret}",
-      fieldName, mi.Parameters.Select(p => p.ParameterType), mi.FieldType, doReturn);
+    var doReturn = GetZSchemaType(mi.FieldTypeDescriptor, typeof(ZObjectType<>));
+    ZEnv.Log.Verbose("[FUNC] {name}({@fields}): {t2} / {rt} => {ret}",
+      fieldName, mi.Parameters.Select(p => p.ParameterType), mi.FieldType, mi.FieldTypeDescriptor, doReturn);
     field.Resolve(async resolver => {
       try {
         return await resolve(resolver, mi, resolver.ResolveInputVariables(mi.Parameters));

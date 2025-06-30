@@ -35,8 +35,6 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
 
   public ObservableAttribute? Observable { get; private set; }
 
-  public override Type FieldType => PropertyInfo.PropertyType;
-
   public object? GetValue(object obj) => PropertyInfo.GetValue(obj);
 
   public void SetValue(object obj, object? val) {
@@ -47,11 +45,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     });
   }
 
-  public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo) {
-    if (propertyInfo.GetMethod != null) { // Properties have a weird case where they do not expose nullability
-      IsOptional = new NullabilityInfoContext()
-        .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable;
-    }
+  public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
+    .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable) {
 
     PropertyInfo = propertyInfo;
     IsInherited = parentProp != null;
@@ -73,5 +68,5 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     }
   }
 
-  public override string ToString() => $"<{PropertyInfo.Name}: {PropertyInfo.PropertyType}{(IsOptional ? "?" : "!")}>";
+  public override string ToString() => $"<{PropertyInfo.Name}: {FieldTypeDescriptor}>";
 }

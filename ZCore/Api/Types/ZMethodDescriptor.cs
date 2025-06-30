@@ -15,8 +15,6 @@ namespace IZ.Core.Api.Types;
 public class ZMethodDescriptor : ZFieldDescriptor {
   public string OperationName { get; }
 
-  public override Type FieldType => Method.ReturnType;
-
   public ApiMethodAttribute? ApiMethod { get; }
 
   public ApiExecutionType ExecutionType { get; }
@@ -37,7 +35,26 @@ public class ZMethodDescriptor : ZFieldDescriptor {
   protected override List<ZTypeDescriptor> GetTypeDescriptors() =>
     base.GetTypeDescriptors().Union(Parameters.Select(p => p.ApiType)).ToList();
 
-  public ZMethodDescriptor(MethodInfo methodInfo) : base(methodInfo) {
+  public static Type StripIgnoredOuterFunctionTypes(Type t) {
+    if (t.Name == "Task`1") { // ISAssignableTo(Task<>) seems to not work
+      t = t.GenericTypeArguments[0];
+    }
+    if (t.HasAssignableType(typeof(IZResult))) {
+      // ZEnv.Log.Information("T {old} -> {new}", t.Name, t.GenericTypeArguments[0].Name);
+      t = t.GenericTypeArguments[0];
+    }
+    return t;
+  }
+
+  private static bool IsMethodReturnNullable(MethodInfo methodInfo) {
+    var context = new NullabilityInfoContext();
+    var nullability = context.Create(methodInfo.ReturnParameter);
+    if (nullability.ReadState == NullabilityState.Nullable) return true;
+    var inner = nullability.GenericTypeArguments.FirstOrDefault();
+    return inner is {ReadState: NullabilityState.Nullable};
+  }
+
+  public ZMethodDescriptor(MethodInfo methodInfo) : base(methodInfo, methodInfo.ReturnType, IsMethodReturnNullable(methodInfo)) {
     Method = methodInfo;
     OperationName = methodInfo.Name;
     Parameters = methodInfo.GetParameters()
@@ -58,4 +75,6 @@ public class ZMethodDescriptor : ZFieldDescriptor {
     }
     FieldName = name.ToFieldName();
   }
+
+  public override string ToString() => $"<{Method.Name}: {FieldTypeDescriptor}>";
 }
