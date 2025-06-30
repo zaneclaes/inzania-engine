@@ -55,6 +55,8 @@ public static class ZContexts {
   public static IZUser RequireIZUser(this IZContext context) =>
     context.CurrentIdentity?.IZUser ?? throw new AccessViolationException("UserId not provided (and no current user)");
 
+  public static string? CurrentUserId(this IZContext context) => context.CurrentIdentity?.IZUser?.UserId;
+
   // Returns current user ID, but throws exception if it doesn't match the provided ID (and isn't an admin)
   public static string CheckCurrentUserId(this IZContext context, string? userId = null) {
     var curUser = context.CurrentIdentity?.IZUser;

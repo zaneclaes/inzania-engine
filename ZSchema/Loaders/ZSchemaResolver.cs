@@ -22,9 +22,9 @@ namespace IZ.Schema.Loaders;
 public class ZSchemaResolver : LogicBase, IZResolver {
   private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => !l.IsResolved && !l.IsResolving).ToList();
 
-  // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued
-  // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to accrue
-  private int ResolveDelayMs => Math.Clamp((int)Math.Pow(_resolutions, 1/3f), 1, 10);
+  // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued.
+  // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to acrue
+  private int ResolveDelayMs => Math.Clamp((int)Math.Pow(_resolutions, 1/2f), 1, 10);
 
   private long _resolveAt = 0;
 

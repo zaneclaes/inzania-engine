@@ -15,6 +15,16 @@ public abstract class ZTest<ZTA> : LogicBase where ZTA : ZTestApp {
 
   protected ZTA App { get;  private set; }
 
+  // Where the test project lives
+  protected virtual string TestProjectDir => Path.Combine("..", "..", "..");
+
+  // If part of solution, overwrite, preferring git path as root
+  protected virtual string SolutionDir => TestProjectDir;
+
+  protected virtual string UserDir => Path.Combine(MonoRepoRoot, "User");
+
+  protected string MonoRepoRoot => SolutionDir;
+
   protected ZTest(ZTA app) {
     App = app;
     Context = _rootContext = new ZTestRootContext(App, new ServiceCollection()

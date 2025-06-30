@@ -43,7 +43,7 @@ public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey>, IItemizable<TKe
 
   public abstract TKey Id { get; set; }
 
-  public TKey ItemId => Id;
+  public virtual TKey ItemId => Id;
 
   protected virtual void LoadIdFromParent<TParent>(TKey id, TParent? parent = null) where TParent : class {
     Id = id;
