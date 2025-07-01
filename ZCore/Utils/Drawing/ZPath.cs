@@ -36,7 +36,7 @@ public class ZPath {
       float u = 1 - t;
       float qx = u * u * p0.X + 2 * u * t * p1.X + t * t * p2.X;
       float qy = u * u * p0.Y + 2 * u * t * p1.Y + t * t * p2.Y;
-      _currentContour.Add(new ZPoint(qx, qy));
+      _currentContour!.Add(new ZPoint(qx, qy));
     }
 
     UpdateBounds();

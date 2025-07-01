@@ -24,7 +24,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
 
   // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued.
   // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to acrue
-  private int ResolveDelayMs => Math.Clamp((int)Math.Pow(_resolutions, 1/2f), 1, 10);
+  private int ResolveDelayMs => Math.Clamp((int)Math.Pow(_resolutions, 1/2f), 1, 20);
 
   private long _resolveAt = 0;
 

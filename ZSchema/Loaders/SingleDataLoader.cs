@@ -81,7 +81,7 @@ public abstract class ZDataLoader<TKey, TValue> : LogicBase, IZDataLoader<TKey, 
     if (Data.TryGetValue(key, out var value)) return value;
     if (!_queued.Contains(key)) {
       if (IsResolved || IsResolving) {
-        Log.Warning("[QUEUE] {self} returning to un-loaded state...", this);
+        Log.Information("[QUEUE] {self} returning to un-loaded state...", this);
         IsResolved = false;
       }
       // Log.Information("[QUEUE] {key} into {self}", key, this);
@@ -97,7 +97,7 @@ public abstract class ZDataLoader<TKey, TValue> : LogicBase, IZDataLoader<TKey, 
     return tasks.Select(t => t.Result).ToArray();
   }
 
-  public override string ToString() => $"<{Key} {GetType().Name}<{typeof(TKey).Name}, {typeof(TValue).Name}>#{_id} />";
+  public override string ToString() => $"<{Key}#{_id} />";
 }
 
 public class SingleDataLoader<TKey, TValue> : ZDataLoader<TKey, TValue> where TKey : notnull {

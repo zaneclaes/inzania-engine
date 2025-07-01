@@ -49,12 +49,15 @@ public abstract class Sitemap : LogicBase {
   public static XElement Generate(string fqdn, Dictionary<string, SitePage> map) {
     XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
     var urlset = new XElement(ns + "urlset");
-    foreach (string? path in map.Keys)
+    foreach (string path in map.Keys) {
+      var page = map[path];
+      if (!page.IncludeInSiteMap) continue;
       urlset.Add(new XElement("url",
-        new XElement("loc", fqdn + "/" + map[path].Path)
+        new XElement("loc", fqdn + "/" + page.Path)
         // TODO: if you have a way to detect last changes...
         // new XElement("lastmod", "...");
       ));
+    }
     return urlset;
   }
 }

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
 
@@ -13,6 +14,10 @@ namespace IZ.Core.Navigation;
 public class SitePage : LogicBase { // Type type,
   protected override bool AllowRootContext => true;
 
+  public virtual bool IncludeInSiteMap => MinimumRoleRequired <= ZUserRole.Visitor;
+
+  public virtual ZUserRole MinimumRoleRequired => ZUserRole.Visitor;
+
   protected SitePage(
     SiteCategory cat, string path, string title, string? desc = null, string? author = null, params string[] keywords
   ) {
@@ -22,7 +27,7 @@ public class SitePage : LogicBase { // Type type,
     Path = args.First().Trim('/');
     args.RemoveAt(0);
     Args = args.Select(a => a.Trim('/')).ToArray();
-    Title = title + " | " + ZEnv.ProductName;
+    Title = title;
     Description = desc;
     Author = author;
     Keywords = keywords.ToList();

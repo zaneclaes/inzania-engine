@@ -104,7 +104,7 @@ public class ZNetworkInterface : TransientObject {
   private static List<ZNetworkInterface> AllInterfaces { get; set; } = new List<ZNetworkInterface>();
 
   public static async Task<List<ZNetworkInterface>> Discover(IZContext context, int portOffset = 0, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator = null) {
-#if !UNITY_WEBGL
+#if !UNITY_WEBGL || UNITY_EDITOR
     using var stunClient = new ZStunClient(context);
     AllInterfaces = await stunClient.GetInterfaceAddresses(GetLocalInterfaces(context, creator), PublicPortStart + portOffset);
     AllInterfaces.Sort((a, b) => b.Priority.CompareTo(a.Priority));
@@ -145,7 +145,7 @@ public class ZNetworkInterface : TransientObject {
     !_lastIpAddresses.IsSameSet(GetAvailableInterfaces().Select(ni => GetIpAddresses(ni).Item1).Where(v => v != null).Cast<IPAddress>().ToList());
 
   private static List<NetworkInterface> GetAvailableInterfaces() =>
-#if !UNITY_WEBGL
+#if !UNITY_WEBGL || UNITY_EDITOR
     NetworkInterface.GetAllNetworkInterfaces().Where(ni => ni.OperationalStatus == OperationalStatus.Up).ToList();
 #else
     new List<NetworkInterface>();

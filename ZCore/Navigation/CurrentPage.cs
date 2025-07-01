@@ -22,13 +22,13 @@ public class CurrentPage : TransientObject {
 
   [Observable] public DeepLink? DeepLink { get; }
 
-  public SitePage? Page => DeepLink?.Page;
+  public SitePage? SitePage => DeepLink?.Page;
 
   [Observable] public string Path { get; }
 
   public void SendPageView() {
-    string title = Page?.Title ?? $"{Path.Split("/").First()}";
+    string title = SitePage?.Title ?? $"{Path.Split("/").First()}";
     // Context.Log.Information("[GA] {path} => {title}", Page?.Path ?? Path, title);
-    Context.Analytics?.PageView(Page?.Path ?? Path, title);
+    Context.Analytics?.PageView(SitePage?.Path ?? Path, title);
   }
 }

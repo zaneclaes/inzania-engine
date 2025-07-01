@@ -7,9 +7,11 @@ public enum SiteCategory {
   Songs,
   Play,
   MusicTheory,
+  Exercises,
   Account,
   Settings,
   Jam,
   MyMusic,
+  Install,
   Admin,
 }
