@@ -17,6 +17,7 @@ public class HttpRootContextAccessor : IProvideRootContext {
     // if (http == null) return null; // background / work context
     // var scope = http.EnsureRootScope("Start");
     // return scope.Context;
+    if (_requestContextAccessor == null) return sp.GetRequiredService<IZRootContext>();
     try {
       return _requestContextAccessor.RequestContext.Services.GetRequiredService<IZRootContext>();
     } catch (Exception e) {
@@ -27,8 +28,8 @@ public class HttpRootContextAccessor : IProvideRootContext {
 
   // public IZResolver GetResolver(IZContext context) => _requestContextAccessor.RequestContext.Services.GetRequiredService<IZResolver>();
 
-  private readonly IRequestContextAccessor _requestContextAccessor;
-  public HttpRootContextAccessor(IRequestContextAccessor requestContextAccessor) {
+  private readonly IRequestContextAccessor? _requestContextAccessor;
+  public HttpRootContextAccessor(IRequestContextAccessor? requestContextAccessor) {
     _requestContextAccessor = requestContextAccessor;
   }
 }
