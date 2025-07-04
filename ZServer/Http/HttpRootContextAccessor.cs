@@ -20,7 +20,7 @@ public class HttpRootContextAccessor : IProvideRootContext {
     if (_requestContextAccessor == null) return sp.GetRequiredService<IZRootContext>();
     try {
       return _requestContextAccessor.RequestContext.Services.GetRequiredService<IZRootContext>();
-    } catch (Exception e) {
+    } catch {
       // accessing the RequestContext outside a request throws :(
       return sp.GetRequiredService<IZRootContext>();
     }
