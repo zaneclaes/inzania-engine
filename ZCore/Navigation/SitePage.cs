@@ -11,7 +11,7 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Navigation;
 
-public class SitePage : LogicBase { // Type type,
+public class SitePage : LogicBase {
   protected override bool AllowRootContext => true;
 
   public virtual bool IncludeInSiteMap => MinimumRoleRequired <= ZUserRole.Visitor;
@@ -19,7 +19,7 @@ public class SitePage : LogicBase { // Type type,
   public virtual ZUserRole MinimumRoleRequired => ZUserRole.Visitor;
 
   protected SitePage(
-    SiteCategory cat, string path, string title, string? desc = null, string? author = null, params string[] keywords
+    string path, string title, string? desc = null, string? author = null, params string[] keywords
   ) {
     // PageType = type;
     Template = path.Trim('/');
@@ -32,8 +32,6 @@ public class SitePage : LogicBase { // Type type,
     Author = author;
     Keywords = keywords.ToList();
     Paths.Add(Path);
-
-    Category = cat;
   }
   // public Type PageType { get; }
 
@@ -52,6 +50,4 @@ public class SitePage : LogicBase { // Type type,
   public string? Description { get; }
 
   public List<string> Keywords { get; }
-
-  public SiteCategory Category { get; }
 }

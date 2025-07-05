@@ -9,20 +9,24 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Navigation;
 
-public class CurrentPage : TransientObject {
-  public CurrentPage(IZContext context, string path, Sitemap sitemap) : base(context) {
+public class CurrentPage<TPage, TLink, TMap> : TransientObject
+  where TPage : SitePage
+  where TLink : DeepLink<TPage>
+  where TMap : Sitemap<TPage, TLink>
+{
+  public CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
     // Nav = nav;
     Path = path;
     Sitemap = sitemap;
-    DeepLink = DeepLink.FromPath(context, Path);
+    DeepLink = deepLink; // TuneDeepLink.FromPath(context, Path);
   }
   // public NavigationManager Nav { get; private set; }
 
-  public Sitemap Sitemap { get; }
+  public TMap Sitemap { get; }
 
-  [Observable] public DeepLink? DeepLink { get; }
+  [Observable] public TLink? DeepLink { get; }
 
-  public SitePage? SitePage => DeepLink?.Page;
+  public TPage? SitePage => DeepLink?.Page;
 
   [Observable] public string Path { get; }
 
