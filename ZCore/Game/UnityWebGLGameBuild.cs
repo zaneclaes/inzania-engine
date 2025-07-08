@@ -12,4 +12,7 @@ public class UnityWebGLGameBuild : UnityGameBuild {
 
   [ApiDocs("The web app's framework unityweb file")]
   [MaxLength(128)] public string WebFrameworkFileHash { get; set; } = null!;
+
+  [ApiDocs("The web app's framework unityweb file")]
+  [MaxLength(128)] public string WorkerFileHash { get; set; } = null!;
 }

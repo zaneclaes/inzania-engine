@@ -24,8 +24,10 @@ public static class TuneQueries {
     _webSocketBuilder = b;
   }
 
-  public static IWebSocket CreateWebSocket(IZContext context, Uri url, string subprotocols, Dictionary<string, string>? headers = null) =>
-    _webSocketBuilder.Invoke(context, url, subprotocols, GetHeaders(context, headers));
+  public static IWebSocket CreateWebSocket(IZContext context, Uri url, string subprotocols, Dictionary<string, string>? headers = null) {
+    context.Log.Information("[WS] creating web socket...");
+    return _webSocketBuilder.Invoke(context, url, subprotocols, GetHeaders(context, headers));
+  }
 
   public static OperationKind ToOperationKind(this ApiExecutionType executionType) {
     if (executionType == ApiExecutionType.Query) return OperationKind.Query;
