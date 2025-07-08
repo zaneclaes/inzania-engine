@@ -21,12 +21,24 @@ public abstract class SendGridSender : LogicBase {
   private SendGridClient? _client;
 
   public EmailAddress SenderEmailAddress => _senderEmailAddress ??=
+    string.IsNullOrWhiteSpace(_sendGridOpts.SenderAddress) ? throw new NullReferenceException(nameof(_sendGridOpts.SenderAddress)) :
     new EmailAddress(_sendGridOpts.SenderAddress, _sendGridOpts.SenderName);
   private EmailAddress? _senderEmailAddress;
 
+  public EmailAddress RecipientEmailAddress => _recipAddress ??=
+    string.IsNullOrWhiteSpace(_sendGridOpts.RecipientAddress) ? SenderEmailAddress :
+    new EmailAddress(_sendGridOpts.RecipientAddress, _sendGridOpts.RecipientName);
+  private EmailAddress? _recipAddress;
+
   private readonly SendGridOptions _sendGridOpts;
 
-  private string SendGridKey => string.IsNullOrWhiteSpace(_sendGridOpts.Key) ? throw new ArgumentException(nameof(SendGridKey)) : _sendGridOpts.Key;
+  private string SendGridKey => string.IsNullOrWhiteSpace(_sendGridOpts.Key) ? GetSendGridKeyEnv() : _sendGridOpts.Key;
+  private string GetSendGridKeyEnv() {
+    var key = $"SENDGRID_API_KEY_{Context.App.ProductName.ToUpperInvariant()}";
+    var env = Environment.GetEnvironmentVariable(key);
+    if (string.IsNullOrWhiteSpace(env)) throw new ArgumentException(nameof(SendGridKey));
+    return env;
+  }
   protected SendGridClient Client => _client ??= new SendGridClient(SendGridKey);
 
   private string ApiKey => string.IsNullOrWhiteSpace(_sendGridOpts.ValidatorKey) ? throw new ArgumentException(nameof(_sendGridOpts.ValidatorKey)) : _sendGridOpts.ValidatorKey;
@@ -34,7 +46,7 @@ public abstract class SendGridSender : LogicBase {
 
   public abstract Task<EmailValidation?> ValidateEmailAsync(string email);
 
-  protected SendGridSender(IOptions<SendGridOptions> opts) {
+  protected SendGridSender(IZContext context, IOptions<SendGridOptions> opts) : base(context) {
     _sendGridOpts = opts.Value;
   }
 
@@ -85,7 +97,7 @@ public abstract class SendGridSender : LogicBase {
 }
 
 public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailSenderDb {
-  public SendGridSender(IOptions<SendGridOptions> opts) : base(opts) {
+  public SendGridSender(IZContext context, IOptions<SendGridOptions> opts) : base(context, opts) {
   }
 
   // public Task SendRawHtmlAsync(string email, string subject, string message) => ExecuteRawHtml(subject, message, email);
