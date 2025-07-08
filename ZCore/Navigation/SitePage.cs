@@ -35,6 +35,13 @@ public class SitePage : LogicBase {
   }
   // public Type PageType { get; }
 
+  public SitePage WithSubPaths(params string[] paths) {
+    foreach (var path in paths) {
+      Paths.Add(Path + '/' + path.Trim('/'));
+    }
+    return this;
+  }
+
   [Observable] public List<string> Paths { get; } = new List<string>();
 
   [Observable] public string Title { get; }

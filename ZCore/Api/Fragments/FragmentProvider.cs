@@ -56,9 +56,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
         if (!Directory.Exists(typeDir)) Directory.CreateDirectory(typeDir);
         path = Path.Join(typeDir, fragmentName + ".graphql");
       } else {
-#if !Z_UNITY
-        Log.Warning("[FRAGMENT] no persistent directory at {dir}", _graphqlDir);
-#endif
+        Log.Debug("[FRAGMENT] no persistent directory at {dir}", _graphqlDir);
       }
 
       if (generate) {
