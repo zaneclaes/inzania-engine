@@ -23,13 +23,13 @@ public abstract class ApiObject : ContextualObject {
     TKey localId, string localPropName, string? foreignPropName = null,
     Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : ModelKey<TKey> where TKey : notnull =>
-    await ResolveOptionalId(localId, localPropName, foreignPropName, beforeFilter, afterFilter) ?? throw new NullReferenceException(nameof(localPropName));
+    await ResolveOptionalId(localId, localPropName, foreignPropName, beforeFilter, afterFilter) ?? throw new NullReferenceException(localPropName);
 
   protected async Task<TData> ResolveRequiredProp<TKey, TData>(
     string localPropName, string? foreignPropName = null,
     Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
   ) where TData : ModelKey<TKey> where TKey : notnull =>
-    await ResolveOptionalProp<TKey, TData>(localPropName, foreignPropName, beforeFilter, afterFilter) ?? throw new NullReferenceException(nameof(localPropName));
+    await ResolveOptionalProp<TKey, TData>(localPropName, foreignPropName, beforeFilter, afterFilter) ?? throw new NullReferenceException(localPropName);
 
   protected Task<TData?> ResolveOptionalProp<TKey, TData>(
     string localPropName, string? foreignPropName = null,
