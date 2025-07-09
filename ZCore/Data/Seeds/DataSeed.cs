@@ -57,7 +57,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
 
   // protected List<TD> Models { get; set; } = new List<TD>();
 
-  private async Task ProcessExisting(List<TD> existing) {
+  protected virtual async Task ProcessExisting(List<TD> existing) {
     if (!existing.Any()) return;
 
     if (ReSeed) {
@@ -86,7 +86,8 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
   }
 
   private async Task<List<TD>> SeedModelIds(List<DataStub<TD>> stubs, List<TD>? existing = null) {
-    var seedIds = stubs.Select(p => p.Data.Id).ToArray();
+    var seedIds = stubs.Select(p => p.DataId).ToArray();
+    // ZEnv.Log.Information("SEED LOOK FOR {ids}", seedIds.ToList());
     existing ??= await GetQuery()
       .Filter(p => seedIds.Contains(p.Id))
       .LoadDataModelsAsync();
@@ -94,7 +95,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
 
     await ProcessExisting(existing);
     foreach (var stub in stubs) {
-      var e = existing.FirstOrDefault(e => e.Id.Equals(stub.Data.Id));
+      var e = existing.FirstOrDefault(e => e.Id.Equals(stub.DataId));
       if (e == null) {
         await Context.Data.AddAsync(stub.Data);
         models.Add(stub.Data);
@@ -111,12 +112,14 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
     List<DataStub<TD>> stubs = GetStubs();
     HashSet<string> ids = new HashSet<string>();
     foreach (var s in stubs)
-      if (!ids.Add(s.Data.Id))
+      if (!ids.Add(s.DataId))
         throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.Data.Id}");
+    // ZEnv.Log.Information("SEED STUBS {t}", ids);
     return stubs;
   }
 
   protected override async Task Exec() {
+    // ZEnv.Log.Information("SEED START {t}", GetType().Name);
     await SeedModelIds(PrepareStubs());
   }
 

@@ -7,7 +7,10 @@ namespace IZ.Core.Data.Seeds;
 public abstract class DataStub {
 }
 
-public abstract class DataStub<TD> : DataStub where TD : DataObject {
+public abstract class DataStub<TD> : DataStub, IItemizable where TD : DataObject {
+  public abstract string DataId { get; }
+  public string ItemId => DataId;
+
   public TD Data => _data ??= Stub(DataSeed.DataContext);
   private TD? _data;
 
@@ -15,7 +18,9 @@ public abstract class DataStub<TD> : DataStub where TD : DataObject {
     _data = data;
   }
 
-  public virtual TD Stub(IZContext context) => throw new NotImplementedException(nameof(Stub));
+  public TD Stub(IZContext context) => _data ??= CreateStub(context);
+
+  protected virtual TD CreateStub(IZContext context) => throw new NotImplementedException($"{GetType().Name}.{nameof(Stub)}");
 
   public virtual void Update(TD stub) {
     var desc = ZTypeDescriptor.FromType(typeof(TD));
