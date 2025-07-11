@@ -10,6 +10,10 @@ namespace IZ.Core.Utils;
 public class ZTrace {
   public List<string> FilteredTrace { get; }
 
+  public ZTrace() : this(new StackTrace()) { }
+
+  public ZTrace(StackTrace st) : this(st.ToString()) { }
+
   public ZTrace(string? stackTrace = null) {
     FilteredTrace = StackTraces.Filter(stackTrace ?? new StackTrace().ToString());
     if (stackTrace == null) FilteredTrace.RemoveAt(0);

@@ -27,21 +27,21 @@ public class ZDbContext : DbContext, IHaveContext {
     Context = root;
     Uuid = ModelId.GenerateId();
     Log = root.Log.ForContext(GetType());
-    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace());
   }
 
   public ZDbContext(DbContextOptions opts) : base(opts) {
     Context = ZEnv.SpawnRootContext();
     Uuid = ModelId.GenerateId();
     Log = Context.Log.ForContext(GetType());
-    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace());
   }
 
   public IZContext Context { get; }
   public IZLogger Log { get; }
 
   public override void Dispose() {
-    // Log.Information("[DB] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[DB] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace());
     base.Dispose();
   }
 

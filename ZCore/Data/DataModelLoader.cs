@@ -35,7 +35,7 @@ public static class DataModelLoader {
     if (context == null) {
       context = ZEnv.SpawnRootContext();
       context.Log.Warning("[DATA] spawning default context for {q} ({p}); stacktrace: {stacktrace}",
-        q.GetType().GenericTypeArguments.First().Name, q.Expression.GetType(), new ZTrace(new StackTrace().ToString()).ToString());
+        q.GetType().GenericTypeArguments.First().Name, q.Expression.GetType(), new ZTrace());
     }
     return context;
   }

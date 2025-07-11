@@ -106,7 +106,7 @@ public static class ZApi {
       ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
 
       _hasSchema = ZObjectDescriptor.ObjectTypes.Keys.Any();
-      if (!_hasSchema) ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace(new StackTrace().ToString()).ToString());
+      if (!_hasSchema) ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace());
     } finally {
       _startup.Release();
     }

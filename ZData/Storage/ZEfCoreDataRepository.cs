@@ -34,7 +34,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   public ZEfCoreDataRepository(IZContext context) : base(context) {
     // Db = db;
     _options = Context.GetRequiredService<DbContextOptions<TDb>>();
-    // Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new ZTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[EF] CREATE {id} on {context}\n{stack}", Uuid, context);//, new ZTrace());
   }
 
   public TDb Db {
@@ -51,7 +51,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   private TDb? _db;
 
   public override void Dispose() {
-    // Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace(new StackTrace().ToString()).ToString());
+    // Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace());
     _db?.Dispose();
     _db = null;
     base.Dispose();
