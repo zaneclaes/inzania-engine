@@ -84,6 +84,7 @@ public class ClientContext : RootContext {
   }
 
   public async ZTask Startup(Installation install, IAnalyticsSink? sink = null) {
+    Log.Information("[START] starting v{version} after {ms}ms...", install.SemVer, Uptimer.ElapsedMilliseconds);
     Install = install;
     ClientApp.ClientId = install.ClientId;
     ClientApp.Version = install.SemVer;
@@ -92,10 +93,9 @@ public class ClientContext : RootContext {
     IsSessionRestored = false;
     StartupException = null;
 
-    Log.Information("[START] starting after {ms}ms...", Uptimer.ElapsedMilliseconds);
     try {
       await ZTask.WhenAll(GetStartupTasks().ToArray());
-      // Log.Information("[START] Chordzy entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
+      Log.Information("[START] entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await ZTask.WhenAll(GetReadyTasks().ToArray());
       Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
@@ -104,6 +104,7 @@ public class ClientContext : RootContext {
       Log.Error(e, "[START] fatal error!");
       StartupException = e;
     } finally {
+      IsSessionRestored = true; // just in case... if somehow task didn't execute
       Uptimer.Stop();
     }
   }
