@@ -140,7 +140,8 @@ public class ZDbContext : DbContext, IHaveContext {
         if (attr.IsUnique) idx = idx.IsUnique();
       }
 
-      List<ApiKeyAttribute> keys = dataType.GetCustomAttributes<ApiKeyAttribute>().ToList();
+      // Keys may NOT be inherited: "A key cannot be configured on 'X' because it is a derived type. The key must be configured on the root type"
+      List<ApiKeyAttribute> keys = dataType.GetCustomAttributes<ApiKeyAttribute>(false).ToList();
       foreach (var attr in keys) {
         modelBuilder.Entity(dataType).HasKey(attr.PropertyNames.ToArray());
       }
