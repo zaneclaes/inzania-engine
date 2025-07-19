@@ -193,6 +193,12 @@ public static class DataModelLoader {
     return new ZQueryable<TModel>(provider, q);
   }
 
+  public static IZQueryable<TSource> ZOrderBy<TSource, TKey>(this IZQueryable<TSource> q, Expression<Func<TSource, TKey>> predicate)
+    where TSource : DataObject => q.OrderBy(predicate).AsZQueryable(q.QueryProvider);
+
+  public static IZQueryable<TSource> ZOrderByDesc<TSource, TKey>(this IZQueryable<TSource> q, Expression<Func<TSource, TKey>> predicate)
+    where TSource : DataObject => q.OrderByDescending(predicate).AsZQueryable(q.QueryProvider);
+
   public static IZQueryable<TSource> Filter<TSource>(this IZQueryable<TSource> q, Expression<Func<TSource, bool>> predicate)
     where TSource : DataObject => q.Where(predicate).AsZQueryable(q.QueryProvider);
 
