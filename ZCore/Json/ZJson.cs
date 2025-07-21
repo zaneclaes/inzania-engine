@@ -18,6 +18,12 @@ public static class ZJson {
   public static string SerializeObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) =>
     Converter.SerializeObject(obj, opts);
 
+  public static string PrettyPrintObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) {
+    opts ??= new ZJsonSerializationOpts();
+    opts.PrettyPrint = true;
+    return SerializeObject(obj, opts);
+  }
+
   public static TObj? DeserializeObject<TObj>(IZContext context, string str) =>
     (TObj?) Converter.DeserializeObject(context, str, typeof(TObj));
 

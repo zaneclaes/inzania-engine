@@ -136,10 +136,11 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
   }
 
   public ZPacketFormatter(IZContext? context) : base(context) {
-    _packetTypes = ZTypeDescriptor.ApiTypes.Values.Where(t => t.ObjectDescriptor.PacketDiscriminator > 0)
+    var types = ZTypeDescriptor.ApiTypes.Values.ToList();
+    _packetTypes = types.Where(t => t.ObjectDescriptor.PacketDiscriminator > 0)
       .GroupBy(t => t.ObjectDescriptor.PacketDiscriminator)
       .ToDictionary(p => p.Key, p => p.ToList());
-    if (!_packetTypes.Any()) Log.Error("[PACKET] no classes have the ApiPacket attribute among {names}", ZTypeDescriptor.ApiTypes.Values.Select(t => t.ToString()));
+    if (!_packetTypes.Any()) Log.Error("[PACKET] no classes have the ApiPacket attribute among {names}", types.Select(t => t.ToString()));
     foreach (var type in _packetTypes.Keys) {
       if (_packetTypes[type].Count != 1) Log.Error("[PACKET] packet discriminator {disc} is assigned to: {types}", type, _packetTypes[type].Select(t => t.ToString()));
     }
