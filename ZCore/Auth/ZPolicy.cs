@@ -2,7 +2,12 @@ namespace IZ.Core.Auth;
 
 public enum ZPolicy {
   None, // full public
-  PublicUser,
+  VirtualUser,
+  UnconfirmedUser,
+  ConfirmedUser,
+  Subscriber,
   ProtectedUser,
+  Moderator,
+  Admin,
   CurrentUser
 }

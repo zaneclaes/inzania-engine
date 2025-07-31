@@ -9,5 +9,7 @@ public interface IZUser : IStringKeyData, ICreatedAt, IAmOwned {
 
   public string UsernameLower { get; }
 
-  public string Email { get; }
+  public string? Email { get; }
+
+  public string? MigratedToUserId { get; set; }
 }

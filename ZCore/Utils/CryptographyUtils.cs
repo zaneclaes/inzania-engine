@@ -51,6 +51,7 @@ public static class CryptographyUtils {
     return sb.ToString();
   }
 
+  public static string ToBase62String(this string str) => Base62Encode(Encoding.UTF8.GetBytes(str));
   public static string ToBase64String(this string str) => Convert.ToBase64String(Encoding.UTF8.GetBytes(str));
 
   public static ulong ToSimpleHashVal(this string str) => XXHash.Hash64(Encoding.UTF8.GetBytes(str));

@@ -17,7 +17,7 @@ public class ApiAuthorizeAttribute : Attribute {
 
   public bool IsDefault => Policy == null && !Roles.Any();
 
-  public ApiAuthorizeAttribute(ZPolicy policy = ZPolicy.PublicUser, params ZUserRole[] allowedRoles) {
+  public ApiAuthorizeAttribute(ZPolicy policy = ZPolicy.VirtualUser, params ZUserRole[] allowedRoles) {
     Policy = policy == ZPolicy.None ? null : policy;
     Roles = allowedRoles.ToList();
   }

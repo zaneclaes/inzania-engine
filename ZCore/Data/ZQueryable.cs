@@ -11,7 +11,7 @@ using System.Threading;
 
 namespace IZ.Core.Data;
 
-public class ZQueryable<TData> : TransientObject, IZQueryable<TData> where TData : DataObject {
+public class ZQueryable<TData> : TransientObject, IZQueryable<TData> {
 
   private readonly IQueryable<TData> _q;
 

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using IZ.Core.Auth;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 
@@ -14,7 +15,7 @@ public class LogEntry : DataObject {
 
   public const int MaxPropsLength = 8000;
 
-  [MaxLength(128)] public string ClientId { get; set; } = null!;
+  [MaxLength(Installation.ClientIdLength)] public string ClientId { get; set; } = null!;
 
   [MaxLength(255)] public string FileName { get; set; } = null!;
 

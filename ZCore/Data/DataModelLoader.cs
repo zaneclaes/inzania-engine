@@ -57,10 +57,13 @@ public static class DataModelLoader {
   }
 
   public static async Task<List<T>> LoadDataModelsAsync<T>(
-    this IQueryable<T> queryable, IZContext? context = null) where T : DataObject {
+    this IQueryable<T> queryable, IZContext? context = null) {
     context = queryable.GetContext(context);
     List<T>? ret = await queryable.GetRepository(context).ExecuteListAsync(context, queryable);
-    foreach (var obj in ret) obj.EnforceContext(context);
+    foreach (var obj in ret) {
+      if (obj is DataObject o)
+        o.EnforceContext(context);
+    }
     return ret;
   }
 
@@ -104,11 +107,20 @@ public static class DataModelLoader {
     return q.GetRepository(context).ExecuteListAsync(context, q);
   }
 
-  public static async Task<long> LoadSumAsync<T>(
+  public static async Task<long> LoadLongSumAsync<T>(
     this IQueryable<T> queryable, Expression<Func<T, long>> func, IZContext? context = null
   ) {
     context = queryable.GetContext(context);
-    long ret = await queryable.GetRepository(context).ExecuteSumAsync(context, queryable, func);
+    long ret = await queryable.GetRepository(context).ExecuteLongSumAsync(context, queryable, func);
+    // if (ret != null) ret.SetParentLogger(context.Log);
+    return ret;
+  }
+
+  public static async Task<double> LoadDoubleSumAsync<T>(
+    this IQueryable<T> queryable, Expression<Func<T, double>> func, IZContext? context = null
+  ) {
+    context = queryable.GetContext(context);
+    double ret = await queryable.GetRepository(context).ExecuteDoubleSumAsync(context, queryable, func);
     // if (ret != null) ret.SetParentLogger(context.Log);
     return ret;
   }
@@ -187,7 +199,7 @@ public static class DataModelLoader {
     this IZContext context, string id
   ) where TModel : ModelKey<string> => context.QueryForModelId<TModel, string>(id);
 
-  public static IZQueryable<TModel> AsZQueryable<TModel>(this IQueryable<TModel> q, IZQueryProvider provider) where TModel : DataObject {
+  public static IZQueryable<TModel> AsZQueryable<TModel>(this IQueryable<TModel> q, IZQueryProvider provider) {
     if (q is IZQueryable<TModel> tq) return tq;
     provider.Log.Warning("[QUERY] converting {type} to ZQueryable<{dm}> via {other}", q.GetType(), typeof(TModel), provider.GetType());
     return new ZQueryable<TModel>(provider, q);
@@ -200,7 +212,7 @@ public static class DataModelLoader {
     where TSource : DataObject => q.OrderByDescending(predicate).AsZQueryable(q.QueryProvider);
 
   public static IZQueryable<TSource> Filter<TSource>(this IZQueryable<TSource> q, Expression<Func<TSource, bool>> predicate)
-    where TSource : DataObject => q.Where(predicate).AsZQueryable(q.QueryProvider);
+    => q.Where(predicate).AsZQueryable(q.QueryProvider);
 
   public static Task<TModel> Upsert<TModel>(this IZQueryable<TModel> q, Action<TModel> creator) where TModel : DataObject, new() =>
     q.QueryProvider.Context.Upsert(q, creator);

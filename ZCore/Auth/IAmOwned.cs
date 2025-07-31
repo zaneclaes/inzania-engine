@@ -9,3 +9,7 @@ public interface IMightBeOwned : IOwned {
 public interface IAmOwned : IOwned {
   public string UserId { get; }
 }
+
+public interface IAmOwned<TUser> : IAmOwned {
+  public TUser User { get; set; }
+}

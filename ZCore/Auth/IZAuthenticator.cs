@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using IZ.Core.Auth.Args;
 using IZ.Core.Contexts;
+using IZ.Core.Data;
 
 #endregion
 
@@ -19,6 +20,8 @@ public interface IZAuthenticator : IHaveContext {
   public Task<T> SetUserRole<T>(ChangeUserRoleArgs args) where T : class, IZUser;
 
   public Task<T> ChangeUsername<T>(ChangeUsernameArgs args) where T : class, IZUser;
+
+  public Task<T> MigrateUser<T>(T oldUser, T newUser) where T : ModelId, IZUser;
 
   public Task<IZIdentity> Authenticate(IZContext context, string? clientId, string? authToken, ClaimsPrincipal user);
 }

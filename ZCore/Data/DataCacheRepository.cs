@@ -27,7 +27,8 @@ public class DataCacheRepository : DataRepositoryBase, IZDataRepository {
     return (Caches[typeof(TData)] as IZQueryable<TData>)!;
   }
   public IZQueryProvider GetQueryProvider<TData>(IZContext context, IQueryable<TData> database) where TData : DataObject => throw new NotImplementedException();
-  public Task<long> ExecuteSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func) => throw new NotImplementedException();
+  public Task<long> ExecuteLongSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func) => throw new NotImplementedException();
+  public Task<double> ExecuteDoubleSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, double>> func) => throw new NotImplementedException();
   public Task<long> ExecuteCountAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();
   public Task<TData?> ExecuteFirstOrDefaultAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();
   public Task<List<TData>> ExecuteListAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();

@@ -96,9 +96,12 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     return ret;
   });
 
-  public Task<long> ExecuteSumAsync<TData>(
+  public Task<long> ExecuteLongSumAsync<TData>(
     IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func
   ) => ExecuteLocked(() => q.SumAsync(func, context.CancellationToken));
+
+  public Task<double> ExecuteDoubleSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, double>> func) =>
+    ExecuteLocked(() => q.SumAsync(func, context.CancellationToken));
 
   public Task<long> ExecuteCountAsync<TData>(IZContext context, IQueryable<TData> q) =>
     ExecuteLocked(() => q.LongCountAsync(context.CancellationToken));

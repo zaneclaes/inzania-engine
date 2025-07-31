@@ -7,7 +7,9 @@ using Semver;
 namespace IZ.Core.Auth;
 
 public class Installation : TransientObject {
-  [MaxLength(128)] public string ClientId { get; set; } = null!;
+  public const int ClientIdLength = 128;
+
+  [MaxLength(ClientIdLength)] public string ClientId { get; set; } = null!;
 
   [MaxLength(128)] public string Name { get; set; } = null!;
 

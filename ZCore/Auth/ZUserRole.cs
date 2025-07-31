@@ -10,16 +10,18 @@ namespace IZ.Core.Auth;
 
 public enum ZUserRole {
   Visitor = 0,
-  [ApiDocs("New user, has not confirmed email")] Unconfirmed = 1,
-  User = 3,
-  Subscriber = 5,
-  Moderator = 7,
-  Admin = 10
+  [ApiDocs("Fake user; created for a ClientId before sign-up")] Virtual = 10,
+  [ApiDocs("New user, has not confirmed email")] Unconfirmed = 20,
+  User = 30,
+  Subscriber = 50,
+  Moderator = 80,
+  Admin = 99
 }
 
 public static class ZRoles {
   public static List<ZUserRole> AllRoles { get; } = new List<ZUserRole> {
     ZUserRole.Visitor,
+    ZUserRole.Virtual,
     ZUserRole.Unconfirmed,
     ZUserRole.User,
     ZUserRole.Subscriber,

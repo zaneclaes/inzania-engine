@@ -10,7 +10,7 @@ public class PrincipalIdentity {
 
   public string Username { get; }
 
-  public string Email { get; }
+  public string? Email { get; }
 
   public ZUserRole Role { get; }
 
@@ -27,7 +27,7 @@ public class PrincipalIdentity {
     AuthToken = authToken;
   }
 
-  public PrincipalIdentity(string id, string username, string email, ZUserRole role, string authToken) {
+  public PrincipalIdentity(string id, string username, string? email, ZUserRole role, string authToken) {
     Id = id;
     Username = username;
     Email = email;

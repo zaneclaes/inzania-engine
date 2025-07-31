@@ -32,7 +32,9 @@ public interface IZDataRepository : IHaveContext, IDisposable {
   [ApiDocs("Wrap a loader in a semaphore for thread safety")]
   public Task<TData> ExecuteLocked<TData>(Func<Task<TData>> loader);
 
-  public Task<long> ExecuteSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func);
+  public Task<long> ExecuteLongSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func);
+
+  public Task<double> ExecuteDoubleSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, double>> func);
 
   public Task<long> ExecuteCountAsync<TData>(IZContext context, IQueryable<TData> q);
 

@@ -111,11 +111,12 @@ public class ClientContext : RootContext {
 
   private async ZTask RestoreSession() {
     var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
-    if (storedSession.AccessToken == null) {
-      _userIdentity = null;
-      IsSessionRestored = true;
-      return;
-    }
+    // if (storedSession.AccessToken == null) {
+    //   _userIdentity = null;
+    //   IsSessionRestored = true;
+    //   return;
+    // }
+    _userIdentity = null;
     StartTaskTimer(nameof(RestoreSession));
     try {
       Login(await storedSession.RestoreUserSession(Install));
@@ -128,6 +129,7 @@ public class ClientContext : RootContext {
   }
 
   public virtual void Login(IZIdentity userIdentity) {
+    Log.Information("[LOGIN] {uid}", userIdentity);
     _userIdentity = userIdentity;
   }
 

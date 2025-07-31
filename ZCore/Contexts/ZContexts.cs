@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using IZ.Core.Api;
 using IZ.Core.Auth;
@@ -223,6 +224,22 @@ public static class ZContexts {
   public static IZQueryable<TData> QueryFor<TData>(
     this IZContext context, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full
   ) where TData : DataObject => context.Data.QueryFor<TData>(context, set, tracking);
+
+  private static MethodInfo? _queryForMethod;
+
+  public static IZQueryable<TData> QueryFor<TData>(
+    this IZContext context, Type tData, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full
+  ) {
+    _queryForMethod ??= typeof(ZContexts)
+      .GetMethods(BindingFlags.Static | BindingFlags.Public)
+      .First(m => m is {Name: nameof(QueryFor), IsGenericMethodDefinition: true});
+    MethodInfo genericMethod = _queryForMethod.MakeGenericMethod(tData);
+    object result = genericMethod.Invoke(null, new object?[] {
+                      context, set, tracking
+                    }) ??
+                    throw new SystemException($"NULL return from QueryFor<{tData.Name}>");
+    return ((IZQueryable<TData>) result);
+  }
 
   public static IZQueryProvider GetQueryProvider<TData>(this IZContext context) where TData : DataObject
     => context.Data.QueryFor<TData>(context).QueryProvider; // we create a new Query to ensure it's attached to the PASSED context
