@@ -2,7 +2,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using IZ.Core;
 using IZ.Core.Contexts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
@@ -37,6 +39,8 @@ public static class ApiExceptionMiddleware {
   private static Task WriteProductionResponse(HttpContext httpContext, Func<Task> next) => WriteResponse(httpContext, false);
 
   private static Task WriteResponse(HttpContext httpContext, bool includeDetails) {
+    ZEnv.Log.Information("RES ?");
+
     var ex = httpContext.Features.Get<IExceptionHandlerFeature>()?.Error;
     if (ex == null) return Task.CompletedTask;
 
@@ -45,6 +49,7 @@ public static class ApiExceptionMiddleware {
     // context.Log.Error(ex, "[HTTP-WRITE] Exception {traceId}", traceId);
 
     ApiResultErrors errors = new ApiResultErrors(ApiResultError.BuildExceptionError(ex));
+    ZEnv.Log.Information("RES {errors}", errors.GetMostSevereError());
     ApiResponse res = new ApiResponse(httpContext.RequestServices.GetCurrentContext(), null, errors, httpContext.BuildResultMeta<ApiResultMeta>());
     Dictionary<string, object>? value = res.ToDictionaryValue(includeDetails);
 

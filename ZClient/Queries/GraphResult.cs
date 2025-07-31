@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -19,7 +20,13 @@ public abstract class GraphResult : TransientObject {
 }
 
 public class GraphErrorExtensions {
-  public string Code { get; set; } = null!;
+  public string? Code { get; set; }
+
+  public string? Exception { get; set; }
+
+  public string? StackTrace { get; set; }
+
+  public string? Method { get; set; }
 }
 
 public class GraphError {
@@ -44,6 +51,15 @@ public class GraphError {
   }
 
   public override string ToString() => $"{Message} ({string.Join(".", Path)})";
+}
+
+public class GraphException : RemoteZException {
+  public List<GraphError> Errors { get; }
+
+  public GraphException(IZContext context, params GraphError[] errors) : base(context,
+    errors.Any() ? string.Join("\n", errors.Select(e => e.FormattedMessage)) : "Empty Error Set!") {
+    Errors = errors.ToList();
+  }
 }
 
 public class GraphResult<TData> : GraphResult {
@@ -74,8 +90,7 @@ public class GraphResult<TData> : GraphResult {
     if (!doc.Body.RootElement.TryGetProperty("data", out var data) ||
         (data.ValueKind != JsonValueKind.Object && data.ValueKind != JsonValueKind.Array)) {
       if (errors == null || !errors.Any()) throw new NullReferenceException("NULL data with no errors? Data kind: " + data.ValueKind.ToString());
-      var msg = string.Join("\n", errors.Select(e => e.FormattedMessage));
-      throw new RemoteZException(context, msg);
+      throw new GraphException(context, errors);
     }
 
     Log.Verbose("[GQL] data {json}", data);

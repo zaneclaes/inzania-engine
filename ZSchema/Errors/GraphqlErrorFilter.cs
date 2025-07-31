@@ -23,8 +23,11 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
     var ex = error.Exception;
     if (ex != null) {
       error = error
-        .WithCode(GetExceptionErrorCode(ex))
-        .WithMessage(ex.Message);
+        .WithCode(GetExceptionErrorCode(ex))//
+        .WithMessage(ex.Message)
+        .SetExtension("exception", ex.GetType().Name)
+        .SetExtension("method", ex.Data["method"])
+        ;
       Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
     } else {
       var ext = (error.Extensions?.Any() ?? false) ?
