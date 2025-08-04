@@ -9,6 +9,7 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Exceptions;
 
 public abstract class ZException : Exception, IDisposable, IHaveContext {
+  public string? Reason { get; protected set; }
 
   public ZException(IZContext context, string message, Exception? innerException = null) : base(message, innerException) {
     Context = context;

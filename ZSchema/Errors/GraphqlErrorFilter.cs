@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using HotChocolate;
 using IZ.Core.Contexts;
+using IZ.Core.Exceptions;
 using IZ.Core.Observability.Logging;
 
 #endregion
@@ -25,9 +26,11 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
       error = error
         .WithCode(GetExceptionErrorCode(ex))//
         .WithMessage(ex.Message)
-        .SetExtension("exception", ex.GetType().Name)
-        .SetExtension("method", ex.Data["method"])
+        .SetExtension("Exception", ex.GetType().Name)
+        .SetExtension("Method", ex.Data["method"])
         ;
+      if (ex is ZException zEx)
+        error = error.SetExtension("Reason", zEx.Reason);
       Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
     } else {
       var ext = (error.Extensions?.Any() ?? false) ?

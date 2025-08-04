@@ -12,4 +12,8 @@ namespace IZ.Core.Exceptions;
 public class RemoteZException : ZException {
   public RemoteZException(IZContext context, string message, Exception? innerException = null) :
     base(context, message, innerException) { }
+
+  public RemoteZException(IZContext context, string message, string reason) : base(context, message) {
+    Reason = reason;
+  }
 }

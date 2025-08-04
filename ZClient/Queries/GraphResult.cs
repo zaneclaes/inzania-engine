@@ -27,6 +27,8 @@ public class GraphErrorExtensions {
   public string? StackTrace { get; set; }
 
   public string? Method { get; set; }
+
+  public string? Reason { get; set; }
 }
 
 public class GraphError {
@@ -55,6 +57,9 @@ public class GraphError {
 
 public class GraphException : RemoteZException {
   public List<GraphError> Errors { get; }
+
+  public List<GraphError> GetErrorsByReason(string reason) =>
+    Errors.Where(e => e.Extensions.Reason == reason).ToList();
 
   public GraphException(IZContext context, params GraphError[] errors) : base(context,
     errors.Any() ? string.Join("\n", errors.Select(e => e.FormattedMessage)) : "Empty Error Set!") {
