@@ -5,6 +5,7 @@ using System.Reflection;
 using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
+using IZ.Core.Exceptions;
 using IZ.Core.Navigation;
 using IZ.Core.Observability;
 using IZ.Core.Observability.Logging;
@@ -45,6 +46,8 @@ public abstract class ZApp : IGetLogged {
     ZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
     ZApi.EnsureSchema();
   }
+
+  public virtual bool HandleZException(ZException e) { return false; }
 
   public ZTarget Target { get; }
 

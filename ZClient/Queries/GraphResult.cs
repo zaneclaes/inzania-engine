@@ -95,7 +95,9 @@ public class GraphResult<TData> : GraphResult {
     if (!doc.Body.RootElement.TryGetProperty("data", out var data) ||
         (data.ValueKind != JsonValueKind.Object && data.ValueKind != JsonValueKind.Array)) {
       if (errors == null || !errors.Any()) throw new NullReferenceException("NULL data with no errors? Data kind: " + data.ValueKind.ToString());
-      throw new GraphException(context, errors);
+      var ex = new GraphException(context, errors);
+      if (context.App.HandleZException(ex)) return;
+      throw ex;
     }
 
     Log.Verbose("[GQL] data {json}", data);

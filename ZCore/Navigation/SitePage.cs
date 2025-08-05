@@ -19,8 +19,8 @@ public class SitePage : LogicBase {
   public virtual ZUserRole MinimumRoleRequired => ZUserRole.Visitor;
 
   protected SitePage(
-    string path, string title, string? desc = null, string? author = null, params string[] keywords
-  ) {
+    IZContext context, string path, string title, string? desc = null, string? author = null, params string[] keywords
+  ) : base(context) {
     // PageType = type;
     Template = path.Trim('/');
     List<string>? args = Template.Split(':').ToList();
