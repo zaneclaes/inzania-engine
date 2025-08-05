@@ -60,6 +60,11 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     var opReq = execDoc.ToOperationRequest();
     try {
       res = await opExecutor.ExecuteAsync(opReq, ct ?? context.CancellationToken);
+    } catch (GraphException e) {
+      e.OperationId = opReq.Name;
+      throw;
+    } catch (RemoteZException) {
+      throw;
     } catch (Exception e) {
       throw new RemoteZException(context, $"[GQL] Failed to execute {execDoc}", e);
     }

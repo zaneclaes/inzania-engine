@@ -56,6 +56,8 @@ public class GraphError {
 }
 
 public class GraphException : RemoteZException {
+  public string? OperationId { get; set; }
+
   public List<GraphError> Errors { get; }
 
   public List<GraphError> GetErrorsByReason(string reason) =>
@@ -68,7 +70,7 @@ public class GraphException : RemoteZException {
 }
 
 public class GraphResult<TData> : GraphResult {
-  public TData Result { get; }
+  public TData Result { get; } = default!;
 
   public GraphResult(IZContext context, Response<JsonDocument> doc) : base(context, doc) {
     if (doc.Exception != null) throw doc.Exception;
@@ -92,8 +94,9 @@ public class GraphResult<TData> : GraphResult {
       }
     }
 
-    if (!doc.Body.RootElement.TryGetProperty("data", out var data) ||
-        (data.ValueKind != JsonValueKind.Object && data.ValueKind != JsonValueKind.Array)) {
+    var failedData = !doc.Body.RootElement.TryGetProperty("data", out var data) ||
+                       (data.ValueKind != JsonValueKind.Object && data.ValueKind != JsonValueKind.Array);
+    if (failedData || (errors?.Any() ?? false)) {
       if (errors == null || !errors.Any()) throw new NullReferenceException("NULL data with no errors? Data kind: " + data.ValueKind.ToString());
       var ex = new GraphException(context, errors);
       if (context.App.HandleZException(ex)) return;

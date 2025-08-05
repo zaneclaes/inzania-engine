@@ -11,12 +11,21 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Navigation;
 
+public enum EmbeddingBehaviour {
+  NativeOnly = -1,
+  PreferNative = 0, // WebGL opens the native screen (default)
+  EmbedWebView = 1, // Not implemented in native...
+  OpenExternal = 2,
+}
+
 public class SitePage : LogicBase {
   protected override bool AllowRootContext => true;
 
   public virtual bool IncludeInSiteMap => MinimumRoleRequired <= ZUserRole.Visitor;
 
   public virtual ZUserRole MinimumRoleRequired => ZUserRole.Visitor;
+
+  public virtual EmbeddingBehaviour EmbedBehaviour => EmbeddingBehaviour.PreferNative;
 
   protected SitePage(
     IZContext context, string path, string title, string? desc = null, string? author = null, params string[] keywords
