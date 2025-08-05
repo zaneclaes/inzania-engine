@@ -21,6 +21,8 @@ public interface IZAuthenticator : IHaveContext {
 
   public Task<T> ChangeUsername<T>(ChangeUsernameArgs args) where T : class, IZUser;
 
+  public Task<T> ChangePassword<T>(ChangePasswordArgs args) where T : class, IZUser;
+
   public Task<T> MigrateUser<T>(T oldUser, T newUser) where T : ModelId, IZUser;
 
   public Task<IZIdentity> Authenticate(IZContext context, string? clientId, string? authToken, ClaimsPrincipal user);

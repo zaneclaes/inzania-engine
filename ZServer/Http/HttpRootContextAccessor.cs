@@ -11,13 +11,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Server.Http;
 
+public class StubRequestContextAccessor : IRequestContextAccessor {
+  public IRequestContext RequestContext { get; } = null!;
+}
+
 public class HttpRootContextAccessor : IProvideRootContext {
   public IZRootContext? GetRootContext(IServiceProvider sp) {
     // var http = sp.GetService<IHttpContextAccessor>()?.HttpContext;
     // if (http == null) return null; // background / work context
     // var scope = http.EnsureRootScope("Start");
     // return scope.Context;
-    if (_requestContextAccessor == null) return sp.GetRequiredService<IZRootContext>();
+    if (_requestContextAccessor == null || (_requestContextAccessor is StubRequestContextAccessor))
+      return sp.GetRequiredService<IZRootContext>();
     try {
       return _requestContextAccessor.RequestContext.Services.GetRequiredService<IZRootContext>();
     } catch {
