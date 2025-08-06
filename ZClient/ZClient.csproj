@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\TuneCore\TuneCore.csproj" />
     <ProjectReference Include="..\ZCore\ZCore.csproj" />
   </ItemGroup>
 
