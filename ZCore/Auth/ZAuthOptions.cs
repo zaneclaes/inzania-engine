@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Auth;
@@ -6,9 +7,9 @@ namespace IZ.Core.Auth;
 public class ZAuthOptions {
   public const string Auth = "Auth";
 
-  public string PublicUrl { get; set; } = null!;
+  [Observable] public string PublicUrl { get; set; } = null!;
 
-  public string PrivateUrl { get; set; } = null!;
+  [Observable] public string PrivateUrl { get; set; } = null!;
 
   [ApiIgnore]
   public string AdminSecret { get; set; } = null!;

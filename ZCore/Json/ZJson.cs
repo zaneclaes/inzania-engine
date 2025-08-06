@@ -13,6 +13,12 @@ public class ZJsonSerializationOpts {
 }
 
 public static class ZJson {
+  public static IZContext DefaultContext {
+    get => _defaultContext ??= new WorkContext(ZEnv.App);
+    set => _defaultContext = value;
+  }
+  private static IZContext? _defaultContext;
+
   public static IZJson Converter { get; set; } = new SystemJson();
 
   public static string SerializeObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) =>
@@ -24,9 +30,13 @@ public static class ZJson {
     return SerializeObject(obj, opts);
   }
 
-  public static TObj? DeserializeObject<TObj>(IZContext context, string str) =>
-    (TObj?) Converter.DeserializeObject(context, str, typeof(TObj));
+  public static TObj? DeserializeObject<TObj>(IZContext? context, string str) =>
+    (TObj?) Converter.DeserializeObject(context ?? DefaultContext, str, typeof(TObj));
 
-  public static object? DeserializeObject(IZContext context, string str, Type t) =>
-    Converter.DeserializeObject(context, str, t);
+  public static TObj? DeserializeObject<TObj>(string str) => DeserializeObject<TObj>(DefaultContext, str);
+
+  public static object? DeserializeObject(IZContext? context, string str, Type t) =>
+    Converter.DeserializeObject(context ?? DefaultContext, str, t);
+
+  public static object? DeserializeObject(string str, Type t) => DeserializeObject(DefaultContext, str, t);
 }

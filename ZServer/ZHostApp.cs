@@ -33,6 +33,17 @@ using Serilog.Sinks.SystemConsole.Themes;
 
 namespace IZ.Server;
 
+public class HostAppSettings : IZAppSettings {
+
+  public ApplicationStorage? Storage { get; }
+  public ZAuthOptions? Auth { get; }
+
+  public HostAppSettings(string productName, ConfigurationManager config) {
+    Storage = config.GetSection("Dir").ToZApplicationDirectories(productName);
+    Auth = config.GetSection("Auth").Get<ZAuthOptions>();
+  }
+}
+
 public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   protected WebApplication? WebApp { get; private set; } = null!;
 
@@ -43,11 +54,11 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) : base(
     productName,
     domainName,
+    (c) => new HostAppSettings(productName, builder.Configuration),
+    () => builder.Services.BuildServiceProvider(),
     Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!),
     CreateLogger(builder.Configuration),
-    ZTarget.PublicApp,
-    builder.Configuration.GetSection("Dir").ToZApplicationDirectories(productName),
-    builder.Configuration.GetSection("Auth").Get<ZAuthOptions>()
+    ZTarget.PublicApp
   ) {
     DataDogTracing.Enable();
 
@@ -61,7 +72,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
       Assembly.GetExecutingAssembly(), typeof(DatadogSink).Assembly, typeof(ConsoleTheme).Assembly)))
     .BuildToSingleton();
 
-  public override IServiceProvider CreateServices() => WebApp?.Services ?? _builder.Services.BuildServiceProvider();
+  public override IServiceProvider CreateServices() => WebApp?.Services ?? base.CreateServices();
 
   protected void AddWorker<T>(WebApplication app, TimeSpan? ts = null) where T : ContextualObject, IForeverTask, new() {
     var scopeFactory = app.Services.GetRequiredService<IServiceScopeFactory>();

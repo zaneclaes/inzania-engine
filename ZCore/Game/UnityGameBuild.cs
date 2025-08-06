@@ -18,7 +18,7 @@ public class UnityGameBuild : ModelNumber {
   [Column(TypeName = "varchar(32)")] public ZEnvironment Env { get; set; } = ZEnvironment.Staging;
 
   [ApiDocs("Full semantic version (major.minor.patch-tag.buildNumber)")] [JsonIgnore]
-  public string Semver => $"{VersionMajor}.{VersionMinor}.{VersionPatch}-{Env}+{BuildNumber}";
+  [Observable] public string Semver => $"{VersionMajor}.{VersionMinor}.{VersionPatch}-{Env}+{BuildNumber}";
 
   [ApiDocs("Semver's first digit")]
   public ushort VersionMajor { get; set; }

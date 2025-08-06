@@ -9,29 +9,38 @@ using IZ.Core.Exceptions;
 using IZ.Core.Navigation;
 using IZ.Core.Observability;
 using IZ.Core.Observability.Logging;
+// ReSharper disable VirtualMemberCallInConstructor
 
 #endregion
 
 namespace IZ.Core.Contexts;
 
+public interface IZAppSettings {
+  public ApplicationStorage? Storage { get; }
+  public ZAuthOptions? Auth { get; }
+}
+
 public abstract class ZApp : IGetLogged {
   public string ProductName { get; }
 
-  public abstract IServiceProvider CreateServices();
+  public virtual IServiceProvider CreateServices() => _fallbackServiceProviderFactory.Invoke();
+
+  private readonly Func<IServiceProvider> _fallbackServiceProviderFactory;
+
+  private readonly IZAppSettings? _appSettings;
 
   protected ZApp(
     string productName, string domainName,
-    ZEnvironment env, IZLogger? log = null, ZTarget? target = null,
-    ApplicationStorage? directories = null, ZAuthOptions? authOptions = null
+    Func<IZContext, IZAppSettings> settingsBuilder, Func<IServiceProvider> fallbackServiceProviderFactory,
+    ZEnvironment env, IZLogger? log = null, ZTarget? target = null
   ) {
     ProductName = productName;
     Env = env;
+    _fallbackServiceProviderFactory = fallbackServiceProviderFactory;
     CoreAssembly = Assembly.GetExecutingAssembly();
     AppAssembly = Assembly.GetEntryAssembly() ?? CoreAssembly;
     Log = log ?? ZEnv.Log;
     Target = target ?? ZTarget.PublicApp;
-    Storage = directories ?? new ApplicationStorage(ProductName);
-    Auth = authOptions ?? new ZAuthOptions();
     if (env <= ZEnvironment.Development) {
       DomainName = "localhost";
       SecureProtocol = false;
@@ -44,6 +53,13 @@ public abstract class ZApp : IGetLogged {
     ZEnv.App = this;
     // Sitemap = new Sitemap($"https://www.{ZEnv.DomainName}");
     ZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
+
+    // Actually build the app settings, including storage and auth
+    var ctxt = new WorkContext(this);
+    _appSettings = settingsBuilder.Invoke(ctxt);
+    Storage = _appSettings?.Storage ?? new ApplicationStorage(ProductName);
+    Auth = _appSettings?.Auth ?? new ZAuthOptions();
+
     ZApi.EnsureSchema();
   }
 

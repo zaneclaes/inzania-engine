@@ -28,7 +28,7 @@ public class SystemJson : IZJson {
 #endif
     Converters = {
       new BoolConverter(),
-      context == null ? new EnumConvertFactory() : new ZConvertFactory(context)
+      new ZConvertFactory(context ?? ZJson.DefaultContext)
     }
   };
 

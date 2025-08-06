@@ -210,6 +210,22 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) {
-    JsonSerializer.Serialize(writer, value, value.GetType(), SerializerOptions);
+    if (value is IAmInternal) {
+      // NO-OP
+    } else if (value is ContextualObject) {
+      ZObjectDescriptor desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
+      writer.WriteStartObject();
+      foreach (var prop in desc.AllProperties) {
+        if (!prop.IsSettable || prop.IsJsonIgnored) continue;
+        var val = prop.GetValue(value);
+        if (val is IAmInternal) continue;
+        writer.WritePropertyName(prop.Name);
+        if (val == null) writer.WriteNullValue();
+        else Write(writer, val, options);
+      }
+      writer.WriteEndObject();
+    } else {
+      JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
+    }
   }
 }

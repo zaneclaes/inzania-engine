@@ -84,7 +84,8 @@ public class ClientContext : RootContext {
   }
 
   public async ZTask Startup(Installation install, IAnalyticsSink? sink = null) {
-    Log.Information("[START] starting v{version} after {ms}ms...", install.SemVer, Uptimer.ElapsedMilliseconds);
+    Log.Information("[START] starting v{version} after {ms}ms with {@settings}...",
+      install.SemVer, Uptimer.ElapsedMilliseconds, ClientApp.Settings);
     Install = install;
     ClientApp.ClientId = install.ClientId;
     ClientApp.Version = install.SemVer;

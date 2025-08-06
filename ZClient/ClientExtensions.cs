@@ -35,7 +35,7 @@ public static class ClientExtensions {
       productName,
       dirs.GetSection("User").Value!,
       dirs.GetSection("Tmp").Value!,
-      dirs.GetSection("wwwroot").Value);
+      dirs.GetSection("Www").Value);
   }
 
   public static GraphQLHttpRequest ToGraphQlHttpRequest(this OperationRequest request) {
