@@ -10,6 +10,9 @@ public interface IZIdentity : IIdentity {
 
   public string SessionId { get; }
 
+  // Could be IP address, or similar
+  public string? AddressId { get; }
+
   [ApiDocs("If in user mode, who, if anybody?")]
   public IZSession? UserSession { get; }
 

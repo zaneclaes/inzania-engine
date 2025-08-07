@@ -47,7 +47,7 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     if (identity == null) {
       if (_visitor == null) {
         Log.Warning("[ANALYTICS] falling back on auto-generated identity");
-        _visitor = new ZVisitorIdentity(Context, ModelId.GenerateId());
+        _visitor = new ZVisitorIdentity(Context, ModelId.GenerateId(), null);
       }
       identity = _visitor;
     }

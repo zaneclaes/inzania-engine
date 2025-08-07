@@ -13,13 +13,11 @@ public class ZTestAppSettings : IZAppSettings {
 
 public class ZTestApp : ZApp {
   public ZTestApp(
-    string appName, string domainName, IZLogger log, ApplicationStorage? directories = null
+    string appName, string domainName, IZLogger log, ServiceCollection services, ApplicationStorage? directories = null
   ) : base(appName + "Test", domainName, (c) => new ZTestAppSettings {
     Storage = directories,
-  },() => throw new NotImplementedException(nameof(CreateServices)), ZEnvironment.Testing, log, ZTarget.UnitTests) {
-    _services = new ServiceCollection();
-  }
+  }, services.BuildServiceProvider, ZEnvironment.Testing, log, ZTarget.UnitTests) {}
 
-  public override IServiceProvider CreateServices() => _services.BuildServiceProvider();
-  private readonly IServiceCollection _services;
+  // public override IServiceProvider CreateServices() => _services.BuildServiceProvider();
+  // private readonly IServiceCollection _services;
 }

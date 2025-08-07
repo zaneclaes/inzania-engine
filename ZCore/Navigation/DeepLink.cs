@@ -38,7 +38,7 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
     Page = context.GetRequiredService<Sitemap>().GetPagePath<TPage>(string.Join("/", Parts));
     if (!IsValid) {
-      Log.Warning("[DL] invalid page {section}", path);
+      Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
     }
   }
 
