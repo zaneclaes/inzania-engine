@@ -11,8 +11,7 @@ public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDele
   where TMsg : IZP2PMessage<TSession, TMember>
   where TSession : IZP2PSession<TMember>
   where TMember : IZP2PMember
-  where TPacket : ZPacket
-{
+  where TPacket : ZPacket {
   // public ushort? PortNumber { get; }
 
   public bool IsRunning { get; }
@@ -20,11 +19,11 @@ public interface IZP2P<TMsg, TPacket, TSession, TMember> : IGraphQLWebSocketDele
   // Who are we?
   public TMember? Self { get; }
 
-  public bool IsMemberConnected(string memberId);
-
   public Dictionary<string, TMember> Members { get; }
 
-  public Task SendPacket(TPacket packet, string? memberId = null); // null implies BROADCAST
-
   public TSession? Session { get; }
+
+  public bool IsMemberConnected(string memberId);
+
+  public Task SendPacket(TPacket packet, string? memberId = null); // null implies BROADCAST
 }

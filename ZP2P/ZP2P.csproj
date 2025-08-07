@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ZCore\ZCore.csproj" />
+    <ProjectReference Include="..\ZCore\ZCore.csproj"/>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MessagePack" Version="3.1.4" />
+    <PackageReference Include="MessagePack" Version="3.1.4"/>
   </ItemGroup>
 
 </Project>

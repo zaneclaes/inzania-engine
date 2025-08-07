@@ -10,6 +10,16 @@ using IZ.Core.Api.Types;
 namespace IZ.Core.Api.Fragments;
 
 public class Fragment {
+
+  private static readonly Regex FragmentRegex = new Regex("\\.\\.\\.([\\w\\d_]+)\\s");
+
+  public Fragment(ZObjectDescriptor desc, string? format, string contents) {
+    ObjectTypeDescriptor = desc;
+    Format = format;
+    Name = GetName(desc, Format);
+    Contents = contents;
+    DependencyNames = ExtractAllFragmentNames(Name, contents);
+  }
   public ZObjectDescriptor ObjectTypeDescriptor { get; }
 
   public string? Format { get; }
@@ -20,21 +30,11 @@ public class Fragment {
 
   public List<string> DependencyNames { get; }
 
-  public Fragment(ZObjectDescriptor desc, string? format, string contents) {
-    ObjectTypeDescriptor = desc;
-    Format = format;
-    Name = GetName(desc, Format);
-    Contents = contents;
-    DependencyNames = ExtractAllFragmentNames(Name, contents);
-  }
-
   public static string GetName(ZObjectDescriptor desc, string? format) {
     string name = desc.TypeName;
     if (!string.IsNullOrWhiteSpace(format)) name += "_" + format;
     return name;
   }
-
-  private static readonly Regex FragmentRegex = new Regex("\\.\\.\\.([\\w\\d_]+)\\s");
 
   public static List<string> ExtractAllFragmentNames(string rootFragment, string fragmentContents) {
     var matches = FragmentRegex.Matches(fragmentContents);

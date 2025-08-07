@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using IZ.Core.Contexts;
 using IZ.Core.Observability.Logging;
 using IZ.Core.Utils;
@@ -23,10 +22,11 @@ public enum ZEnvironment {
 }
 
 public static class ZEnv {
+  private static Func<IZRootContext>? _defaultContextBuilder;
   public static string ProductName => App.ProductName;
 
   public static string DomainName => App.DomainName;
-  
+
   public static Func<IZSpan> SpanBuilder { get; set; } = ZSpan.ForContext;
 
   public static DateTime Now => DateTime.UtcNow;
@@ -35,14 +35,11 @@ public static class ZEnv {
 
   public static ZApp App { get; set; } = null!;
 
-  public static IZRootContext SpawnRootContext() {
-    return _defaultContextBuilder?.Invoke() ??
-      throw new SystemException("ZEnv defaultContextBuilder does not exist");
-  }
+  public static IZRootContext SpawnRootContext() => _defaultContextBuilder?.Invoke() ??
+                                                    throw new SystemException("ZEnv defaultContextBuilder does not exist");
   public static void SetRootContextSpawner(Func<IZRootContext> contextBuilder) {
     _defaultContextBuilder = contextBuilder;
   }
-  private static Func<IZRootContext>? _defaultContextBuilder;
 
   public static string SerializeZEnum<T>(this T e) where T : Enum => e.ToString().ToSnakeCase().ToUpper();
 

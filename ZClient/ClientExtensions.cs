@@ -8,6 +8,7 @@ using HotChocolate.Transport.Http;
 using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Json;
@@ -16,7 +17,6 @@ using StrawberryShake.Transport.Http;
 #endregion
 
 namespace IZ.Client;
-using Microsoft.Extensions.Configuration;
 
 public static class ClientExtensions {
   public static IServiceCollection AddTuneQueries<TSession, TConn>(this IServiceCollection c, Func<IServiceProvider, TConn> connBuilder)
@@ -30,13 +30,11 @@ public static class ClientExtensions {
     // .AddSingleton<StrawberryShake.IOperationResultBuilder<global::System.Text.Json.JsonDocument, GraphResult>, GraphBuilder>()
     .AddSingleton<IResultPatcher<JsonDocument>, JsonResultPatcher>();
 
-  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) {
-    return new ApplicationStorage(
-      productName,
-      dirs.GetSection("User").Value!,
-      dirs.GetSection("Tmp").Value!,
-      dirs.GetSection("Www").Value);
-  }
+  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) => new ApplicationStorage(
+    productName,
+    dirs.GetSection("User").Value!,
+    dirs.GetSection("Tmp").Value!,
+    dirs.GetSection("Www").Value);
 
   public static GraphQLHttpRequest ToGraphQlHttpRequest(this OperationRequest request) {
     (string? id, string? name, var document, IReadOnlyDictionary<string, object?>? variables, IReadOnlyDictionary<string, object?>? extensions, _, IReadOnlyDictionary<string, Upload?>? files, _) = request;
@@ -44,7 +42,7 @@ public static class ClientExtensions {
 #if NETSTANDARD2_0
     string? body = Encoding.UTF8.GetString(document.Body.ToArray());
 #else
-        var body = Encoding.UTF8.GetString(document.Body);
+    string body = Encoding.UTF8.GetString(document.Body);
 #endif
 
     bool hasFiles = files is {Count: > 0};
@@ -63,12 +61,12 @@ public static class ClientExtensions {
   }
 
   /// <summary>
-  /// Converts the variables into a dictionary that can be serialized. This is necessary
-  /// because the variables can contain lists of key value pairs which are not supported
-  /// by HotChocolate.Transport.Http
+  ///   Converts the variables into a dictionary that can be serialized. This is necessary
+  ///   because the variables can contain lists of key value pairs which are not supported
+  ///   by HotChocolate.Transport.Http
   /// </summary>
   /// <remarks>
-  /// We only convert the variables if necessary to avoid unnecessary allocations.
+  ///   We only convert the variables if necessary to avoid unnecessary allocations.
   /// </remarks>
   private static IReadOnlyDictionary<string, object?>? MapVariables(
     IReadOnlyDictionary<string, object?> variables) {
@@ -127,7 +125,7 @@ public static class ClientExtensions {
 
     return dictionary;
 #else
-        return new Dictionary<string, object?>(values);
+    return new Dictionary<string, object?>(values);
 #endif
   }
 

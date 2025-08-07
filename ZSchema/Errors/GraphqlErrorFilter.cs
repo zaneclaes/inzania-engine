@@ -1,6 +1,5 @@
 #region
 
-using System;
 using System.Linq;
 using HotChocolate;
 using IZ.Core.Contexts;
@@ -12,11 +11,11 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Schema.Errors;
 
 public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
-  public GraphqlErrorFilter(IZLogger log) : base(log) { }
 
   private static readonly string[] Warnings = {
     "request execution", "database operation"
   };
+  public GraphqlErrorFilter(IZLogger log) : base(log) { }
 
   // public GraphqlErrorFilter(IZContext context) : base(context) { }
 
@@ -24,16 +23,16 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
     var ex = error.Exception;
     if (ex != null) {
       error = error
-        .WithCode(GetExceptionErrorCode(ex))//
-        .WithMessage(ex.Message)
-        .SetExtension("Exception", ex.GetType().Name)
-        .SetExtension("Method", ex.Data["method"])
+          .WithCode(GetExceptionErrorCode(ex)) //
+          .WithMessage(ex.Message)
+          .SetExtension("Exception", ex.GetType().Name)
+          .SetExtension("Method", ex.Data["method"])
         ;
       if (ex is ZException zEx)
         error = error.SetExtension("Reason", zEx.Reason);
       Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
     } else {
-      var ext = (error.Extensions?.Any() ?? false) ?
+      string ext = error.Extensions?.Any() ?? false ?
         "\n" + string.Join(", ", error.Extensions.Select(e => e.Key + ": " + e.Value)) : "";
       Log.Error("[GQL] unknown error {code}: {msg}{ext}", error.Code, error.Message, ext);
     }

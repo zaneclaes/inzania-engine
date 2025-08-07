@@ -71,7 +71,7 @@ public class ProcessHealth : TransientObject, IHealthCheck {
 
   private string GetProcessOutput() {
     if (_processOutput != null) return _processOutput;
-    using Process p = new Process();
+    using var p = new Process();
     p.StartInfo.UseShellExecute = false;
     p.StartInfo.RedirectStandardOutput = true;
     p.StartInfo.FileName = "ps";

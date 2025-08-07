@@ -7,6 +7,16 @@ using IZ.Core.Data.Attributes;
 namespace IZ.Core.Auth;
 
 public class ZVisitorIdentity : TransientObject, IZIdentity {
+
+  public ZVisitorIdentity(IZContext context, string clientId, string? ipAddress, string? sessionId = null, params ClaimsIdentity[] identities) : base(context) {
+    Principal = new GenericPrincipal(this, new[] {
+      ZUserRole.Visitor.ToString()
+    });
+    Principal.AddIdentities(identities);
+    ClientId = clientId;
+    AddressId = ipAddress;
+    SessionId = sessionId ?? ModelId.GenerateId();
+  }
   public string? AuthenticationType => GetType().Name.Replace("Identity", "");
 
   public bool IsAuthenticated => false;
@@ -25,14 +35,4 @@ public class ZVisitorIdentity : TransientObject, IZIdentity {
   public IZUser? IZUser => null;
 
   public ClaimsPrincipal Principal { get; }
-
-  public ZVisitorIdentity(IZContext context, string clientId, string? ipAddress, string? sessionId = null, params ClaimsIdentity[] identities) : base(context) {
-    Principal = new GenericPrincipal(this, new[] {
-      ZUserRole.Visitor.ToString()
-    });
-    Principal.AddIdentities(identities);
-    ClientId = clientId;
-    AddressId = ipAddress;
-    SessionId = sessionId ?? ModelId.GenerateId();
-  }
 }

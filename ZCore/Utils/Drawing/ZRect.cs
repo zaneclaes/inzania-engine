@@ -1,4 +1,4 @@
-namespace IZ.Core.Utils.Drawing ;
+namespace IZ.Core.Utils.Drawing;
 
 public struct ZRect {
   public float X { get; }
@@ -6,8 +6,7 @@ public struct ZRect {
   public float Width { get; }
   public float Height { get; }
 
-  public ZRect(float x, float y, float width, float height)
-  {
+  public ZRect(float x, float y, float width, float height) {
     X = x;
     Y = y;
     Width = width;

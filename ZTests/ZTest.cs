@@ -1,18 +1,28 @@
-using System.Reflection;
+#region
+
 using IZ.Core;
 using IZ.Core.Contexts;
-using IZ.Core.Observability.Logging;
-using IZ.Core.Utils;
-using IZ.Logging.SerilogLogging;
-using Microsoft.Extensions.DependencyInjection;
-using Serilog;
 using Xunit.Abstractions;
+
+#endregion
 
 namespace ZTests;
 
 public abstract class ZTest<TA> : LogicBase where TA : ZTestApp {
 
-  protected TA App { get;  private set; }
+  protected ZTest(TA app, ITestOutputHelper output) {
+    ZTestRootContext rootContext;
+    App = app;
+    Context = rootContext = new ZTestRootContext(App, app.GetLoggerForTestOutput(output));
+    // , new ServiceCollection()
+    // .AddZApp<TA, ZTestRootContext>(App)
+    // .BuildServiceProvider());
+
+    ZEnv.SetRootContextSpawner(() => rootContext);
+    ZEnv.App = app;
+  }
+
+  protected TA App { get; }
 
   // Where the test project lives
   protected virtual string TestProjectDir => Path.Combine("..", "..", "..");
@@ -24,17 +34,8 @@ public abstract class ZTest<TA> : LogicBase where TA : ZTestApp {
 
   protected string MonoRepoRoot => SolutionDir;
 
-  protected ZTest(TA app, ITestOutputHelper output) {
-    ZTestRootContext rootContext;
-    App = app;
-    Context = rootContext = new ZTestRootContext(App, app.GetLoggerForTestOutput(output));
-      // , new ServiceCollection()
-      // .AddZApp<TA, ZTestRootContext>(App)
-      // .BuildServiceProvider());
 
-    ZEnv.SetRootContextSpawner(() => rootContext);
-    ZEnv.App = app;
-  }
+  protected override string ContextualObjectGroup => "Test";
 
   ~ZTest() {
     // Root.Log.Information("[TEST] shutting down...");
@@ -42,7 +43,4 @@ public abstract class ZTest<TA> : LogicBase where TA : ZTestApp {
     Task.Delay(15000).Wait();
     // Root.Log.Information("[TEST] done");
   }
-
-
-  protected override string ContextualObjectGroup => "Test";
 }

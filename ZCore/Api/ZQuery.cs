@@ -1,7 +1,3 @@
-#region
-
-#endregion
-
 using IZ.Core.Contexts;
 
 namespace IZ.Core.Api;

@@ -18,7 +18,7 @@ public static class MachineHost {
   }
 
   private static Dictionary<long, string> GetRunningHostProcesses(int port = 5292) {
-    using Process p = new Process();
+    using var p = new Process();
     p.StartInfo.UseShellExecute = false;
     p.StartInfo.RedirectStandardOutput = true;
     p.StartInfo.FileName = "lsof";

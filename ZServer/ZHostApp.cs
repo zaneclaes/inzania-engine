@@ -6,7 +6,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using IZ.Core;
-using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -35,26 +34,23 @@ namespace IZ.Server;
 
 public class HostAppSettings : IZAppSettings {
 
-  public ApplicationStorage? Storage { get; }
-  public ZAuthOptions? Auth { get; }
-
   public HostAppSettings(string productName, ConfigurationManager config) {
     Storage = config.GetSection("Dir").ToZApplicationDirectories(productName);
     Auth = config.GetSection("Auth").Get<ZAuthOptions>();
   }
+
+  public ApplicationStorage? Storage { get; }
+  public ZAuthOptions? Auth { get; }
 }
 
 public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
-  protected WebApplication? WebApp { get; private set; } = null!;
 
   private readonly WebApplicationBuilder _builder;
-
-  protected abstract DataSeed[] DataSeeds { get; }
 
   protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) : base(
     productName,
     domainName,
-    (c) => new HostAppSettings(productName, builder.Configuration),
+    c => new HostAppSettings(productName, builder.Configuration),
     () => builder.Services.BuildServiceProvider(),
     Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!),
     () => CreateLogger(builder.Configuration),
@@ -65,6 +61,9 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     _builder = builder;
     builder.Services.AddZServerCore(this);
   }
+  protected WebApplication? WebApp { get; private set; }
+
+  protected abstract DataSeed[] DataSeeds { get; }
 
   private static ZLogBuilder CreateLogger(IConfiguration config) => SerilogZLogBuilder.GetDefault()
     .ReadFrom(c => c.Configuration(config, new ConfigurationReaderOptions(
@@ -107,7 +106,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   }
 
   protected void ListUrls(WebApplication app) {
-    var serverAddresses = app.Urls;
+    ICollection<string> serverAddresses = app.Urls;
     if (!serverAddresses.Any()) {
       // If app.Urls is empty, try getting addresses from the server features
       var server = app.Services.GetRequiredService<IServer>();

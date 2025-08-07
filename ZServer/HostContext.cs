@@ -15,26 +15,11 @@ using Microsoft.AspNetCore.Http;
 namespace IZ.Server;
 
 public class HostContext : RootContext {
-  public override IZIdentity? CurrentIdentity => HttpContext?.User.Identity as IZIdentity;
 
   private readonly IHttpContextAccessor? _httpContextAccessor;
 
-  public override IZMetrics? Metrics => _metrics ??= new DataDogMetrics(this);
-  private IZMetrics? _metrics;
-
   private HttpContext? _httpContext;
-  public HttpContext? HttpContext {
-    get => _httpContext ??= _httpContextAccessor?.HttpContext;
-    internal set => _httpContext = value;
-  }
-
-  public IRequestContext? RequestContext => (IRequestContext?) HttpContext?.RequestServices.GetService(typeof(IRequestContext));
-
-  // public override IServiceProvider ServiceProvider => HttpContext?.RequestServices ?? base.ServiceProvider;
-
-  public override string Resource => RequestContext?.Operation?.Type.ToString() ?? (HttpContext?.Request.Method ?? "HTTP");
-
-  public override string? Action => RequestContext?.Operation == null ? HttpContext?.Request.Path.Value : (RequestContext.Operation.Name ?? RequestContext.OperationId);
+  private IZMetrics? _metrics;
 
   public HostContext(
     ZApp app,
@@ -55,4 +40,19 @@ public class HostContext : RootContext {
     _httpContext = httpContext;
     if (HttpContext != null) ((DataDogSpan?) Span)?.Span.SetTag("http_trace_id", HttpContext.TraceIdentifier);
   }
+  public override IZIdentity? CurrentIdentity => HttpContext?.User.Identity as IZIdentity;
+
+  public override IZMetrics? Metrics => _metrics ??= new DataDogMetrics(this);
+  public HttpContext? HttpContext {
+    get => _httpContext ??= _httpContextAccessor?.HttpContext;
+    internal set => _httpContext = value;
+  }
+
+  public IRequestContext? RequestContext => (IRequestContext?) HttpContext?.RequestServices.GetService(typeof(IRequestContext));
+
+  // public override IServiceProvider ServiceProvider => HttpContext?.RequestServices ?? base.ServiceProvider;
+
+  public override string Resource => RequestContext?.Operation?.Type.ToString() ?? (HttpContext?.Request.Method ?? "HTTP");
+
+  public override string? Action => RequestContext?.Operation == null ? HttpContext?.Request.Path.Value : RequestContext.Operation.Name ?? RequestContext.OperationId;
 }

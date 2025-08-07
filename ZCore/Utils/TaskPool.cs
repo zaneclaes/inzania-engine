@@ -7,9 +7,13 @@ using IZ.Core.Contexts;
 namespace IZ.Core.Utils;
 
 public abstract class TaskPoolBase : LogicBase {
-  protected int MaxThreads { get; }
 
   public const int DefaultMaxThreads = 50;
+
+  public TaskPoolBase(IZContext context, int maxThreads) : base(context) {
+    MaxThreads = maxThreads;
+  }
+  protected int MaxThreads { get; }
 
   protected abstract List<Task> BaseTasks { get; }
 
@@ -17,21 +21,17 @@ public abstract class TaskPoolBase : LogicBase {
 
   protected List<Task> FinishedTasks => BaseTasks.Where(t => t.IsCompleted || t.IsFaulted || t.IsCanceled).ToList();
 
-  public TaskPoolBase(IZContext context, int maxThreads) : base(context) {
-    MaxThreads = maxThreads;
-  }
-
   public async Task Finish() => await Task.WhenAll(BaseTasks);
 
   public override string ToString() => $"<Tasks {FinishedTasks.Count}/{BaseTasks.Count} />";
 }
 
 public class TaskPool : TaskPoolBase {
+
+  public TaskPool(IZContext context, int maxThreads = DefaultMaxThreads) : base(context, maxThreads) { }
   protected override List<Task> BaseTasks => Tasks;
 
   private List<Task> Tasks { get; } = new List<Task>();
-
-  public TaskPool(IZContext context, int maxThreads = DefaultMaxThreads) : base(context, maxThreads) { }
 
   public async Task AddTask(Func<Task> task) {
     while (ActiveTasks.Count >= MaxThreads) await Task.Delay(100);
@@ -47,11 +47,11 @@ public class TaskPool : TaskPoolBase {
 }
 
 public class TaskPool<T> : TaskPoolBase {
+
+  public TaskPool(IZContext context, int maxThreads = DefaultMaxThreads) : base(context, maxThreads) { }
   protected override List<Task> BaseTasks => Tasks.Cast<Task>().ToList();
 
   private List<Task<T>> Tasks { get; } = new List<Task<T>>();
-
-  public TaskPool(IZContext context, int maxThreads = DefaultMaxThreads) : base(context, maxThreads) { }
 
   public async Task AddTask(Func<Task<T>> task) {
     while (ActiveTasks.Count >= MaxThreads) await Task.Delay(100);
@@ -64,7 +64,7 @@ public class TaskPool<T> : TaskPoolBase {
   }
 
   public static async Task<List<T>> RunAll<TIn>(IZContext context, List<TIn> paramz, Func<TIn, Task<T>> creator, int maxThreads = DefaultMaxThreads) {
-    using var pool = new TaskPool<T>(context, maxThreads);
+    using TaskPool<T> pool = new TaskPool<T>(context, maxThreads);
     foreach (var p in paramz) await pool.AddTask(() => creator(p));
     return await pool.GetResults();
   }

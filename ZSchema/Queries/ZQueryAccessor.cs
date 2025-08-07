@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +12,6 @@ using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Contexts;
-using IZ.Core.Data;
 using IZ.Core.Utils;
 
 #endregion
@@ -21,12 +19,20 @@ using IZ.Core.Utils;
 namespace IZ.Schema.Queries;
 
 public class ZQueryAccessor : IOperationDocumentStorage {
-  public ZQueryAccessor(IFragmentProvider frag) { _provider = frag; }
-
-  private readonly IFragmentProvider _provider;
 
   private static readonly ConcurrentDictionary<string, OperationDocument> Documents =
     new ConcurrentDictionary<string, OperationDocument>();
+
+  private readonly IFragmentProvider _provider;
+  public ZQueryAccessor(IFragmentProvider frag) { _provider = frag; }
+
+  public ValueTask<IOperationDocument?> TryReadAsync(
+    OperationDocumentId documentId, CancellationToken cancellationToken = new CancellationToken()
+  ) => ValueTask.FromResult(TryReadOperation(documentId.ToString()!) as IOperationDocument);
+
+  public ValueTask SaveAsync(
+    OperationDocumentId documentId, IOperationDocument document, CancellationToken cancellationToken = new CancellationToken()
+  ) => throw new NotImplementedException();
 
   public OperationDocument? TryReadOperation(string queryId) =>
     queryId.Contains(ExecutionPlan.QueryIdSplit) ? Documents.GetOrAdd(queryId, GenerateQuery) : null;
@@ -63,12 +69,4 @@ public class ZQueryAccessor : IOperationDocumentStorage {
     var doc = new OperationDocument(Utf8GraphQLParser.Parse(query));
     return doc;
   }
-
-  public ValueTask<IOperationDocument?> TryReadAsync(
-    OperationDocumentId documentId, CancellationToken cancellationToken = new CancellationToken()
-  ) => ValueTask.FromResult(TryReadOperation(documentId.ToString()!) as IOperationDocument);
-
-  public ValueTask SaveAsync(
-    OperationDocumentId documentId, IOperationDocument document, CancellationToken cancellationToken = new CancellationToken()
-  ) => throw new NotImplementedException();
 }

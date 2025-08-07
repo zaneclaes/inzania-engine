@@ -13,7 +13,6 @@ public class ZApiControllerError : TransientObject {
   // Data & Stack also exist...
 }
 
-
 public class ZApiControllerMeta : TransientObject {
   public string TraceId { get; set; } = null!;
 }

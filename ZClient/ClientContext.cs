@@ -1,16 +1,14 @@
-#region
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using IZ.Client.GoogleAnalytics;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
+#region
 
 #if Z_UNITY
 using Cysharp.Threading.Tasks;
@@ -25,30 +23,29 @@ using ZTask = System.Threading.Tasks.Task;
 namespace IZ.Client;
 
 public class ClientContext : RootContext {
+
+  private readonly Dictionary<string, Stopwatch> _taskTimers = new Dictionary<string, Stopwatch>();
+
+  public readonly Stopwatch Uptimer;
+  private IZAnalytics? _analytics;
+
+  private IAnalyticsSink? _analyticsSink;
+  private IZIdentity? _userIdentity;
+  private ZVisitorIdentity? _visitorIdentity;
+
+  protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
+    Uptimer = Stopwatch.StartNew();
+    Log.Information("[START] entrypoint...");
+  }
   // private IZChildContext? _span;
 
   public ZClientApp ClientApp => App as ZClientApp ?? throw new SystemException($"ClientApp is a {App?.GetType()}");
 
   public override IZIdentity? CurrentIdentity => _userIdentity ?? (_visitorIdentity ??= GetVisitorIdentity());
-  private IZIdentity? _userIdentity;
-
-  protected virtual ZVisitorIdentity? GetVisitorIdentity() => null;
-  private ZVisitorIdentity? _visitorIdentity;
 
   public IZUser? CurrentUser => _userIdentity?.IZUser;
 
   public override IZAnalytics? Analytics => _analytics ??= new IzGoogleAnalytics(this);
-  private IZAnalytics? _analytics;
-
-  protected virtual List<ZTask> GetStartupTasks() => new List<ZTask> {
-    RestoreSession()
-  };
-
-  protected virtual List<ZTask> GetReadyTasks() => new List<ZTask> {
-    Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity)
-  };
-
-  private IAnalyticsSink? _analyticsSink;
 
   public bool IsStarted { get; private set; }
 
@@ -58,15 +55,21 @@ public class ClientContext : RootContext {
 
   public Installation Install { get; private set; } = null!;
 
-  public ZTask AwaitStart() => Tasks.WaitUntil(() => IsStarted || StartupException != null);
-
   public Exception? StartupException { get; private set; }
 
   public bool IsSessionRestored { get; private set; }
 
-  public readonly Stopwatch Uptimer;
+  protected virtual ZVisitorIdentity? GetVisitorIdentity() => null;
 
-  private Dictionary<string, Stopwatch> _taskTimers = new Dictionary<string, Stopwatch>();
+  protected virtual List<ZTask> GetStartupTasks() => new List<ZTask> {
+    RestoreSession()
+  };
+
+  protected virtual List<ZTask> GetReadyTasks() => new List<ZTask> {
+    Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity)
+  };
+
+  public ZTask AwaitStart() => Tasks.WaitUntil(() => IsStarted || StartupException != null);
 
   public void StartTaskTimer(string taskName, string? functionName = null) {
     if (!string.IsNullOrWhiteSpace(functionName)) taskName = $"{taskName}.{functionName}";
@@ -137,11 +140,6 @@ public class ClientContext : RootContext {
   public virtual void Logout() {
     _userIdentity = null;
     ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(null);
-  }
-
-  protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
-    Uptimer = Stopwatch.StartNew();
-    Log.Information("[START] entrypoint...");
   }
 
   public override void Dispose() {

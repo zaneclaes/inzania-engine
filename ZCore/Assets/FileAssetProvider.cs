@@ -1,7 +1,3 @@
-#region
-
-#endregion
-
 namespace IZ.Core.Assets;
 
 public class FileAssetProvider : BaseAssetProvider {

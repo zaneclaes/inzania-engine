@@ -3,28 +3,26 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
-using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
 public class ZStunClient : LogicBase {
-  public uint StunPort { get; private set; }
 
-  public int Timeout { get; private set; }
-
-  private readonly List<string> _stunServers = new List<string>() {
+  private readonly List<string> _stunServers = new List<string> {
     "stun.l.google.com",
-    "stun1.l.google.com",
+    "stun1.l.google.com"
   };
 
   public ZStunClient(IZContext ctx, uint stunPort = 19302, int timeout = 2000) : base(ctx) {
     StunPort = stunPort;
     Timeout = timeout;
   }
+  public uint StunPort { get; }
+
+  public int Timeout { get; }
 
   public async Task<List<ZNetworkInterface>> GetInterfaceAddresses(List<ZNetworkInterface> interfaces, int port = 0) {
     foreach (var addr in interfaces) {
@@ -53,11 +51,11 @@ public class ZStunClient : LogicBase {
     }
 
     List<Task<IPEndPoint?>> tasks = new List<Task<IPEndPoint?>>();
-    foreach (var stunServer in _stunServers) {
+    foreach (string stunServer in _stunServers) {
       tasks.Add(ConnectToStun(localIp, udpClient, stunServer));
     }
     await Task.WhenAll(tasks);
-    var endpoints = tasks.Select(t => t.Result).Where(ep => ep != null).ToList();
+    List<IPEndPoint?> endpoints = tasks.Select(t => t.Result).Where(ep => ep != null).ToList();
     if (endpoints.Count < 2) {
       if (endpoints.Any()) Log.Warning("[STUN] only got {cnt} STUN responses", endpoints.Count);
       if (!endpoints.Any()) return new Tuple<int, IPEndPoint?>(localPort, null);
@@ -72,7 +70,7 @@ public class ZStunClient : LogicBase {
   private async Task<IPEndPoint?> ConnectToStun(IPAddress localIp, Socket udpClient, string stunServer) {
     try {
       // udpClient.Connect(remoteEp);
-      var hostAddrs = await Dns.GetHostAddressesAsync(stunServer);
+      IPAddress[] hostAddrs = await Dns.GetHostAddressesAsync(stunServer);
       var hostAddr = hostAddrs.FirstOrDefault(h => h.AddressFamily == AddressFamily.InterNetwork);
       if (hostAddr == null) {
         Log.Warning("[STUN] could not find inter-network address for {server} among {addrs}", stunServer, string.Join(", ", hostAddrs.Select(h => h.ToString())));
@@ -83,27 +81,25 @@ public class ZStunClient : LogicBase {
       byte[] request = BuildBindingRequest();
       await udpClient.SendToAsync(new ArraySegment<byte>(request), SocketFlags.None, remoteEp);
 
-      var buffer = new byte[512];
-      var receiveTask = udpClient.ReceiveFromAsync(new ArraySegment<byte>(buffer), SocketFlags.None, remoteEp);
+      byte[] buffer = new byte[512];
+      Task<SocketReceiveFromResult> receiveTask = udpClient.ReceiveFromAsync(new ArraySegment<byte>(buffer), SocketFlags.None, remoteEp);
       var timeoutTask = Task.Delay(Timeout);
       var completed = await Task.WhenAny(receiveTask, timeoutTask);
 
       if (completed == receiveTask) {
         var received = receiveTask.Result;
-        var trimmed = new byte[received.ReceivedBytes];
+        byte[] trimmed = new byte[received.ReceivedBytes];
         Array.Copy(buffer, trimmed, trimmed.Length);
 
         if (TryParseBindingResponse(trimmed, out var publicEp)) {
           // Log.Information("[STUN] parsed {localIp} => {publicEp}", localIp, publicEp);
           return publicEp;
-        } else {
-          Log.Warning("[STUN] failed to parse response for {localIp}", localIp);
-          return null;
         }
-      } else {
-        Log.Debug("[STUN] timed out waiting for {localIP}", localIp);
+        Log.Warning("[STUN] failed to parse response for {localIp}", localIp);
         return null;
       }
+      Log.Debug("[STUN] timed out waiting for {localIP}", localIp);
+      return null;
     } catch (Exception e) {
       if (e is SocketException se && se.Message.Contains("No route to host")) {
         Log.Debug("[STUN] no route to host from {localIp}", localIp);
@@ -114,7 +110,7 @@ public class ZStunClient : LogicBase {
     }
   }
 
-  static byte[] BuildBindingRequest() {
+  private static byte[] BuildBindingRequest() {
     byte[] buffer = new byte[20];
     buffer[0] = 0x00; // Binding request type
     buffer[1] = 0x01;
@@ -131,30 +127,32 @@ public class ZStunClient : LogicBase {
     return buffer;
   }
 
-  static bool TryParseBindingResponse(byte[] response, [NotNullWhen(true)] out IPEndPoint? result) {
+  private static bool TryParseBindingResponse(byte[] response, [NotNullWhen(true)] out IPEndPoint? result) {
     result = null;
 
     if (response.Length < 20 || response[0] != 0x01 || response[1] != 0x01)
       return false; // Not a binding success response
 
-    int msgLength = (response[2] << 8) | response[3];
+    int msgLength = response[2] << 8 | response[3];
     int index = 20;
 
     while (index + 4 <= response.Length) {
-      ushort attrType = (ushort)((response[index] << 8) | response[index + 1]);
-      ushort attrLength = (ushort)((response[index + 2] << 8) | response[index + 3]);
+      ushort attrType = (ushort) (response[index] << 8 | response[index + 1]);
+      ushort attrLength = (ushort) (response[index + 2] << 8 | response[index + 3]);
       index += 4;
 
-      if (attrType == 0x0020 || attrType == 0x0001) {// XOR-MAPPED-ADDRESS or MAPPED-ADDRESS
+      if (attrType == 0x0020 || attrType == 0x0001) { // XOR-MAPPED-ADDRESS or MAPPED-ADDRESS
         byte family = response[index + 1];
-        int port = (response[index + 2] << 8) | response[index + 3];
+        int port = response[index + 2] << 8 | response[index + 3];
         byte[] ipBytes = new byte[4];
         Array.Copy(response, index + 4, ipBytes, 0, 4);
 
-        if (attrType == 0x0020) {// XOR-MAPPED-ADDRESS
+        if (attrType == 0x0020) { // XOR-MAPPED-ADDRESS
           port ^= 0x2112;
           for (int i = 0; i < 4; i++)
-            ipBytes[i] ^= new byte[] { 0x21, 0x12, 0xA4, 0x42 }[i];
+            ipBytes[i] ^= new byte[] {
+              0x21, 0x12, 0xA4, 0x42
+            }[i];
         }
 
         result = new IPEndPoint(new IPAddress(ipBytes), port);

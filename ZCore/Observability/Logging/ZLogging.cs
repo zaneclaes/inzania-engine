@@ -99,7 +99,7 @@ public static class ZLogging {
       .TransformObjectWhere<object>(t => t.HasAssignableType<IGetLogged>(), TransformObject<IGetLogged>)
       // .Destructure.ToMaximumDepth(20)
       .TransformObject<ExpandoObject>(ExpandLogEntry)
-      .TransformObject<Exception>((ex) => ZError.Guard(ex))
+      .TransformObject<Exception>(ex => ZError.Guard(ex))
       // .Enrich.FromLogContext()
       ;
     return c;

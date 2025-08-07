@@ -12,10 +12,10 @@ namespace IZ.Server.Graphql;
 
 public class GraphqlResultError : ApiResultError {
 
+  public GraphqlResultError(string message, ApiErrorTypes type, string? code = null, IDictionary? data = null) : base(message, type, code, data) { }
+
   public IReadOnlyList<Location>? Locations { get; set; }
   public Path? Path { get; set; }
-
-  public GraphqlResultError(string message, ApiErrorTypes type, string? code = null, IDictionary? data = null) : base(message, type, code, data) { }
 
   public override Dictionary<string, object> ToApiResponseData(bool includeDetails) {
     Dictionary<string, object> ret = base.ToApiResponseData(includeDetails);

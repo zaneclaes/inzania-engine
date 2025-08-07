@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
@@ -52,12 +51,12 @@ public interface IZContext : IServiceScope, IAmInternal, IEventEnricher {
 
   public IZRootContext Root => this is IZRootContext rc ? rc : Parent?.Root ?? throw new SystemException($"{GetType()} has no root parent");
 
-  [ApiDocs("Spawn a child context (span) for some action")]
-  public IZChildContext ScopeAction(Type? t, string? reason = null, IZLogger? logger = null);
-
   public Dictionary<string, object> DataBag { get; }
 
   public string ResourceAction => string.IsNullOrWhiteSpace(Action) ? Resource : $"{Resource}.{Action}";
+
+  [ApiDocs("Spawn a child context (span) for some action")]
+  public IZChildContext ScopeAction(Type? t, string? reason = null, IZLogger? logger = null);
 }
 
 public interface IZRootContext : IZContext { }

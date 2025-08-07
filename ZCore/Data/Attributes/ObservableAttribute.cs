@@ -11,9 +11,9 @@ namespace IZ.Core.Data.Attributes;
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public class ObservableAttribute : Attribute {
-  public string? MetricName { get; }
 
   public ObservableAttribute(string? metricName = null) {
     MetricName = metricName;
   }
+  public string? MetricName { get; }
 }

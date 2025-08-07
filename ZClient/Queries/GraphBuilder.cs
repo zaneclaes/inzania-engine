@@ -14,9 +14,9 @@ public class GraphBuilder<TData> : IOperationResultBuilder<JsonDocument, GraphRe
     Context = context;
     Log = context.Log.ForContext(GetType());
   }
+  public IZContext Context { get; }
+  public IZLogger Log { get; }
 
   public IOperationResult<GraphResult<TData>> Build(Response<JsonDocument> response) => new OperationResult<GraphResult<TData>>(new GraphResult<TData>(Context, response),
     null, null!, null);
-  public IZContext Context { get; }
-  public IZLogger Log { get; }
 }

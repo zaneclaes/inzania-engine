@@ -17,6 +17,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Core.Contexts;
 
 public static class ZContexts {
+
+  private static readonly string ExecTag = "EXEC";
+
+  private static MethodInfo? _queryForMethod;
   public static bool IsLoggedIn(this IZContext context) => (context.CurrentIdentity?.IsAuthenticated ?? false) && context.CurrentIdentity?.IZUser != null;
 
   public static IZChildContext ScopeAction<T>(this IZContext context, string? reason = null) => context.ScopeAction(typeof(T), reason);
@@ -115,8 +119,6 @@ public static class ZContexts {
     // if (context != null) return context;
     // // Fall back on
   }
-
-  private static readonly string ExecTag = "EXEC";
 
   // public static object?[] Guard(this IZContext context, params object?[] items) {
   //   if (!items.Any()) return items;
@@ -225,20 +227,18 @@ public static class ZContexts {
     this IZContext context, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full
   ) where TData : DataObject => context.Data.QueryFor<TData>(context, set, tracking);
 
-  private static MethodInfo? _queryForMethod;
-
   public static IZQueryable<TData> QueryFor<TData>(
     this IZContext context, Type tData, ResultSet? set = null, DataModelTracking tracking = DataModelTracking.Full
   ) {
     _queryForMethod ??= typeof(ZContexts)
       .GetMethods(BindingFlags.Static | BindingFlags.Public)
       .First(m => m is {Name: nameof(QueryFor), IsGenericMethodDefinition: true});
-    MethodInfo genericMethod = _queryForMethod.MakeGenericMethod(tData);
+    var genericMethod = _queryForMethod.MakeGenericMethod(tData);
     object result = genericMethod.Invoke(null, new object?[] {
                       context, set, tracking
                     }) ??
                     throw new SystemException($"NULL return from QueryFor<{tData.Name}>");
-    return ((IZQueryable<TData>) result);
+    return (IZQueryable<TData>) result;
   }
 
   public static IZQueryProvider GetQueryProvider<TData>(this IZContext context) where TData : DataObject

@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -22,6 +21,8 @@ public enum DataState {
 }
 
 public static class DataModelLoader {
+
+  private static readonly ConcurrentDictionary<Type, MethodInfo> _arrayContainsMethods = new ConcurrentDictionary<Type, MethodInfo>();
   private static IZDataRepository GetRepository(this IQueryable q, IZContext? context = null) {
     if (q is IZQueryable tq) return tq.Repository;
     bool spawnedDefault = context == null;
@@ -80,8 +81,6 @@ public static class DataModelLoader {
     List<TData>? ret = await queryable.LoadDataModelsAsync(context);
     return ret.ToDictionary(lookup);
   }
-
-  private static readonly ConcurrentDictionary<Type, MethodInfo> _arrayContainsMethods = new ConcurrentDictionary<Type, MethodInfo>();
 
   public static IZQueryable<TData> FilterKeyIn<TData, TKey>(
     this IZQueryable<TData> queryable, string key, params TKey[] vals
@@ -251,5 +250,4 @@ public static class DataModelLoader {
     await context.Data.AddAsync(ret);
     return ret;
   }
-
 }

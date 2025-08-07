@@ -15,13 +15,13 @@ public class ConsoleLogger : IZLogger {
 
   private readonly ConsoleLogger? _parent;
 
-  private ConsoleLogger Root => _parent?.Root ?? this;
-
   public ConsoleLogger(ConsoleLogger? parent = null, Type? type = null, IEventEnricher? enricher = null) {
     _parent = parent;
     _contextType = type;
     _eventEnricher = enricher;
   }
+
+  private ConsoleLogger Root => _parent?.Root ?? this;
 
   public void Write(ZEventLevel level, string template, params object?[] args) {
     Console.WriteLine($"[{level}] {template} {string.Join(", ", args.Select(PrintObject))}{Print()}");
@@ -31,6 +31,9 @@ public class ConsoleLogger : IZLogger {
     Console.WriteLine($"[{level}] {template} {string.Join(", ", args.Select(PrintObject))}{Print()}\n" +
                       $"{e.GetType().Name}: {e.Message}\n{string.Join("\n", e.StackTrace)}");
   }
+
+  public IZLogger ForContext(Type context, IEventEnricher? enricher = null) =>
+    new ConsoleLogger(this, context, enricher);
 
   private string PrintObject(object? o) {
     if (o == null) return "null";
@@ -43,12 +46,8 @@ public class ConsoleLogger : IZLogger {
     string ret = "";
     if (_contextType != null) ret += $"({_contextType.Name}) ";
     if (_eventEnricher != null) {
-      ret += "{" + string.Join(", ", _eventEnricher.EventProperties.Select(
-        p => $"\"{p.Key}\": {p.Value}")) + "}";
+      ret += "{" + string.Join(", ", _eventEnricher.EventProperties.Select(p => $"\"{p.Key}\": {p.Value}")) + "}";
     }
     return " :: " + ret.Trim();
   }
-
-  public IZLogger ForContext(Type context, IEventEnricher? enricher = null) =>
-    new ConsoleLogger(this, context, enricher);
 }

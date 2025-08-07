@@ -25,27 +25,19 @@ public interface IPool {
 }
 
 public interface IPool<T> : IPool where T : IPoolable {
-  public List<T> GetBusy() => (this).GetBusy<T>();
+  public List<T> GetBusy() => this.GetBusy<T>();
 }
 
 public abstract class FreeObjectPool : LogicBase, IPool {
 
-  private readonly List<object> _free = new List<object>();
-
   private readonly List<object> _busy = new List<object>();
 
-  public List<object> GetBusyObjects() => _busy;
+  private readonly List<object> _free = new List<object>();
 
   public FreeObjectPool(IZContext? context) : base(context) { }
   public abstract Type ObjectType { get; }
 
-  protected abstract object CreateObject();
-
-  protected virtual object ClaimFreeObject() {
-    object? ret = _free.First();
-    _free.RemoveAt(0);
-    return ret;
-  }
+  public List<object> GetBusyObjects() => _busy;
 
   public virtual object ClaimObject() {
     object claimed = _free.Any() ? ClaimFreeObject() : CreateObject();
@@ -59,6 +51,14 @@ public abstract class FreeObjectPool : LogicBase, IPool {
     _free.Add(obj);
     _busy.Remove(obj);
     // Log.Information("[POOL] free {name}", obj);
+  }
+
+  protected abstract object CreateObject();
+
+  protected virtual object ClaimFreeObject() {
+    object? ret = _free.First();
+    _free.RemoveAt(0);
+    return ret;
   }
 }
 

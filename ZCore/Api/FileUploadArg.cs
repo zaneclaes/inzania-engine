@@ -14,25 +14,25 @@ public class FileUploadArg : TransientObject, IFileUpload {
   private readonly Func<Stream> _openReadStream;
 
   /// <summary>
-  /// Creates a new instance of <see cref="StreamFile"/>.
+  ///   Creates a new instance of <see cref="StreamFile" />.
   /// </summary>
   /// <param name="name">
-  /// The file name.
+  ///   The file name.
   /// </param>
   /// <param name="openReadStream">
-  /// A delegate to open the stream.
+  ///   A delegate to open the stream.
   /// </param>
   /// <param name="length">
-  /// The file length if available.
+  ///   The file length if available.
   /// </param>
   /// <param name="contentType">
-  /// The file content-type.
+  ///   The file content-type.
   /// </param>
   /// <exception cref="ArgumentException">
-  /// <paramref name="name"/> is <c>null</c> or <see cref="string.Empty"/>.
+  ///   <paramref name="name" /> is <c>null</c> or <see cref="string.Empty" />.
   /// </exception>
   /// <exception cref="ArgumentNullException">
-  /// <paramref name="openReadStream"/> is <c>null</c>.
+  ///   <paramref name="openReadStream" /> is <c>null</c>.
   /// </exception>
   public FileUploadArg(
     string name,
@@ -66,10 +66,10 @@ public class FileUploadArg : TransientObject, IFileUpload {
     };
   }
 
+  public byte[]? Contents { get; }
+
   /// <inheritdoc />
   public string Name { get; }
-
-  public byte[]? Contents { get; }
 
   /// <inheritdoc />
   public long? Length { get; }

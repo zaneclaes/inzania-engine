@@ -9,6 +9,10 @@ namespace IZ.P2P.Packets;
 public class MessagePacketSerializer : LogicBase, IZPacketSerializer {
   private readonly MessagePackSerializerOptions _options;
 
+  public MessagePacketSerializer(IZContext context) : base(context) {
+    _options = MessagePackSerializer.DefaultOptions.WithZResolver(Context);
+  }
+
   public Task SerializePacketStream<TPacket>(TPacket packet, Stream stream) where TPacket : ZPacket =>
     MessagePackSerializer.SerializeAsync<ZPacket>(stream, packet, _options);
 
@@ -25,9 +29,5 @@ public class MessagePacketSerializer : LogicBase, IZPacketSerializer {
     var ret = MessagePackSerializer.Deserialize<ZPacket>(data, _options);
     ret.Context = context;
     return ret as TPacket ?? throw new SystemException($"Could not convert packet {ret.GetType()} to {typeof(TPacket)}");
-  }
-
-  public MessagePacketSerializer(IZContext context) : base(context) {
-    _options = MessagePackSerializer.DefaultOptions.WithZResolver(Context);
   }
 }

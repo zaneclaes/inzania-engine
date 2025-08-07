@@ -57,7 +57,7 @@ public class ApplicationStorage {
   private string GetTmpDir(string? tmpDir) => string.IsNullOrEmpty(tmpDir) ? Environment.GetEnvironmentVariable("TMP_DIR") ?? "/tmp" : ExpandPath(tmpDir);
 
   private IAssetProvider GetAssets() => new FileAssetProvider();
-  private  string FindZDir() {
+  private string FindZDir() {
     if (_zDir != null) return _zDir;
     string? dir = Directory.GetCurrentDirectory();
     while (!File.Exists(Path.Combine(dir, $"{_productName}.sln"))) {
@@ -69,7 +69,7 @@ public class ApplicationStorage {
   }
 
   private string ExpandPath(string? path) {
-    var envVar = _productName.ToSnakeCase().ToUpperInvariant() + "_DIR";
+    string envVar = _productName.ToSnakeCase().ToUpperInvariant() + "_DIR";
     if (path == null || !path.Contains($"${{{envVar}}}")) return path ?? Directory.GetCurrentDirectory();
     string? dir = Environment.GetEnvironmentVariable(envVar);
     if (string.IsNullOrWhiteSpace(dir)) dir = FindZDir();

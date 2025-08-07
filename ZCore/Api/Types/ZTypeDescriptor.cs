@@ -13,6 +13,8 @@ namespace IZ.Core.Api.Types;
 
 // Describes wrapping type around a ZObjectDescriptor (nullable, list, etc.)
 public class ZTypeDescriptor {
+
+  public static readonly Dictionary<string, ZTypeDescriptor> ApiTypes = new Dictionary<string, ZTypeDescriptor>();
   public Type OrigType { get; set; } = null!;
 
   public bool HasInner => IsList;
@@ -32,8 +34,6 @@ public class ZTypeDescriptor {
     ret += IsNullableOuter ? optionalIndicator : "!";
     return ret;
   }
-
-  public static readonly Dictionary<string, ZTypeDescriptor> ApiTypes = new Dictionary<string, ZTypeDescriptor>();
 
   public static ZTypeDescriptor FromType(Type t, bool isOptional = false) {
     string key = $"{t}{(isOptional ? "?" : "!")}";
@@ -71,9 +71,7 @@ public class ZTypeDescriptor {
     return ret;
   }
 
-  public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) {
-    return ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new List<ZTypeDescriptor>());
-  }
+  public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) => ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new List<ZTypeDescriptor>());
 
   private static List<ZTypeDescriptor> ExpandTypeTree(List<ZTypeDescriptor> baseTypes, List<ZTypeDescriptor> breadcrumbs) {
     List<ZTypeDescriptor> added = new List<ZTypeDescriptor>();

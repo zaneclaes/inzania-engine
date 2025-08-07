@@ -15,5 +15,4 @@ public static class AwsS3 {
         }))
       throw new SystemException("Failed to sync");
   }
-
 }

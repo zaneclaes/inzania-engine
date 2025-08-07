@@ -7,12 +7,12 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-#if !Z_UNITY
-using System.Threading.Tasks.Dataflow;
-#endif
 using IZ.Core.Contexts;
 using IZ.Core.Observability.Logging;
 using Microsoft.Extensions.DependencyInjection;
+#if !Z_UNITY
+using System.Threading.Tasks.Dataflow;
+#endif
 
 #endregion
 
@@ -48,9 +48,7 @@ public static class Tasks {
     if (task != null) task.GetAwaiter().GetResult();
   }
 
-  public static T? AwaitResultSync<T>(this Task<T>? task) {
-    return task == null ? default(T) : task.GetAwaiter().GetResult();
-  }
+  public static T? AwaitResultSync<T>(this Task<T>? task) => task == null ? default : task.GetAwaiter().GetResult();
 
 #if ENABLE_UNITYWEBREQUEST
     public static void Forget(this Task? task) {
@@ -61,19 +59,19 @@ public static class Tasks {
   public static void Forget(this Task? task) { }
 
   /// <summary>
-  ///     Blocks until condition is true or task is canceled.
+  ///   Blocks until condition is true or task is canceled.
   /// </summary>
   /// <param name="ct">
-  ///     Cancellation token.
+  ///   Cancellation token.
   /// </param>
   /// <param name="condition">
-  ///     The condition that will perpetuate the block.
+  ///   The condition that will perpetuate the block.
   /// </param>
   /// <param name="pollDelay">
-  ///     The delay at which the condition will be polled, in milliseconds.
+  ///   The delay at which the condition will be polled, in milliseconds.
   /// </param>
   /// <returns>
-  ///     <see cref="Task" />.
+  ///   <see cref="Task" />.
   /// </returns>
 
   // https://stackoverflow.com/questions/13695499/proper-way-to-implement-a-never-ending-task-timers-vs-task
@@ -99,9 +97,7 @@ public static class Tasks {
     return block;
   }
 
-  public static WorkContext ScopeWork(this IServiceScope scope) {
-    return new WorkContext(scope.ServiceProvider.GetRequiredService<ZApp>(), scope.ServiceProvider);
-  }
+  public static WorkContext ScopeWork(this IServiceScope scope) => new WorkContext(scope.ServiceProvider.GetRequiredService<ZApp>(), scope.ServiceProvider);
 
   public static CancellationTokenSource ForeverLoop<TTask>(
     this IServiceScopeFactory factory, TimeSpan interval

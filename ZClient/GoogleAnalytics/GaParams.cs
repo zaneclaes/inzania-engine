@@ -19,15 +19,6 @@ public class GaUserProp {
 // https://www.thyngster.com/ga4-measurement-protocol-cheatsheet/
 // https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference?client_type=gtag#payload
 public class GaParams {
-  [JsonPropertyName("client_id")] public string ClientId { get; set; }
-
-  [JsonPropertyName("user_id")] public string? UserId { get; set; }
-
-  [JsonPropertyName("timestamp_micros")] public long Timestamp { get; set; }
-
-  [JsonPropertyName("user_properties")] public Dictionary<string, object> UserProperties { get; set; } = new Dictionary<string, object>();
-
-  [JsonPropertyName("events")] public List<object> Events { get; set; } = new List<object>();
 
   public GaParams(string clientId, string? userId = null, Dictionary<string, object>? userProps = null) {
     ClientId = clientId;
@@ -41,6 +32,15 @@ public class GaParams {
         };
     }
   }
+  [JsonPropertyName("client_id")] public string ClientId { get; set; }
+
+  [JsonPropertyName("user_id")] public string? UserId { get; set; }
+
+  [JsonPropertyName("timestamp_micros")] public long Timestamp { get; set; }
+
+  [JsonPropertyName("user_properties")] public Dictionary<string, object> UserProperties { get; set; } = new Dictionary<string, object>();
+
+  [JsonPropertyName("events")] public List<object> Events { get; set; } = new List<object>();
 
   // [JsonPropertyName("v")] public int ProtocolVersion { get; set; } = 2;
   //

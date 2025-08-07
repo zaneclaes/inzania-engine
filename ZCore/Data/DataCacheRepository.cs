@@ -26,7 +26,6 @@ public class DataCacheRepository : DataRepositoryBase, IZDataRepository {
     // Log.Information("[CACHE] {type} {@cache}", typeof(TData).Name, Caches[typeof(Song)]);
     return (Caches[typeof(TData)] as IZQueryable<TData>)!;
   }
-  public IZQueryProvider GetQueryProvider<TData>(IZContext context, IQueryable<TData> database) where TData : DataObject => throw new NotImplementedException();
   public Task<long> ExecuteLongSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func) => throw new NotImplementedException();
   public Task<double> ExecuteDoubleSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, double>> func) => throw new NotImplementedException();
   public Task<long> ExecuteCountAsync<TData>(IZContext context, IQueryable<TData> q) => throw new NotImplementedException();
@@ -44,11 +43,12 @@ public class DataCacheRepository : DataRepositoryBase, IZDataRepository {
   public void Rollback() {
     throw new NotImplementedException();
   }
+  public bool HasChanges => false;
+  public IZQueryProvider GetQueryProvider<TData>(IZContext context, IQueryable<TData> database) where TData : DataObject => throw new NotImplementedException();
   public Task SanitizeAsync() => throw new NotImplementedException();
   public void SetChanged<TData>(params TData[] data) where TData : DataObject {
     throw new NotImplementedException();
   }
-  public bool HasChanges => false;
 /*
   public static void CacheCurrentUserScores(IZContext context, params Score[] scores) {
     if (!Caches.ContainsKey(typeof(Score))) Caches[typeof(Score)] = new DataCache<Score>(context.Data);

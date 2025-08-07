@@ -6,13 +6,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using GreenDonut;
-using HotChocolate.Fetching;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
-using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 
 #endregion
@@ -20,46 +16,25 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IZ.Schema.Loaders;
 
 public class ZSchemaResolver : LogicBase, IZResolver {
-  private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => !l.IsResolved && !l.IsResolving).ToList();
 
-  // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued.
-  // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to acrue
-  private int ResolveDelayMs => Math.Clamp((int)Math.Pow(_resolutions, 1/2f), 1, 20) + 2;
-
-  private long _resolveAt = 0;
-
-  private int _resolutions = 0;
+  private readonly ConcurrentDictionary<string, IZDataLoader> _dataLoaders = new ConcurrentDictionary<string, IZDataLoader>();
 
   private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
-  private async Task Resolve() {
-    var loaders = PendingLoaders;
-    if (!loaders.Any()) return;
-    var cnt = loaders.Sum(l => l.PendingCount);
-    Log.Debug("[RES] {self} resolving {cnt}", this, cnt);
-    await Task.WhenAll(loaders.Select(l => l.Resolve()));
-    _resolutions -= cnt;
-    if (_resolutions < 0) _resolutions = 0;
-    await Resolve();
-  }
+  private int _resolutions;
 
   private Task? _resolutionTask;
 
-  private void ScheduleResolution(int cnt) {
-    _resolutions += cnt;
-    _resolveAt = _stopwatch.ElapsedMilliseconds + ResolveDelayMs;
-    _resolutionTask ??= Task.Run(async () => {
-      while (_stopwatch.ElapsedMilliseconds < _resolveAt) await Task.Delay(1);
-      _resolutionTask = null;
-      await Resolve();
-    });
-  }
-
-  private readonly ConcurrentDictionary<string, IZDataLoader> _dataLoaders = new ConcurrentDictionary<string, IZDataLoader>();
+  private long _resolveAt;
 
   public ZSchemaResolver(IZContext context) : base(context) {
     // Log.Information("[RES] new resolver {res} for {context} : {stack}", this, context.Root, new ZTrace(new StackTrace().ToString()).ToString());
   }
+  private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => !l.IsResolved && !l.IsResolving).ToList();
+
+  // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued.
+  // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to acrue
+  private int ResolveDelayMs => Math.Clamp((int) Math.Pow(_resolutions, 1 / 2f), 1, 20) + 2;
 
   public async Task<TData[]> LoadArray<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<ILookup<TKey, TData>>> load, TKey? key, List<TData> existing
@@ -84,7 +59,7 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       }
 
       ScheduleResolution(1);
-      return await loader.LoadAsync(key) ??  new TData[] { };
+      return await loader.LoadAsync(key) ?? new TData[] { };
     } catch (Exception e) {
       if (!(e is TaskCanceledException)) Log.Warning(e, "[RES] failed to resolve array {name}", name);
       throw;
@@ -157,6 +132,27 @@ public class ZSchemaResolver : LogicBase, IZResolver {
     }
     // TData[] ret = await LoadArray(name, load, key, existing == null ? new List<TData>() : new List<TData>() { existing });
     // return ret.FirstOrDefault();
+  }
+
+  private async Task Resolve() {
+    List<IZDataLoader> loaders = PendingLoaders;
+    if (!loaders.Any()) return;
+    int cnt = loaders.Sum(l => l.PendingCount);
+    Log.Debug("[RES] {self} resolving {cnt}", this, cnt);
+    await Task.WhenAll(loaders.Select(l => l.Resolve()));
+    _resolutions -= cnt;
+    if (_resolutions < 0) _resolutions = 0;
+    await Resolve();
+  }
+
+  private void ScheduleResolution(int cnt) {
+    _resolutions += cnt;
+    _resolveAt = _stopwatch.ElapsedMilliseconds + ResolveDelayMs;
+    _resolutionTask ??= Task.Run(async () => {
+      while (_stopwatch.ElapsedMilliseconds < _resolveAt) await Task.Delay(1);
+      _resolutionTask = null;
+      await Resolve();
+    });
   }
 
 

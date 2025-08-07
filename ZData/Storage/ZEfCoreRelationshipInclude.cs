@@ -19,10 +19,6 @@ namespace IZ.Data.Storage;
 
 public class ZEfCoreRelationshipInclude<TEntity, TProperty> :
   LogicBase, IPreFetched<TEntity, TProperty> where TEntity : class {
-  public IZDataRepository Repository { get; }
-  public IZQueryProvider QueryProvider { get; }
-
-  public IIncludableQueryable<TEntity, TProperty> EfQueryable { get; }
 
   // private readonly IEnumerator<TEntity> _enumerator;
 
@@ -32,6 +28,10 @@ public class ZEfCoreRelationshipInclude<TEntity, TProperty> :
     QueryProvider = qp;
     // _enumerator = q.GetEnumerator();
   }
+
+  public IIncludableQueryable<TEntity, TProperty> EfQueryable { get; }
+  public IZDataRepository Repository { get; }
+  public IZQueryProvider QueryProvider { get; }
   public IEnumerator<TEntity> GetEnumerator() => EfQueryable.GetEnumerator();
   IEnumerator IEnumerable.GetEnumerator() => EfQueryable.GetEnumerator();
   public Type ElementType => EfQueryable.ElementType;

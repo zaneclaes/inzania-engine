@@ -13,11 +13,11 @@ public class ZJsonSerializationOpts {
 }
 
 public static class ZJson {
+  private static IZContext? _defaultContext;
   public static IZContext DefaultContext {
     get => _defaultContext ??= new WorkContext(ZEnv.App);
     set => _defaultContext = value;
   }
-  private static IZContext? _defaultContext;
 
   public static IZJson Converter { get; set; } = new SystemJson();
 

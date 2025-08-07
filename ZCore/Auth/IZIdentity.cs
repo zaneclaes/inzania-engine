@@ -21,4 +21,3 @@ public interface IZIdentity : IIdentity {
   [ApiDocs("A principal representing this identity")]
   public ClaimsPrincipal Principal { get; }
 }
-

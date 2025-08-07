@@ -8,7 +8,6 @@ using System.Diagnostics;
 namespace IZ.Core.Utils;
 
 public class ZTrace {
-  public List<string> FilteredTrace { get; }
 
   public ZTrace() : this(new StackTrace()) { }
 
@@ -18,6 +17,7 @@ public class ZTrace {
     FilteredTrace = StackTraces.Filter(stackTrace ?? new StackTrace().ToString());
     if (stackTrace == null) FilteredTrace.RemoveAt(0);
   }
+  public List<string> FilteredTrace { get; }
 
   public override string ToString() => string.Join("\n", FilteredTrace);
 }

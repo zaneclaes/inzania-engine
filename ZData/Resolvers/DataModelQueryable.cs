@@ -2,12 +2,10 @@
 
 using System.Linq;
 using IZ.Core.Data;
-using Microsoft.EntityFrameworkCore;
 
 #endregion
 
 namespace IZ.Data.Resolvers;
-
 
 public class DataModelQueryable<T> : ZQueryable<T> where T : DataObject {
   private readonly IQueryable<T> _db;

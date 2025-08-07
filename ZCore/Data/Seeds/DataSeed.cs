@@ -14,13 +14,15 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Data.Seeds;
 
 public abstract class DataSeed : IHaveContext {
-  public static IZContext DataContext => _dataContext ??= ZEnv.SpawnRootContext();
   private static IZContext? _dataContext;
+  public static IZContext DataContext => _dataContext ??= ZEnv.SpawnRootContext();
+
+  public virtual bool ReSeed => false;
+
+  public bool IsStubbed { get; private set; }
 
   public IZContext Context { get; set; } = null!;
   public IZLogger Log { get; set; } = null!;
-
-  public virtual bool ReSeed => false;
 
   public async Task SeedDatabase(IZContext context) {
     _dataContext = Context = context;
@@ -35,8 +37,6 @@ public abstract class DataSeed : IHaveContext {
       Log.Error(e, "[SEED] {type} failed", GetType().Name);
     }
   }
-
-  public bool IsStubbed { get; private set; }
 
   public void StubLibrary(IZContext context) {
     Context = context;
@@ -53,6 +53,8 @@ public abstract class DataSeed : IHaveContext {
 }
 
 public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
+
+  protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
   protected abstract List<DataStub<TD>> GetStubs();
 
   // protected List<TD> Models { get; set; } = new List<TD>();
@@ -69,8 +71,6 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
 
   protected virtual IZQueryable<TD> GetQuery() => Context.QueryFor<TD>();
 
-  protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
-
   protected virtual void SetModel(TD model) {
     Models[model.Id] = model;
   }
@@ -86,7 +86,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
   }
 
   private async Task<List<TD>> SeedModelIds(List<DataStub<TD>> stubs, List<TD>? existing = null) {
-    var seedIds = stubs.Select(p => p.DataId).ToArray();
+    string[] seedIds = stubs.Select(p => p.DataId).ToArray();
     // ZEnv.Log.Information("SEED LOOK FOR {ids}", seedIds.ToList());
     existing ??= await GetQuery()
       .Filter(p => seedIds.Contains(p.Id))
@@ -94,7 +94,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
     List<TD> models = existing.ToList();
 
     await ProcessExisting(existing);
-    foreach (var stub in stubs) {
+    foreach (DataStub<TD> stub in stubs) {
       var e = existing.FirstOrDefault(e => e.Id.Equals(stub.DataId));
       if (e == null) {
         await Context.Data.AddAsync(stub.Data);
@@ -111,7 +111,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
   private List<DataStub<TD>> PrepareStubs() {
     List<DataStub<TD>> stubs = GetStubs();
     HashSet<string> ids = new HashSet<string>();
-    foreach (var s in stubs)
+    foreach (DataStub<TD> s in stubs)
       if (!ids.Add(s.DataId))
         throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.Data.Id}");
     // ZEnv.Log.Information("SEED STUBS {t}", ids);

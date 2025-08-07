@@ -2,14 +2,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using IZ.Core;
 using IZ.Core.Contexts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog.Events;
 
@@ -48,9 +45,9 @@ public static class ApiExceptionMiddleware {
     // var traceId = Activity.Current?.Id ?? httpContext.TraceIdentifier;
     // context.Log.Error(ex, "[HTTP-WRITE] Exception {traceId}", traceId);
 
-    ApiResultErrors errors = new ApiResultErrors(ApiResultError.BuildExceptionError(ex));
+    var errors = new ApiResultErrors(ApiResultError.BuildExceptionError(ex));
     // ZEnv.Log.Information("RES {errors}", errors.GetMostSevereError());
-    ApiResponse res = new ApiResponse(httpContext.RequestServices.GetCurrentContext(), null, errors, httpContext.BuildResultMeta<ApiResultMeta>());
+    var res = new ApiResponse(httpContext.RequestServices.GetCurrentContext(), null, errors, httpContext.BuildResultMeta<ApiResultMeta>());
     Dictionary<string, object>? value = res.ToDictionaryValue(includeDetails);
 
     return ApiResponse.Write(value, httpContext, res.GetHttpStatusCode());

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 

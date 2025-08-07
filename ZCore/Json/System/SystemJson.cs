@@ -12,6 +12,17 @@ using IZ.Core.Contexts;
 namespace IZ.Core.Json.System;
 
 public class SystemJson : IZJson {
+
+  public string SerializeObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) {
+    var context = obj is IHaveContext hc ? hc.Context : null;
+    var o = DeserializeOptionsForContext(context);
+    if (opts != null) {
+      o.WriteIndented = opts.PrettyPrint;
+    }
+    return JsonSerializer.Serialize(obj, o);
+  }
+
+  public object? DeserializeObject(IZContext context, string str, Type t) => JsonSerializer.Deserialize(str, t, DeserializeOptionsForContext(context));
   public static JsonSerializerOptions DeserializeOptionsForContext(IZContext? context) => new JsonSerializerOptions {
     PropertyNameCaseInsensitive = true,
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -32,15 +43,6 @@ public class SystemJson : IZJson {
     }
   };
 
-  public string SerializeObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) {
-    var context = obj is IHaveContext hc ? hc.Context : null;
-    var o = DeserializeOptionsForContext(context);
-    if (opts != null) {
-      o.WriteIndented = opts.PrettyPrint;
-    }
-    return JsonSerializer.Serialize(obj, o);
-  }
-
 #if !Z_UNITY
   // Exclude empty arrays from response
   private static void DefaultValueModifier(JsonTypeInfo typeInfo) {
@@ -51,6 +53,4 @@ public class SystemJson : IZJson {
     }
   }
 #endif
-
-  public object? DeserializeObject(IZContext context, string str, Type t) => JsonSerializer.Deserialize(str, t, DeserializeOptionsForContext(context));
 }

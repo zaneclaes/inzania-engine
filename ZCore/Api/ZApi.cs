@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -22,28 +21,32 @@ public static class ZApi {
 
   private static readonly Dictionary<Type, Dictionary<string, ZMethodDescriptor>> ApiMethodNames =
     new Dictionary<Type, Dictionary<string, ZMethodDescriptor>>();
+  private static List<Assembly>? _assemblies;
+  private static List<Type>? _classes;
+
+  private static bool _hasSchema;
+
+  private static readonly SemaphoreSlim _startup = new SemaphoreSlim(1, 1);
+
+  /*new List<Assembly?> {
+    typeof(TRequest).Assembly,
+    Assembly.GetEntryAssembly(),
+    Assembly.GetExecutingAssembly()
+  }.Where(a => a != null).Distinct().Cast<Assembly>().ToList();*/
+  private static List<Assembly> Assemblies => _assemblies ??= AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
+
+  private static List<Type> Classes => _classes ??= Assemblies.SelectMany(a => a.GetTypes()).Distinct().ToList();
 
   public static Dictionary<string, ZMethodDescriptor> GetApiMethodNames<TRequest>() =>
     ApiMethodNames[typeof(TRequest)];
 
   private static bool IsExternal(Assembly asm) {
-    var name = asm.ToString();
+    string name = asm.ToString();
     return name.StartsWith("Microsoft.") || name.StartsWith("System") || name.StartsWith("Serilog") || name.StartsWith("netstandard")
-           || name.StartsWith("HotChocolate")|| name.StartsWith("ChilliCream")|| name.StartsWith("MySql")|| name.StartsWith("GreenDonut")
-           || name.StartsWith("Skia")|| name.StartsWith("Melanchall")|| name.StartsWith("MudBlazor")|| name.StartsWith("IdentityModel")
-           || name.StartsWith("Pomelo")|| name.StartsWith("Anonymously")|| name.StartsWith("Datadog")|| name.StartsWith("WebOptimizer");
+           || name.StartsWith("HotChocolate") || name.StartsWith("ChilliCream") || name.StartsWith("MySql") || name.StartsWith("GreenDonut")
+           || name.StartsWith("Skia") || name.StartsWith("Melanchall") || name.StartsWith("MudBlazor") || name.StartsWith("IdentityModel")
+           || name.StartsWith("Pomelo") || name.StartsWith("Anonymously") || name.StartsWith("Datadog") || name.StartsWith("WebOptimizer");
   }
-
-    /*new List<Assembly?> {
-      typeof(TRequest).Assembly,
-      Assembly.GetEntryAssembly(),
-      Assembly.GetExecutingAssembly()
-    }.Where(a => a != null).Distinct().Cast<Assembly>().ToList();*/
-  private static List<Assembly> Assemblies => _assemblies ??= AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
-  private static List<Assembly>? _assemblies;
-
-  private static List<Type> Classes => _classes ??= Assemblies.SelectMany(a => a.GetTypes()).Distinct().ToList();
-  private static List<Type>? _classes;
 
   private static List<Type> GetSubclasses(Type parentType) => Classes.Where(a => a.IsSubclassOf(parentType)).ToList();
 
@@ -73,13 +76,9 @@ public static class ZApi {
     return ret;
   }
 
-  private static bool _hasSchema;
-
-  private static SemaphoreSlim _startup = new SemaphoreSlim(1, 1);
-
   // Any subclass of ApiObject that meets these criteria will be in the schema
   private static bool IsTypeExplicitlyIncluded(Type t) => t is {IsAbstract: false, IsGenericType: false, IsPublic: true} &&
-                                                          (t.GetCustomAttribute<ApiPacketAttribute>() != null);
+                                                          t.GetCustomAttribute<ApiPacketAttribute>() != null;
 
   internal static void EnsureSchema() {
     _startup.Wait();
@@ -96,7 +95,7 @@ public static class ZApi {
       CacheApiMethods<ZSubscriptionBase>();
       ZEnv.Log.Debug("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
 
-      var foundTypes = GetSubclasses(typeof(ApiObject))
+      ZTypeDescriptor[] foundTypes = GetSubclasses(typeof(ApiObject))
         .Where(IsTypeExplicitlyIncluded)
         .Select(o => ZTypeDescriptor.FromType(o))
         .ToArray();
@@ -142,5 +141,4 @@ public static class ZApi {
 
   public static bool IsAssignableToBaseType<T>(this Type t) => t.IsAssignableToBaseType(typeof(T));
   public static bool IsAssignableToBaseType(this Type t, Type baseType) => t.HasAssignableType(baseType);
-
 }

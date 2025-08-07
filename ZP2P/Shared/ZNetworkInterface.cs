@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using IZ.Core;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Utils;
@@ -15,21 +14,21 @@ namespace IZ.P2P.Shared;
 
 [Flags]
 public enum NetworkInterfaceAccessibility {
-  Ethernet        = 1 << 0, // Slight boost for Ethernet > WiFi
-  PrivateIPv4     = 1 << 1,
-  GlobalIPv6      = 1 << 3, // A nice fallback, but usually CGNAT is better than IPv6
+  Ethernet = 1 << 0, // Slight boost for Ethernet > WiFi
+  PrivateIPv4 = 1 << 1,
+  GlobalIPv6 = 1 << 3, // A nice fallback, but usually CGNAT is better than IPv6
   PublicIPv4CgNat = 1 << 5,
-  PublicIPv4      = 1 << 10, // PublicIPv4 trumps all...
+  PublicIPv4 = 1 << 10 // PublicIPv4 trumps all...
 }
 
 // Represents a physical NIC, with IPv4 and/or IPv6
 public class ZNetworkInterface : TransientObject {
-  public string InterfaceName { get; private set; }
+  public string InterfaceName { get; }
 
-  public ZNetworkInterfaceType InterfaceType { get; private set; }
+  public ZNetworkInterfaceType InterfaceType { get; }
 
   // LAN address
-  public IPAddress? PrivateIPv4 { get; private set; }
+  public IPAddress? PrivateIPv4 { get; }
 
   // Public STUN-discovered address for the IPv4
   public IPEndPoint? PublicIPv4 { get; set; }
@@ -38,11 +37,11 @@ public class ZNetworkInterface : TransientObject {
   public int BindPort { get; set; }
 
   // GLOBAL IPv6 works both privately and publicly
-  public List<IPAddress> GlobalIPv6 { get; private set; }
+  public List<IPAddress> GlobalIPv6 { get; }
 
   public IPAddress ListenIPv4 => PrivateIPv4 ?? IPAddress.Any;
   public IPAddress ListenIPv6 => GlobalIPv6.Count == 1 ? GlobalIPv6[0] : IPAddress.IPv6Any;
-    // !GlobalIPv6.Any() ? IPAddress.IPv6None : (GlobalIPv6.Count > 1 ? IPAddress.IPv6Any : GlobalIPv6.First());
+  // !GlobalIPv6.Any() ? IPAddress.IPv6None : (GlobalIPv6.Count > 1 ? IPAddress.IPv6Any : GlobalIPv6.First());
 
   // Port translation is done by the carrier (carrier grade NAT)
   public bool IsCgNat => PublicIPv4 != null && PublicIPv4.Port != BindPort;
@@ -53,7 +52,7 @@ public class ZNetworkInterface : TransientObject {
       if (InterfaceType == ZNetworkInterfaceType.Ethernet) accessibility |= NetworkInterfaceAccessibility.Ethernet;
       if (PrivateIPv4 != null) accessibility |= NetworkInterfaceAccessibility.PrivateIPv4;
       if (PublicIPv4 != null) {
-        if (IsCgNat)  accessibility |= NetworkInterfaceAccessibility.PublicIPv4CgNat;
+        if (IsCgNat) accessibility |= NetworkInterfaceAccessibility.PublicIPv4CgNat;
         else accessibility |= NetworkInterfaceAccessibility.PublicIPv4;
       }
       if (GlobalIPv6.Any()) accessibility |= NetworkInterfaceAccessibility.GlobalIPv6;
@@ -64,7 +63,7 @@ public class ZNetworkInterface : TransientObject {
   public int Priority => (int) Accessibility;
 
   public List<string> GetConnectionOptions(string? contentType = null) {
-    var options = new List<string>();
+    List<string> options = new List<string>();
     if (PrivateIPv4 != null)
       options.Add(CreateConnectionString(PrivateIPv4, BindPort, ZP2PAccessibility.Local, contentType));
     if (PublicIPv4 != null)
@@ -113,7 +112,7 @@ public class ZNetworkInterface : TransientObject {
   }
 
   public static async Task<ZNetworkInterface> Select(IZContext context, int portOffset = 0, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator = null) {
-    var addresses = await Discover(context, portOffset, creator);
+    List<ZNetworkInterface> addresses = await Discover(context, portOffset, creator);
     if (!addresses.Any()) throw new SystemException("No internet connection found!");
     var choice = addresses.First();
     context.Log.Information("[NIC] chose {choice} from:\n{options}", choice, string.Join("\n", addresses));
@@ -130,9 +129,9 @@ public class ZNetworkInterface : TransientObject {
 // #elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
     if (nic.Description.ToLower().Contains("wi-fi") || nic.Description.ToLower().Contains("wireless")) return ZNetworkInterfaceType.WiFi; // Windows
 
-    if (nic.Name.StartsWith("wlan"))  return ZNetworkInterfaceType.WiFi; // Android
+    if (nic.Name.StartsWith("wlan")) return ZNetworkInterfaceType.WiFi; // Android
     if (nic.Name.StartsWith("rmnet") || nic.Name.StartsWith("ccmni") || nic.Name.StartsWith("pdp")) return ZNetworkInterfaceType.Cellular; // Android + iOS
-    if (nic.Name.StartsWith("tun") || nic.Name.StartsWith("ipsec"))  return ZNetworkInterfaceType.Vpn;
+    if (nic.Name.StartsWith("tun") || nic.Name.StartsWith("ipsec")) return ZNetworkInterfaceType.Vpn;
 // #endif
 
     return ZNetworkInterfaceType.Ethernet;
@@ -170,11 +169,11 @@ public class ZNetworkInterface : TransientObject {
 
   private static List<ZNetworkInterface> GetLocalInterfaces(IZContext ctx, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator) {
     List<ZNetworkInterface> results = new List<ZNetworkInterface>();
-    var interfaces = GetAvailableInterfaces();
+    List<NetworkInterface> interfaces = GetAvailableInterfaces();
     _lastIpAddresses.Clear();
 
-    foreach (NetworkInterface ni in interfaces) {
-      var (ipv4, ipv6) = GetIpAddresses(ni);
+    foreach (var ni in interfaces) {
+      (var ipv4, List<IPAddress> ipv6) = GetIpAddresses(ni);
       if (ipv4 != null) _lastIpAddresses.Add(ipv4);
       if (!ipv6.Any() && ipv4 == null) continue;
       results.Add(creator == null ? new ZNetworkInterface(ctx, ni.Name, GuessInterfaceType(ni), ipv4, ipv6.ToArray()) : creator(ni, ipv4, ipv6));
@@ -195,12 +194,12 @@ public class ZNetworkInterface : TransientObject {
     !IsUniqueLocalIPv6(ip);
 
   private static bool IsUniqueLocalIPv6(IPAddress ip) {
-    var bytes = ip.GetAddressBytes();
+    byte[] bytes = ip.GetAddressBytes();
     return (bytes[0] & 0xFE) == 0xFC; // fc00::/7
   }
 
   private static bool IsCgnat(IPAddress ip) =>
     ip.AddressFamily == AddressFamily.InterNetwork &&
     ip.GetAddressBytes()[0] == 100 &&
-    (ip.GetAddressBytes()[1] >= 64 && ip.GetAddressBytes()[1] <= 127);
+    ip.GetAddressBytes()[1] >= 64 && ip.GetAddressBytes()[1] <= 127;
 }

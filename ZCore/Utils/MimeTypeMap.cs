@@ -10,7 +10,7 @@ using System.Linq;
 namespace IZ.Core.Utils;
 
 /// <summary>
-/// Class MimeTypeMap.
+///   Class MimeTypeMap.
 /// </summary>
 public static class MimeTypeMap {
   private const string Dot = ".";
@@ -1458,7 +1458,7 @@ public static class MimeTypeMap {
   }
 
   /// <summary>
-  /// Tries to get the type of the MIME from the provided string.
+  ///   Tries to get the type of the MIME from the provided string.
   /// </summary>
   /// <param name="str">The filename or extension.</param>
   /// <param name="mimeType">The variable to store the MIME type.</param>
@@ -1488,7 +1488,7 @@ public static class MimeTypeMap {
   }
 
   /// <summary>
-  /// Gets the type of the MIME from the provided string.
+  ///   Gets the type of the MIME from the provided string.
   /// </summary>
   /// <param name="str">The filename or extension.</param>
   /// <returns>The MIME type.</returns>
@@ -1496,7 +1496,7 @@ public static class MimeTypeMap {
   public static string GetMimeType(string str) => TryGetMimeType(str, out string? result) ? result! : DefaultMimeType;
 
   /// <summary>
-  /// Gets the extension from the provided MINE type.
+  ///   Gets the extension from the provided MINE type.
   /// </summary>
   /// <param name="mimeType">Type of the MIME.</param>
   /// <param name="throwErrorIfNotFound">if set to <c>true</c>, throws error if extension's not found.</param>

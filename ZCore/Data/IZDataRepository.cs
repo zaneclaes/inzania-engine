@@ -23,6 +23,8 @@ public enum DataModelTracking {
 public interface IZDataRepository : IHaveContext, IDisposable {
   public string Uuid { get; }
 
+  public bool HasChanges { get; }
+
   [ApiDocs("Migrate, etc.")]
   public void Initialize();
 
@@ -69,6 +71,4 @@ public interface IZDataRepository : IHaveContext, IDisposable {
   // public void SetChanged<TData>(params TData[] data) where TData : DataObject;
 
   public void Rollback();
-
-  public bool HasChanges { get; }
 }

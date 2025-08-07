@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
@@ -37,7 +37,7 @@ public class LogFileEntry : TransientObject {
   private static LogFileEntry? FromLine(IZContext context, string line) {
     try {
       var json = ZJson.DeserializeObject<LogFileEntryJson>(context, line) ??
-             throw new ArgumentException($"Deserialized line {line}");
+                 throw new ArgumentException($"Deserialized line {line}");
       return new LogFileEntry {
         Context = context,
         Timestamp = json.Timestamp,
@@ -53,9 +53,9 @@ public class LogFileEntry : TransientObject {
   }
 
   public static async Task<List<LogFileEntry>> LoadFromFile(IZContext context, string fp) {
-    var txt = await System.IO.File.ReadAllTextAsync(fp);
+    string txt = await File.ReadAllTextAsync(fp);
     if (string.IsNullOrWhiteSpace(txt)) return new List<LogFileEntry>();
-    var lines = txt.Split("}\n{");
+    string[] lines = txt.Split("}\n{");
     return lines.Select((l, i) => FromLine(context, (i > 0 ? "{" : "") + l + (i == lines.Length - 1 ? "" : "}")))
       .Where(l => l != null).Cast<LogFileEntry>().ToList();
   }

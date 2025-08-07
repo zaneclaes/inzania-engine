@@ -14,13 +14,13 @@ public class DataDogSpan : ZSpan, IScope, IZSpan {
 
   private bool _disposed;
 
-  public DataDogSpan(bool useParent = true, string? resource = null, string? action = null) : base() {
+  public DataDogSpan(bool useParent = true, string? resource = null, string? action = null) {
     // var parent = useParent ? context.Parent?.Span as DataDogSpan : null;
     Scope = Tracer.Instance.StartActive(action ?? "", new SpanCreationSettings {
       // Parent = parent?.Span?.Context
     });
     // span.SetTag("subdomain", FurEnv.Subdomain ?? "");
-    Scope.Span.ResourceName = resource ?? "";//context.Resource;
+    Scope.Span.ResourceName = resource ?? ""; //context.Resource;
   }
 
   public IScope Scope { get; }
@@ -29,6 +29,15 @@ public class DataDogSpan : ZSpan, IScope, IZSpan {
 
   public void Close() {
     Scope.Close();
+  }
+
+  public override void Dispose() {
+    base.Dispose();
+    if (_disposed) return;
+    // Log.Information("[SP] DISPOSE {op}:{name}", _scope.Span.OperationName, _scope.Span.ResourceName);
+    Scope.Close();
+    Scope.Dispose();
+    _disposed = true;
   }
 
   public override void SetTag(string key, string value) {
@@ -50,14 +59,5 @@ public class DataDogSpan : ZSpan, IScope, IZSpan {
       Role = session.IZUser.Role.ToString(),
       SessionId = session.Id
     });
-  }
-
-  public override void Dispose() {
-    base.Dispose();
-    if (_disposed) return;
-    // Log.Information("[SP] DISPOSE {op}:{name}", _scope.Span.OperationName, _scope.Span.ResourceName);
-    Scope.Close();
-    Scope.Dispose();
-    _disposed = true;
   }
 }

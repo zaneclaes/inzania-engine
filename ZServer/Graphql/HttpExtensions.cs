@@ -3,15 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
-using IdentityModel;
 using IZ.Core;
-using IZ.Core.Api;
 using IZ.Core.Auth;
-using IZ.Core.Contexts;
-using IZ.Core.Data;
 using Microsoft.AspNetCore.Http;
-using Serilog;
 
 namespace IZ.Server.Graphql;
 

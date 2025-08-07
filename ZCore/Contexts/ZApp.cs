@@ -6,7 +6,6 @@ using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Exceptions;
-using IZ.Core.Navigation;
 using IZ.Core.Observability;
 using IZ.Core.Observability.Logging;
 // ReSharper disable VirtualMemberCallInConstructor
@@ -21,13 +20,11 @@ public interface IZAppSettings {
 }
 
 public abstract class ZApp : IGetLogged {
-  public string ProductName { get; }
-
-  public virtual IServiceProvider CreateServices() => _fallbackServiceProviderFactory.Invoke();
-
-  private readonly Func<IServiceProvider> _fallbackServiceProviderFactory;
 
   private readonly IZAppSettings? _appSettings;
+
+  private readonly Func<IServiceProvider> _fallbackServiceProviderFactory;
+  private IFragmentProvider? _fragmentProvider;
 
   protected ZApp(
     string productName, string domainName,
@@ -63,8 +60,7 @@ public abstract class ZApp : IGetLogged {
 
     ZApi.EnsureSchema();
   }
-
-  public virtual bool HandleZException(ZException e) { return false; }
+  public string ProductName { get; }
 
   public ZTarget Target { get; }
 
@@ -86,7 +82,6 @@ public abstract class ZApp : IGetLogged {
     get => _fragmentProvider ??= new FragmentProvider(this);
     set => _fragmentProvider = value;
   }
-  private IFragmentProvider? _fragmentProvider;
 
   public string Fqdn => $"{(SubDomain == null ? "" : $"{SubDomain}.")}{DomainName}{(DomainName == "localhost" ? ":5292" : "")}";
 
@@ -109,4 +104,8 @@ public abstract class ZApp : IGetLogged {
   public ApplicationStorage Storage { get; }
 
   public IZLogger Log { get; private set; }
+
+  public virtual IServiceProvider CreateServices() => _fallbackServiceProviderFactory.Invoke();
+
+  public virtual bool HandleZException(ZException e) => false;
 }

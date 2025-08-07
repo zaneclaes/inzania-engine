@@ -28,8 +28,8 @@ public class ZPath {
     EnsureStarted();
 
     var p0 = _currentContour!.Last();
-    ZPoint p1 = new ZPoint(cx, cy);
-    ZPoint p2 = new ZPoint(x, y);
+    var p1 = new ZPoint(cx, cy);
+    var p2 = new ZPoint(x, y);
 
     for (int i = 1; i <= segments; i++) {
       float t = i / (float) segments;
@@ -48,7 +48,7 @@ public class ZPath {
 
     var first = _currentContour[0];
     var last = _currentContour[^1];
-    if (Math.Abs(first.X - last.X) > float.Epsilon || Math.Abs(first.Y - last.Y) > float.Epsilon){
+    if (Math.Abs(first.X - last.X) > float.Epsilon || Math.Abs(first.Y - last.Y) > float.Epsilon) {
       _currentContour.Add(first);
     }
     UpdateBounds();

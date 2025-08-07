@@ -14,7 +14,7 @@ public delegate void SocketCloseEventHandler(WebSocketCloseCode closeCode);
 
 public interface IWebSocket {
 
-  System.Net.WebSockets.WebSocketState State { get; }
+  WebSocketState State { get; }
   event SocketOpenEventHandler OnOpen;
   event SocketMessageEventHandler OnMessage;
   event SocketErrorEventHandler OnError;

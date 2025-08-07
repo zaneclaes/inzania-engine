@@ -14,9 +14,7 @@ public static class DateTimeUtils {
     return (uint) Math.Floor((currentDate - DateTime.UnixEpoch).TotalDays);
   }
 
-  public static string ToSortableString(this DateTime date, string joiner = "") => string.Join(joiner, new string[] {
-    date.Year.ToString("D4"), date.Month.ToString("D2"), date.Day.ToString("D2"),
-  });
+  public static string ToSortableString(this DateTime date, string joiner = "") => string.Join(joiner, date.Year.ToString("D4"), date.Month.ToString("D2"), date.Day.ToString("D2"));
 
   public static double GetUnixTimestampSec(this DateTime dt) => dt.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
 
@@ -24,9 +22,9 @@ public static class DateTimeUtils {
 
   public static int GetSortableYMD(this DateTime dt) => dt.Year * 10000 + dt.Month * 100 + dt.Day;
 
-  public static string ToAgeHoursDays (this TimeSpan t) {
+  public static string ToAgeHoursDays(this TimeSpan t) {
     if (t.TotalDays <= 1) {
-      int th = (int) (t.TotalHours);
+      int th = (int) t.TotalHours;
       return $"{th} hour" + (th != 1 ? "s" : "");
     }
 

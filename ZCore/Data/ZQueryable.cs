@@ -13,11 +13,11 @@ namespace IZ.Core.Data;
 
 public class ZQueryable<TData> : TransientObject, IZQueryable<TData> {
 
-  private readonly IQueryable<TData> _q;
-
 #if !Z_UNITY
   private readonly IAsyncEnumerable<TData> _asyncEnumerable;
     #endif
+
+  private readonly IQueryable<TData> _q;
 
   public ZQueryable(
     IZQueryProvider qp, IQueryable<TData> q

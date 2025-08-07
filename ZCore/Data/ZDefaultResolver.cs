@@ -11,6 +11,10 @@ using IZ.Core.Contexts;
 namespace IZ.Core.Data;
 
 public class ZDefaultResolver : LogicBase, IZResolver {
+
+  public ZDefaultResolver(IZContext context) : base(context) {
+    Log.Information("[RES] DEFAULT resolver");
+  }
   public async Task<TData[]> LoadArray<TKey, TData>(
     string name, Func<IReadOnlyList<TKey>, Task<ILookup<TKey, TData>>> load, TKey? key, List<TData> existing
   ) where TKey : notnull where TData : class {
@@ -38,9 +42,5 @@ public class ZDefaultResolver : LogicBase, IZResolver {
     if (!keys.Any()) return new List<TData>();
     Dictionary<TKey, List<TData>> loaded = await load(keys);
     return loaded.Keys.Where(k => loaded.ContainsKey(k)).SelectMany(k => loaded[k]).Where(v => v != null).ToList();
-  }
-
-  public ZDefaultResolver(IZContext context) : base(context) {
-    Log.Information("[RES] DEFAULT resolver");
   }
 }

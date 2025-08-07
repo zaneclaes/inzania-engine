@@ -14,7 +14,6 @@ namespace IZ.Schema.Errors;
 
 public class ExceptionStatusCodes : IHaveLogger {
   public ExceptionStatusCodes(IZLogger log) { Log = log; }
-  public IZLogger Log { get; }
 
   public HttpStatusCode Default { get; } = HttpStatusCode.BadRequest;
 
@@ -25,6 +24,7 @@ public class ExceptionStatusCodes : IHaveLogger {
     [HttpStatusCode.NotAcceptable] = CheckType(typeof(ArgumentException), typeof(ArgumentNullException)),
     [HttpStatusCode.NotImplemented] = CheckType(typeof(ApplicationException))
   };
+  public IZLogger Log { get; }
 
   private static Func<Exception, bool> CheckType(params Type[] types) {
     return e => types.Any(t => e.GetType().IsAssignableTo(t));

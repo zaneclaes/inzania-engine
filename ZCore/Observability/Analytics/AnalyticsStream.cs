@@ -9,12 +9,6 @@ using IZ.Core.Data.Attributes;
 namespace IZ.Core.Observability.Analytics;
 
 public class AnalyticsStream : IAmInternal {
-  public string Name { get; }
-  public string MeasurementId { get; }
-  public long StreamId { get; }
-
-  [ApiIgnore] [JsonIgnore]
-  public string ApiSecret { get; } = "nMlXmBNYQfqcFu9oSvZ-eg";
 
   public AnalyticsStream(string name, string mId, long streamId, string? apiSecret = null) {
     Name = name;
@@ -22,4 +16,10 @@ public class AnalyticsStream : IAmInternal {
     StreamId = streamId;
     if (apiSecret != null) ApiSecret = apiSecret;
   }
+  public string Name { get; }
+  public string MeasurementId { get; }
+  public long StreamId { get; }
+
+  [ApiIgnore] [JsonIgnore]
+  public string ApiSecret { get; } = "nMlXmBNYQfqcFu9oSvZ-eg";
 }

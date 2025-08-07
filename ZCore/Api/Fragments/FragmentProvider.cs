@@ -23,16 +23,14 @@ public interface IFragmentProvider {
 public class FragmentProvider : IHaveLogger, IFragmentProvider {
   private static string _graphqlDir = "GraphQL";
 
-  public Dictionary<string, Fragment> Fragments { get; } = new Dictionary<string, Fragment>();
-
-  public IZLogger Log { get; }
-
-  private ZApp _app;
+  private readonly ZApp _app;
 
   public FragmentProvider(ZApp app) {
     _app = app;
     Log = app.Log.ForContext(GetType());
   }
+
+  public Dictionary<string, Fragment> Fragments { get; } = new Dictionary<string, Fragment>();
 
   public Fragment LoadRequired(string fragmentName) {
     if (Fragments.TryGetValue(fragmentName, out var ret)) return ret;
@@ -41,6 +39,57 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
 
   public Fragment LoadRequired(ZObjectDescriptor desc, string? format) =>
     LoadRequired(desc, format, new HashSet<string>());
+
+  public void LoadDirectory(string dir) {
+    _graphqlDir = dir;
+    if (!Directory.Exists(_graphqlDir)) {
+      var di = Directory.CreateDirectory(_graphqlDir);
+      if (!di.Exists) {
+        Log.Warning("[FRAGMENT] directory '{dir}' does not exist", dir);
+        return;
+      }
+    }
+    Log.Information("[FRAGMENT] loading files from {dir}", dir);
+    ZApi.EnsureSchema();
+    string[] files = Directory.GetFiles(dir, "*.graphql", SearchOption.AllDirectories);
+    List<string> dependencies = new List<string>();
+    foreach (string fn in files) {
+      string[] parts = fn.Split(dir).Last().Split("/")
+        .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+      if (parts.Length != 2) {
+        ZEnv.Log.Warning("[FRAGMENT] unknown type {@parts}", parts.Select(p => p));
+        continue;
+      }
+      string fragmentName = parts.Last().Split(".").First();
+      List<string> names = parts.Last().Split(".").First().Split("_").ToList();
+      string? format = null;
+      if (names.Count > 1) {
+        // if (Enum.TryParse(names.Last(), out format)) {
+        format = names.Last();
+        names.RemoveAt(names.Count - 1);
+        // }
+      }
+      string typeName = string.Join("_", names);
+      var desc = ZObjectDescriptor.FindZObjectDescriptor(typeName);
+      if (desc == null) {
+        Log.Warning("[FRAGMENT] type {name} missing; cannot load {fn}", typeName, fn);
+        continue;
+      }
+
+      string contents = File.ReadAllText(fn);
+      ZEnv.Log.Debug("[FRAGMENT] {name}", fragmentName);
+      Fragments[fragmentName] = new Fragment(desc, format, contents);
+      dependencies.AddRange(Fragments[fragmentName].DependencyNames);
+    }
+    List<string> missingDependencies = dependencies.Distinct()
+      .Where(d => !dependencies.Contains(d)).ToList();
+
+    if (missingDependencies.Any()) {
+      throw new SystemException($"[FRAGMENTS] missing dependencies: {string.Join(", ", missingDependencies)}");
+    }
+  }
+
+  public IZLogger Log { get; }
 
   private Fragment LoadRequired(ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs) {
     if (string.IsNullOrWhiteSpace(format)) format = null;
@@ -104,54 +153,5 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     }
     ret.Add("}");
     return string.Join("\n", ret);
-  }
-
-  public void LoadDirectory(string dir) {
-    _graphqlDir = dir;
-    if (!Directory.Exists(_graphqlDir)) {
-      var di = Directory.CreateDirectory(_graphqlDir);
-      if (!di.Exists) {
-        Log.Warning("[FRAGMENT] directory '{dir}' does not exist", dir);
-        return;
-      }
-    }
-    Log.Information("[FRAGMENT] loading files from {dir}", dir);
-    ZApi.EnsureSchema();
-    string[] files = Directory.GetFiles(dir, "*.graphql", SearchOption.AllDirectories);
-    List<string> dependencies = new List<string>();
-    foreach (string fn in files) {
-      string[] parts = fn.Split(dir).Last().Split("/")
-        .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
-      if (parts.Length != 2) {
-        ZEnv.Log.Warning("[FRAGMENT] unknown type {@parts}", parts.Select(p => p));
-        continue;
-      }
-      string fragmentName = parts.Last().Split(".").First();
-      List<string> names = parts.Last().Split(".").First().Split("_").ToList();
-      string? format = null;
-      if (names.Count > 1) {
-        // if (Enum.TryParse(names.Last(), out format)) {
-        format = names.Last();
-        names.RemoveAt(names.Count - 1);
-        // }
-      }
-      string typeName = string.Join("_", names);
-      var desc = ZObjectDescriptor.FindZObjectDescriptor(typeName);
-      if (desc == null) {
-        Log.Warning("[FRAGMENT] type {name} missing; cannot load {fn}", typeName, fn);
-        continue;
-      }
-
-      string contents = File.ReadAllText(fn);
-      ZEnv.Log.Debug("[FRAGMENT] {name}", fragmentName);
-      Fragments[fragmentName] = new Fragment(desc, format, contents);
-      dependencies.AddRange(Fragments[fragmentName].DependencyNames);
-    }
-    List<string> missingDependencies = dependencies.Distinct()
-      .Where(d => !dependencies.Contains(d)).ToList();
-
-    if (missingDependencies.Any()) {
-      throw new SystemException($"[FRAGMENTS] missing dependencies: {string.Join(", ", missingDependencies)}");
-    }
   }
 }

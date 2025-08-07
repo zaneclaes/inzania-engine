@@ -14,7 +14,7 @@ using System.Runtime.InteropServices;
 namespace IZ.Core.Utils.Cryptography;
 
 /// <summary>
-/// Bit operations.
+///   Bit operations.
 /// </summary>
 internal static class Bits {
   [MethodImpl(MethodImplOptions.AggressiveInlining)]

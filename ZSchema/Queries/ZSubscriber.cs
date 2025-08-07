@@ -1,13 +1,8 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using HotChocolate.Resolvers;
-using HotChocolate.Subscriptions;
 using HotChocolate.Types;
-using HotChocolate.Types.Descriptors.Definitions;
-using IZ.Core;
 using IZ.Core.Api.Types;
-using IZ.Core.Contexts;
 
 namespace IZ.Schema.Queries;
 
@@ -21,7 +16,7 @@ public static class ZSubscriber {
       // var ctxt = c.Services.GetCurrentContext();
 
       // If there is no [ApiTopic] parameter, then the topic is just the method name
-      var topicString = mi.Name;
+      string topicString = mi.Name;
       var topicParam = mi.Parameters.FirstOrDefault(p => p.IsTopic);
       if (topicParam != null) topicString += $"_{{{topicParam.FieldName}}}";
 

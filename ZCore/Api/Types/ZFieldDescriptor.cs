@@ -11,20 +11,9 @@ using IZ.Core.Data.Attributes;
 namespace IZ.Core.Api.Types;
 
 public abstract class ZFieldDescriptor : IAmInternal {
-  public string Name { get; protected set; } = null!;
 
-  public string FieldName { get; protected set; } = null!;
-
-  public Type FieldType { get; }
-
-  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, _enforceOptional);
+  private readonly bool _enforceOptional;
   private ZTypeDescriptor? _apiType;
-
-  private readonly bool _enforceOptional = false;
-
-  public HashSet<string?> Formats { get; }
-
-  public ApiAuthorizeAttribute? Auth { get; }
 
   // private MemberInfo _member;
 
@@ -35,6 +24,17 @@ public abstract class ZFieldDescriptor : IAmInternal {
     Auth = member.GetCustomAttribute<ApiAuthorizeAttribute>();
     _enforceOptional = enforceOptional;
   }
+  public string Name { get; protected set; } = null!;
+
+  public string FieldName { get; protected set; } = null!;
+
+  public Type FieldType { get; }
+
+  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, _enforceOptional);
+
+  public HashSet<string?> Formats { get; }
+
+  public ApiAuthorizeAttribute? Auth { get; }
 
   protected virtual List<ZTypeDescriptor> GetTypeDescriptors() =>
     new List<ZTypeDescriptor> {

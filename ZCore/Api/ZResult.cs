@@ -26,11 +26,7 @@ public interface IZResult<TData> : IZResult where TData : class {
 public class ZResult<TData> : TransientObject, IZResult<TData> where TData : class {
   private readonly Func<ExecutionPlan, TData>? _data;
 
-  public List<object?> Args { get; }
-
-  public string MethodName { get; }
-
-  public Type ParentClass { get; }
+  private readonly Func<ExecutionPlan, Task<TData>>? _task;
 
   public ZResult(IZContext context, Type parentClass, string name, Func<ExecutionPlan, TData> data, params object?[] args) : base(context) {
     _data = data;
@@ -39,14 +35,18 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
     ParentClass = parentClass;
   }
 
-  private readonly Func<ExecutionPlan, Task<TData>>? _task;
-
   public ZResult(IZContext context, Type parentClass, string name, Func<ExecutionPlan, Task<TData>> dataTask, params object?[] args) : base(context) {
     _task = dataTask;
     Args = args.ToList();
     MethodName = name;
     ParentClass = parentClass;
   }
+
+  public List<object?> Args { get; }
+
+  public string MethodName { get; }
+
+  public Type ParentClass { get; }
 
   public async Task<TData> ExecuteData(ResultSet? selectionSet = null) {
     var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
@@ -62,7 +62,7 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
     try {
       await Context.Data.SaveAsync();
     } catch (Exception e) {
-      Log.Error(e, "Executing {name}, failed to SaveIfNeededAsync",  MethodName);
+      Log.Error(e, "Executing {name}, failed to SaveIfNeededAsync", MethodName);
     }
     return ret;
   }

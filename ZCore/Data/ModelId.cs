@@ -2,10 +2,7 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
 
@@ -22,7 +19,6 @@ public interface IItemizable<TKey> {
 }
 
 public interface IItemizable : IItemizable<string> { }
-
 public interface IStringKeyData : IModelId<string> { }
 
 public abstract class ModelKey : DataObject {
@@ -41,9 +37,9 @@ public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey>, IItemizable<TKe
   [JsonIgnore] [ApiIgnore]
   public override string? KeyId => Id?.ToString();
 
-  public abstract TKey Id { get; set; }
-
   public virtual TKey ItemId => Id;
+
+  public abstract TKey Id { get; set; }
 
   protected virtual void LoadIdFromParent<TParent>(TKey id, TParent? parent = null) where TParent : class {
     Id = id;

@@ -24,11 +24,11 @@ public static class ZSqlite {
 
   private static IServiceCollection AddZSqlite<TDc>(this IServiceCollection services, string connStr) where TDc : ZDbContext {
     return services
-      .AddScoped<IZDataRepository, ZEfCoreDataRepository<TDc>>()
-      .AddScoped<IZDataFactory, ZEfCoreDataFactory<TDc>>()
-      .AddScoped<TDc>()
-      .AddDbContext<TDc>((sp, opts) =>
-        opts.UseSqlite(connStr, o => ConfigureSqlite<TDc>(sp, o)))
+        .AddScoped<IZDataRepository, ZEfCoreDataRepository<TDc>>()
+        .AddScoped<IZDataFactory, ZEfCoreDataFactory<TDc>>()
+        .AddScoped<TDc>()
+        .AddDbContext<TDc>((sp, opts) =>
+          opts.UseSqlite(connStr, o => ConfigureSqlite<TDc>(sp, o)))
       ;
   }
 }

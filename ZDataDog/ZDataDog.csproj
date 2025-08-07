@@ -7,14 +7,14 @@
 
   <ItemGroup>
     <PackageReference Include="DogStatsD-CSharp-Client" Version="8.0.0"/>
-    <PackageReference Include="Serilog.Sinks.Datadog.Logs" Version="0.5.6" />
-    <PackageReference Include="Datadog.Trace" Version="3.22.0" />
+    <PackageReference Include="Serilog.Sinks.Datadog.Logs" Version="0.5.6"/>
+    <PackageReference Include="Datadog.Trace" Version="3.22.0"/>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ZCore\ZCore.csproj"/>
-    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj" />
-    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj" />
+    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj"/>
+    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj"/>
   </ItemGroup>
 
 </Project>

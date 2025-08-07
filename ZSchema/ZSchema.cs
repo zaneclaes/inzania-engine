@@ -3,16 +3,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
-using HotChocolate;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Resolvers;
-using HotChocolate.Subscriptions;
 using HotChocolate.Types;
 using HotChocolate.Types.Descriptors;
-using HotChocolate.Types.Descriptors.Definitions;
 using HotChocolate.Utilities;
 using IZ.Core;
 using IZ.Core.Api;
@@ -45,8 +41,7 @@ public static class ZSchema {
     .AddSingleton<ITypeInspector, ZDataTypeInspector>()
     .AddScoped<ZDataLoaderRegistry>()
     .AddScoped<IZResolver, ZSchemaResolver>()
-    .AddSingleton<ZQueryAccessor>()
-  ;
+    .AddSingleton<ZQueryAccessor>();
 
   public static IRequestExecutorBuilder AddSchemaQuery(this IRequestExecutorBuilder services, ZApp app) {
 
@@ -61,7 +56,7 @@ public static class ZSchema {
         .AddFiltering()
         .AddSorting()
         .AddConvention<INamingConventions, ZNamingConventions>()
-        .ModifyPagingOptions((opts) => {
+        .ModifyPagingOptions(opts => {
           opts.MaxPageSize = 100;
           opts.DefaultPageSize = 10;
           opts.IncludeTotalCount = true;
@@ -119,18 +114,18 @@ public static class ZSchema {
     this IRequestExecutorBuilder descriptor
   ) {
     descriptor = descriptor
-      .AddType<UploadType>()
-      .AddTypeConverter<ZTypeConverter>()
-      .AddType<UnsignedIntType>()
-      .BindRuntimeType<uint, UnsignedIntType>()
-      .AddType<UnsignedLongType>()
-      .BindRuntimeType<ulong, UnsignedLongType>()
-      .AddType<UnsignedShortType>()
-      .BindRuntimeType<ushort, UnsignedShortType>()
-      // .AddQueryType<ZQueryType>()
-      // .AddMutationType<ZMutationType>()
-      // .AddSubscriptionType<ZSubscriptionType>()
-      .AddType<ZModelIdType>()
+        .AddType<UploadType>()
+        .AddTypeConverter<ZTypeConverter>()
+        .AddType<UnsignedIntType>()
+        .BindRuntimeType<uint, UnsignedIntType>()
+        .AddType<UnsignedLongType>()
+        .BindRuntimeType<ulong, UnsignedLongType>()
+        .AddType<UnsignedShortType>()
+        .BindRuntimeType<ushort, UnsignedShortType>()
+        // .AddQueryType<ZQueryType>()
+        // .AddMutationType<ZMutationType>()
+        // .AddSubscriptionType<ZSubscriptionType>()
+        .AddType<ZModelIdType>()
       // .UseField(next => async (context) => {
       //   var ctxt = context.Service<IZContext>();
       //   ctxt.Log.Information("[SVC] GOT");

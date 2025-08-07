@@ -13,6 +13,28 @@ using IZ.Core.Utils;
 namespace IZ.Core.Api.Types;
 
 public class ZMethodDescriptor : ZFieldDescriptor {
+
+  public ZMethodDescriptor(MethodInfo methodInfo) : base(methodInfo, methodInfo.ReturnType, IsMethodReturnNullable(methodInfo)) {
+    Method = methodInfo;
+    OperationName = methodInfo.Name;
+    Parameters = methodInfo.GetParameters()
+      .Select(p => new ZParameterDescriptor(p))
+      .ToList();
+    ApiMethod = methodInfo.GetCustomAttribute<ApiMethodAttribute>();
+
+    string name = Name = methodInfo.Name;
+    bool isSet = name.StartsWith("Set");
+    bool isGet = name.StartsWith("Get");
+    if (isSet || isGet) name = name.Substring(3);
+
+    if (ApiMethod != null) {
+      ExecutionType = isSet ? ApiExecutionType.Mutation : isGet ? ApiExecutionType.Query : ApiMethod.ExecutionType;
+      if (ExecutionType != ApiMethod.ExecutionType) {
+        ZEnv.Log.Warning("[METHOD] {name} was converted from {type} to {exec}", OperationName, ApiMethod.ExecutionType, ExecutionType);
+      }
+    }
+    FieldName = name.ToFieldName();
+  }
   public string OperationName { get; }
 
   public ApiMethodAttribute? ApiMethod { get; }
@@ -52,28 +74,6 @@ public class ZMethodDescriptor : ZFieldDescriptor {
     if (nullability.ReadState == NullabilityState.Nullable) return true;
     var inner = nullability.GenericTypeArguments.FirstOrDefault();
     return inner is {ReadState: NullabilityState.Nullable};
-  }
-
-  public ZMethodDescriptor(MethodInfo methodInfo) : base(methodInfo, methodInfo.ReturnType, IsMethodReturnNullable(methodInfo)) {
-    Method = methodInfo;
-    OperationName = methodInfo.Name;
-    Parameters = methodInfo.GetParameters()
-      .Select(p => new ZParameterDescriptor(p))
-      .ToList();
-    ApiMethod = methodInfo.GetCustomAttribute<ApiMethodAttribute>();
-
-    string name = Name = methodInfo.Name;
-    bool isSet = name.StartsWith("Set");
-    bool isGet = name.StartsWith("Get");
-    if (isSet || isGet) name = name.Substring(3);
-
-    if (ApiMethod != null) {
-      ExecutionType = isSet ? ApiExecutionType.Mutation : isGet ? ApiExecutionType.Query : ApiMethod.ExecutionType;
-      if (ExecutionType != ApiMethod.ExecutionType) {
-        ZEnv.Log.Warning("[METHOD] {name} was converted from {type} to {exec}", OperationName, ApiMethod.ExecutionType, ExecutionType);
-      }
-    }
-    FieldName = name.ToFieldName();
   }
 
   public override string ToString() => $"<{Method.Name}: {FieldTypeDescriptor}>";

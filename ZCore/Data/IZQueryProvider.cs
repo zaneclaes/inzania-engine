@@ -16,5 +16,4 @@ public interface IZQueryProvider : IQueryProvider, IHaveContext {
 
   // Matches IAsyncQueryProvider from EF package
   public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = new CancellationToken());
-
 }

@@ -8,6 +8,7 @@ namespace IZ.Core.Auth;
 
 public class Installation : TransientObject {
   public const int ClientIdLength = 128;
+  private SemVersion? _semVersion;
 
   [MaxLength(ClientIdLength)] public string ClientId { get; set; } = null!;
 
@@ -52,5 +53,4 @@ public class Installation : TransientObject {
       Version = value.ToString();
     }
   }
-  private SemVersion? _semVersion;
 }

@@ -24,12 +24,12 @@ public static class TypeUtils {
     typeof(byte),
     typeof(bool),
     typeof(DateTime),
-    typeof(Guid),
+    typeof(Guid)
   };
 
-  public static bool IsScalar(this Type type) => type.IsPrimitive || type.IsEnum || _scalarTypes.Contains(type);
-
   private static readonly ConcurrentDictionary<string, bool> _assignableTypes = new ConcurrentDictionary<string, bool>();
+
+  public static bool IsScalar(this Type type) => type.IsPrimitive || type.IsEnum || _scalarTypes.Contains(type);
   public static Type? GetListType(this Type t) => t.IsListType() ? t.GetGenericArguments()[0] : null;
 
   public static bool IsEnumerableType(this Type t, Type? innerType = null) => t.IsGenericType && (innerType == null || t.GetGenericArguments()[0].IsAssignable(innerType));

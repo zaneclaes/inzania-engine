@@ -9,14 +9,8 @@ using System.Threading.Tasks;
 namespace IZ.Client.Networking.WebSockets;
 
 public class SystemWebSocket : IWebSocket {
-#pragma warning disable 67
-  public event SocketOpenEventHandler? OnOpen;
-  public event SocketMessageEventHandler? OnMessage;
-  public event SocketErrorEventHandler? OnError;
-  public event SocketCloseEventHandler? OnClose;
-#pragma warning restore 67
 
-  public System.Net.WebSockets.WebSocketState State => System.Net.WebSockets.WebSocketState.None;
+  public WebSocketState State => WebSocketState.None;
 
   public void DispatchMessageQueue() {
     throw new NotImplementedException();
@@ -27,4 +21,10 @@ public class SystemWebSocket : IWebSocket {
   public Task Send(byte[] data) => throw new NotImplementedException();
 
   public Task Close() => throw new NotImplementedException();
+#pragma warning disable 67
+  public event SocketOpenEventHandler? OnOpen;
+  public event SocketMessageEventHandler? OnMessage;
+  public event SocketErrorEventHandler? OnError;
+  public event SocketCloseEventHandler? OnClose;
+#pragma warning restore 67
 }

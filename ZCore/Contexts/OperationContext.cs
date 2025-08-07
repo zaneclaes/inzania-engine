@@ -10,7 +10,6 @@ namespace IZ.Core.Contexts;
 
 [ApiDocs("[DI] Transient: ALWAYS spawned as a child of the root")]
 public class OperationContext : BaseContext, IZChildContext {
-  public override IZIdentity? CurrentIdentity => _root.CurrentIdentity;
 
   private readonly IZRootContext _root;
 
@@ -23,6 +22,7 @@ public class OperationContext : BaseContext, IZChildContext {
     _scope = scope;
     Init();
   }
+  public override IZIdentity? CurrentIdentity => _root.CurrentIdentity;
 
   public override IZContext Parent => _root;
 

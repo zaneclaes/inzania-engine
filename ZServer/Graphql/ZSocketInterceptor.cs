@@ -1,20 +1,16 @@
 #region
 
 using System;
-using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Subscriptions;
 using HotChocolate.AspNetCore.Subscriptions.Protocols;
 using HotChocolate.Execution;
-using IZ.Core;
 using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
-using IZ.Core.Json;
 using IZ.Server.Requests;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 #endregion
@@ -35,7 +31,7 @@ public class ZSocketInterceptor : DefaultSocketSessionInterceptor {
         var ctxt = session.Connection.RequestServices.GetCurrentContext();
         var auth = ctxt.GetRequiredService<IZAuthenticator>();
         var http = session.Connection.HttpContext;
-        var authToken = HttpExtensions.GetAuthTokenFromString(obj.Authorization);
+        string? authToken = HttpExtensions.GetAuthTokenFromString(obj.Authorization);
         var identity = await auth.Authenticate(ctxt, obj.ClientId, authToken, http.User) ??
                        throw new Exception("No user identity returned");
         // builder.SetGlobalState(nameof(ClaimsPrincipal), identity.Principal);

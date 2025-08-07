@@ -1,8 +1,5 @@
-#region
-
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using IZ.Client.GoogleAnalytics.Events;
 using IZ.Core;
 using IZ.Core.Auth;
@@ -10,6 +7,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
+#region
 
 #if Z_UNITY
 using Cysharp.Threading.Tasks;
@@ -19,28 +17,27 @@ using Tasks = Cysharp.Threading.Tasks.UniTask;
 using ZTask = System.Threading.Tasks.Task;
 #endif
 
-
 #endregion
 
 namespace IZ.Client.GoogleAnalytics;
 
 public class IzGoogleAnalytics : LogicBase, IZAnalytics {
-  public static AnalyticsStream ProdStream { get; } = new AnalyticsStream("Chordzy", "G-XXGK8DWT14", 8189434535);
-  public static AnalyticsStream StagingStream { get; } = new AnalyticsStream("Chordzy Test", "G-MV3MFD3WDH", 8193422753);
-  public static AnalyticsStream GetStreamForContext(IZContext context) =>
-    context.App.Env <= ZEnvironment.Staging ? StagingStream : ProdStream;
-
-  public AnalyticsStream Stream => GetStreamForContext(Context);
-
-  // public static GaStream FallbackStream { get; } = new GaStream("Chordzy Test", "G-MV3MFD3WDH", 8193422753);
-
-  private IAnalyticsSink? _sink;
 
   private readonly Queue<AnalyticsEvent> _queue = new Queue<AnalyticsEvent>();
 
   private string? _path;
 
+  // public static GaStream FallbackStream { get; } = new GaStream("Chordzy Test", "G-MV3MFD3WDH", 8193422753);
+
+  private IAnalyticsSink? _sink;
+
   private ZVisitorIdentity? _visitor;
+
+  public IzGoogleAnalytics(IZContext context) : base(context) { }
+  public static AnalyticsStream ProdStream { get; } = new AnalyticsStream("Chordzy", "G-XXGK8DWT14", 8189434535);
+  public static AnalyticsStream StagingStream { get; } = new AnalyticsStream("Chordzy Test", "G-MV3MFD3WDH", 8193422753);
+
+  public AnalyticsStream Stream => GetStreamForContext(Context);
 
   public async ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null) {
     if (sink == null) return;
@@ -56,8 +53,6 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     ProcessQueue();
   }
 
-  public IzGoogleAnalytics(IZContext context) : base(context) { }
-
   public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props) =>
     _sink!.Config(Stream, installId, sessionId, userId, props);
 
@@ -66,14 +61,6 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
       _queue.Enqueue(e);
     } else {
       await _sink.SendEvent(e);
-    }
-  }
-
-  private void ProcessQueue() {
-    if (_sink == null || !_queue.Any()) return;
-    while (_queue.Any()) {
-      var o = _queue.Dequeue();
-      _sink.SendEvent(o).Forget();
     }
   }
 
@@ -141,5 +128,15 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     base.Dispose();
     _sink?.Dispose();
     _sink = null;
+  }
+  public static AnalyticsStream GetStreamForContext(IZContext context) =>
+    context.App.Env <= ZEnvironment.Staging ? StagingStream : ProdStream;
+
+  private void ProcessQueue() {
+    if (_sink == null || !_queue.Any()) return;
+    while (_queue.Any()) {
+      var o = _queue.Dequeue();
+      _sink.SendEvent(o).Forget();
+    }
   }
 }

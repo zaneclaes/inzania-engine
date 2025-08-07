@@ -5,20 +5,19 @@ using Datadog.Trace;
 using IZ.Core.Contexts;
 using IZ.Observability.DataDog;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
 namespace IZ.Server.Requests;
 
 public class RootScope {
-  // public IZRootContext Context { get; }
-  public IScope Scope { get; }
 
   public RootScope(IScope scope) {
     // Context = context;
     Scope = scope;
   }
+  // public IZRootContext Context { get; }
+  public IScope Scope { get; }
 }
 
 public static class ApiHttp {
@@ -83,7 +82,7 @@ public static class ApiHttp {
     // }
 
     // context.Items["API"] = span;
-    return new DataDogSpan( false); // context.RequestServices.GetCurrentContext(),
+    return new DataDogSpan(false); // context.RequestServices.GetCurrentContext(),
   }
 
   public static IZSpan AddRequestSpan(this HttpContext context, Type resource, string verb, bool useParent = true) => new DataDogSpan(useParent, // context.RequestServices.GetCurrentContext(),

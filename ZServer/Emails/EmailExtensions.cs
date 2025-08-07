@@ -13,6 +13,5 @@ public static class EmailExtensions {
     services
       .Configure<SendGridOptions>(options => builder.Configuration.GetSection("SendGrid").Bind(options))
       .AddScoped<SendGridSender, SendGridSender<TDb>>()
-      .AddScoped<IEmailSender, EmailSender>()
-    ;
+      .AddScoped<IEmailSender, EmailSender>();
 }

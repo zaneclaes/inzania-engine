@@ -4,9 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using IZ.Core.Api;
-using IZ.Core.Contexts;
 using IZ.Core.Data;
-using IZ.Core.Json;
 using IZ.Core.Utils;
 using StrawberryShake;
 
@@ -15,21 +13,10 @@ using StrawberryShake;
 namespace IZ.Client.Queries;
 
 public class GraphExecutionDocument : TransientObject, IDocument {
-  public string Id { get; }
-
-  public OperationKind Kind { get; }
-
-  public ReadOnlySpan<byte> Body => _body;
 
   private readonly byte[] _body = { };
 
-  public DocumentHash Hash { get; }
-
   private readonly ExecutionResult _executionResult;
-
-  public Dictionary<string, object?> Args { get; }
-
-  public Dictionary<string, Upload?>? Files { get; } = null;
 
   public GraphExecutionDocument(ExecutionResult executionResult) : base(executionResult.Context) {
     _executionResult = executionResult;
@@ -46,6 +33,17 @@ public class GraphExecutionDocument : TransientObject, IDocument {
     Id = executionResult.Plan.Id;
     Hash = new DocumentHash("md5Hash", Id.ToSimpleHashStr());
   }
+  public string Id { get; }
+
+  public Dictionary<string, object?> Args { get; }
+
+  public Dictionary<string, Upload?>? Files { get; } = null;
+
+  public OperationKind Kind { get; }
+
+  public ReadOnlySpan<byte> Body => _body;
+
+  public DocumentHash Hash { get; }
 
   public OperationRequest ToOperationRequest() => new OperationRequest(
     Id,
@@ -59,7 +57,7 @@ public class GraphExecutionDocument : TransientObject, IDocument {
     RequestStrategy.PersistedOperation
 #endif
 
-    );
+  );
 
   public override string ToString() => $"<GqlDoc Id={Id} Op={_executionResult.Plan.OperationName} Kind={Kind} />";
 }

@@ -21,11 +21,14 @@ using StrawberryShake.Transport.Http;
 namespace IZ.Client;
 
 public class ZStubJsonConnection : IConnection<JsonDocument> {
-  private JsonDocument _doc;
+  private readonly JsonDocument _doc;
 
   public ZStubJsonConnection(JsonElement element) {
     _doc = JsonDocument.Parse(element.GetRawText());
   }
+
+  public IAsyncEnumerable<Response<JsonDocument>> ExecuteAsync(OperationRequest request) =>
+    ToAsyncEnumerable(new Response<JsonDocument>(_doc, null));
 
   private IAsyncEnumerable<Response<JsonDocument>> ToAsyncEnumerable(Response<JsonDocument> item) {
     return SingleItem(item);
@@ -36,14 +39,28 @@ public class ZStubJsonConnection : IConnection<JsonDocument> {
       yield return item;
     }
   }
-
-  public IAsyncEnumerable<Response<JsonDocument>> ExecuteAsync(OperationRequest request) =>
-    ToAsyncEnumerable(new Response<JsonDocument>(_doc, null));
 }
 
 public class ZGraphServerConnection : LogicBase, IServerConnection {
+
+  public ZGraphServerConnection() : base(ZEnv.SpawnRootContext()) { }
   public Task<TData> ExecuteApiRequest<TData>(ExecutionResult result, CancellationToken? ct = null) where TData : class =>
     ParseApiRequest<TData>(result.Context.ServiceProvider.GetRequiredService<IHttpConnection>(), result, ct);
+
+  public async Task<IGraphQlWebSocket<TData>> Subscribe<TData>(ExecutionResult result, IGraphQLWebSocketDelegate<TData> del, CancellationToken? ct = null) where TData : class {
+    var execDoc = new GraphExecutionDocument(result);
+    var opReq = execDoc.ToOperationRequest();
+
+    var graphReq = new GraphRequest {
+      Id = opReq.Id!,
+      // Query = string.IsNullOrWhiteSpace(),
+      Variables = opReq.Variables //  req.Operation.VariablesNode ?????
+    };
+    GraphQlWebSocket<TData> cws = new GraphQlWebSocket<TData>(result.Context, graphReq, del, json =>
+      ParseApiRequest<TData>(new ZStubJsonConnection(json), result, ct));
+    await cws.Connect();
+    return cws;
+  }
 
   private async Task<TData> ParseApiRequest<TData>(
     IConnection<JsonDocument> connection, ExecutionResult result, CancellationToken? ct = null
@@ -75,21 +92,4 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     Log.Debug("[API] {@data}", data);
     return data;
   }
-
-  public async Task<IGraphQlWebSocket<TData>> Subscribe<TData>(ExecutionResult result, IGraphQLWebSocketDelegate<TData> del, CancellationToken? ct = null) where TData : class {
-    var execDoc = new GraphExecutionDocument(result);
-    var opReq = execDoc.ToOperationRequest();
-
-    var graphReq = new GraphRequest {
-      Id = opReq.Id!,
-      // Query = string.IsNullOrWhiteSpace(),
-      Variables = opReq.Variables, //  req.Operation.VariablesNode ?????
-    };
-    GraphQlWebSocket<TData> cws = new GraphQlWebSocket<TData>(result.Context, graphReq, del, (json) =>
-      ParseApiRequest<TData>(new ZStubJsonConnection(json), result, ct));
-    await cws.Connect();
-    return cws;
-  }
-
-  public ZGraphServerConnection() : base(ZEnv.SpawnRootContext()) { }
 }

@@ -3,25 +3,18 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Exceptions;
-using IZ.Core.Observability.Logging;
-using IZ.Core.Utils;
 using IZ.Data.Resolvers;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.Internal;
-using Microsoft.Extensions.DependencyInjection;
 using Type = System.Type;
 
 #endregion
@@ -29,7 +22,12 @@ using Type = System.Type;
 namespace IZ.Data.Storage;
 
 public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository where TDb : ZDbContext {
-  private DbContextOptions<TDb> _options;
+
+  private static readonly ConcurrentDictionary<Type, PropertyInfo> DataProps =
+    new ConcurrentDictionary<Type, PropertyInfo>();
+  private readonly DbContextOptions<TDb> _options;
+
+  private TDb? _db;
 
   public ZEfCoreDataRepository(IZContext context) : base(context) {
     // Db = db;
@@ -40,15 +38,13 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   public TDb Db {
     get {
       try {
-        return _db ??= (Activator.CreateInstance(typeof(TDb), new object[] {Context, _options }) as TDb)!;
+        return _db ??= (Activator.CreateInstance(typeof(TDb), Context, _options) as TDb)!;
       } catch (Exception e) {
         Log.Error(e, "[DB] failed to create {type}", typeof(TDb));
         throw;
       }
     }
   }
-
-  private TDb? _db;
 
   public override void Dispose() {
     // Log.Information("[EF] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace());
@@ -62,39 +58,14 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     Db.Database.Migrate();
   }
 
-  private static readonly ConcurrentDictionary<Type, PropertyInfo> DataProps =
-    new ConcurrentDictionary<Type, PropertyInfo>();
-
   public void Rollback() {
     Db.RejectChanges();
   }
-
-  private IQueryable<TData> GetDbSet<TData>(IZContext context, DataModelTracking tracking) where TData : DataObject {
-    var ret = (DbSet<TData>) (DataProps.GetOrAdd(typeof(TData), (t) => {
-      var retType = typeof(DbSet<>).MakeGenericType(t);
-      var prop = Db.GetType().GetProperties().FirstOrDefault(p => p.PropertyType == retType) ??
-                     throw new ParameterZException(context, $"No database models for {typeof(TData).Name}");
-      return prop;
-    }).GetValue(Db)!);
-    if (tracking == DataModelTracking.IdentityResolution) return ret.AsNoTrackingWithIdentityResolution();
-    if (tracking == DataModelTracking.None) return ret.AsNoTracking();
-    return ret;
-  }
-
-  private IZQueryProvider CreateQueryProvider<TData>(IZContext context, IQueryable<TData> db) where TData : DataObject =>
-    new ZEfCoreQueryProvider(context, this, (db.AsQueryable().Provider as IAsyncQueryProvider)!);
 
   public IZQueryable<TData> QueryFor<TData>(IZContext context, ResultSet? set, DataModelTracking tracking = DataModelTracking.Full) where TData : DataObject {
     IQueryable<TData> db = GetDbSet<TData>(context, tracking);
     return new DataModelQueryable<TData>(CreateQueryProvider(context, db), db);
   }
-
-  // Wrapper function is excecuted "locked", so sanitization is also locked, which avoids concurrency errors
-  private Task<T> ExecuteLockedSanitizedData<T>(IZContext context, Func<Task<T>> t) => ExecuteLocked(async () => {
-    var ret = await t();
-    Sanitize(context);
-    return ret;
-  });
 
   public Task<long> ExecuteLongSumAsync<TData>(
     IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func
@@ -130,13 +101,6 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
       return Task.CompletedTask;
     });
 
-  private void Sanitize(IZContext? context) {
-    string? error = Db.Sanitize(context ?? Context);
-    if (error != null) {
-      Log.Warning("[DB] sanitization error {error}", error);
-    }
-  }
-
   public bool HasChanges => Db?.ChangeTracker.HasChanges() ?? false; //_changed.Any();
 
   public Task<List<T>> GetMemoryModels<T>() where T : class =>
@@ -150,10 +114,50 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     IPreFetched<TEntity, TPreviousProperty> source, Expression<Func<TPreviousProperty, TProperty>> navigationPropertyPath
   ) where TEntity : class {
     ZEfCoreRelationshipInclude<TEntity, TPreviousProperty>? src = source as ZEfCoreRelationshipInclude<TEntity, TPreviousProperty> ??
-                                                                     throw new ArgumentException($"{source.GetType().Name} is not a " +
-                                                                                                 $"ZEfCoreRelationshipInclude<{typeof(TEntity).Name}, {typeof(TProperty).Name}>");
+                                                                  throw new ArgumentException($"{source.GetType().Name} is not a " +
+                                                                                              $"ZEfCoreRelationshipInclude<{typeof(TEntity).Name}, {typeof(TProperty).Name}>");
     IIncludableQueryable<TEntity, TPreviousProperty> q = src.EfQueryable;
     return new ZEfCoreRelationshipInclude<TEntity, TProperty>(this, source.QueryProvider, q.ThenInclude(navigationPropertyPath));
+  }
+
+  public IPreFetched<TEntity, TProperty> QueryThenIncludeMany<TEntity, TPreviousProperty, TProperty>(
+    IPreFetched<TEntity, List<TPreviousProperty>> source,
+    Expression<Func<TPreviousProperty, TProperty>> navigationPropertyPath
+  ) where TEntity : class {
+    ZEfCoreRelationshipInclude<TEntity, List<TPreviousProperty>>? src = source as ZEfCoreRelationshipInclude<TEntity, List<TPreviousProperty>> ??
+                                                                        throw new ArgumentException($"{PrintFullType(source.GetType())} is not a " +
+                                                                                                    $"{PrintFullType(typeof(ZEfCoreRelationshipInclude<TEntity, List<TPreviousProperty>>))}");
+    IIncludableQueryable<TEntity, List<TPreviousProperty>> q = src.EfQueryable;
+    return new ZEfCoreRelationshipInclude<TEntity, TProperty>(this, source.QueryProvider, q.ThenInclude(navigationPropertyPath));
+  }
+
+  private IQueryable<TData> GetDbSet<TData>(IZContext context, DataModelTracking tracking) where TData : DataObject {
+    DbSet<TData> ret = (DbSet<TData>) DataProps.GetOrAdd(typeof(TData), t => {
+      var retType = typeof(DbSet<>).MakeGenericType(t);
+      var prop = Db.GetType().GetProperties().FirstOrDefault(p => p.PropertyType == retType) ??
+                 throw new ParameterZException(context, $"No database models for {typeof(TData).Name}");
+      return prop;
+    }).GetValue(Db)!;
+    if (tracking == DataModelTracking.IdentityResolution) return ret.AsNoTrackingWithIdentityResolution();
+    if (tracking == DataModelTracking.None) return ret.AsNoTracking();
+    return ret;
+  }
+
+  private IZQueryProvider CreateQueryProvider<TData>(IZContext context, IQueryable<TData> db) where TData : DataObject =>
+    new ZEfCoreQueryProvider(context, this, (db.AsQueryable().Provider as IAsyncQueryProvider)!);
+
+  // Wrapper function is excecuted "locked", so sanitization is also locked, which avoids concurrency errors
+  private Task<T> ExecuteLockedSanitizedData<T>(IZContext context, Func<Task<T>> t) => ExecuteLocked(async () => {
+    var ret = await t();
+    Sanitize(context);
+    return ret;
+  });
+
+  private void Sanitize(IZContext? context) {
+    string? error = Db.Sanitize(context ?? Context);
+    if (error != null) {
+      Log.Warning("[DB] sanitization error {error}", error);
+    }
   }
 
   private static string PrintFullType(Type t) {
@@ -162,17 +166,6 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
       name += "<" + string.Join(", ", t.GenericTypeArguments.Select(PrintFullType)) + ">";
     }
     return name;
-  }
-
-  public IPreFetched<TEntity, TProperty> QueryThenIncludeMany<TEntity, TPreviousProperty, TProperty>(
-    IPreFetched<TEntity, List<TPreviousProperty>> source,
-    Expression<Func<TPreviousProperty, TProperty>> navigationPropertyPath
-  ) where TEntity : class {
-    ZEfCoreRelationshipInclude<TEntity, List<TPreviousProperty>>? src = source as ZEfCoreRelationshipInclude<TEntity, List<TPreviousProperty>> ??
-                                                                           throw new ArgumentException($"{PrintFullType(source.GetType())} is not a " +
-                                                                                                       $"{PrintFullType(typeof(ZEfCoreRelationshipInclude<TEntity, List<TPreviousProperty>>))}");
-    IIncludableQueryable<TEntity, List<TPreviousProperty>> q = src.EfQueryable;
-    return new ZEfCoreRelationshipInclude<TEntity, TProperty>(this, source.QueryProvider, q.ThenInclude(navigationPropertyPath));
   }
 
   public override string ToString() => $"EFCore<{Db?.GetType().Name}>";

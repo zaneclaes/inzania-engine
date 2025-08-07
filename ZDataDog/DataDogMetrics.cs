@@ -13,7 +13,11 @@ using StatsdClient;
 namespace IZ.Observability.DataDog;
 
 public class DataDogMetrics : LogicBase, IZMetrics {
+
+  private const double SampleRate = 1.0;
   private DogStatsdService? _metrics;
+
+  public DataDogMetrics(IZContext context) : base(context) { }
   private DogStatsdService Metrics {
     get {
       if (_metrics != null) return _metrics;
@@ -33,15 +37,6 @@ public class DataDogMetrics : LogicBase, IZMetrics {
       return _metrics;
     }
   }
-
-  public DataDogMetrics(IZContext context) : base(context) { }
-
-  private const double SampleRate = 1.0;
-
-  private static string[] FormatTags(Dictionary<string, object>? tags) => tags == null ? new string[] { } :
-    tags.Select(t => $"{t.Key}:{t.Value}").ToArray();
-
-  public void PageView(string path, string? title = null, Dictionary<string, object>? tags = null) { }
 
   public void Timer(string metric, TimeSpan elapsed, Dictionary<string, object>? tags = null) =>
     Metrics.Timer(metric, elapsed.TotalMilliseconds, SampleRate, FormatTags(tags));
@@ -72,6 +67,11 @@ public class DataDogMetrics : LogicBase, IZMetrics {
     string? hostname = null,
     Dictionary<string, object>? tags = null
   ) => Metrics.Event(title, text, alertType, aggregationKey, sourceType, dateHappened, priority, hostname, FormatTags(tags));
+
+  private static string[] FormatTags(Dictionary<string, object>? tags) => tags == null ? new string[] { } :
+    tags.Select(t => $"{t.Key}:{t.Value}").ToArray();
+
+  public void PageView(string path, string? title = null, Dictionary<string, object>? tags = null) { }
 
   public override void Dispose() {
     base.Dispose();

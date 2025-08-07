@@ -15,7 +15,6 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Utils;
 using IZ.Schema.Variables;
-using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
@@ -78,15 +77,15 @@ public static class ZInputTypes {
   public static Dictionary<string, ApiVariableValueOrLiteral> ResolveInputVariables(
     IZContext context, IReadOnlyDictionary<string, object?>? variables
   ) {
-    var ret = new Dictionary<string, ApiVariableValueOrLiteral>();
+    Dictionary<string, ApiVariableValueOrLiteral> ret = new Dictionary<string, ApiVariableValueOrLiteral>();
     if (variables == null) return ret;
-    foreach (var name in variables.Keys) {
+    foreach (string name in variables.Keys) {
       var node = variables[name] as IValueNode;
       if (node == null) {
         context.Log.Warning("[PARAM] {name} not a value node: {type}", name, variables[name]?.GetType());
         continue;
       }
-      var value = node.Value;
+      object? value = node.Value;
       var apiVar = new ApiVariableValueOrLiteral(new ApiInputType(TypeKind.Object, value?.GetType() ?? null!), value, node); // DBNull?
       context.Log.Debug("[PARAM] {pt} = {@p} = {param}", name, node, value);
       ret.Add(name, apiVar);
@@ -124,8 +123,8 @@ public static class ZInputTypes {
 
   public static object?[]? ResolveInputVariables(this IResolverContext resolver, List<ZParameterDescriptor> pars) {
     var context = resolver.RequestServices.GetCurrentContext();
-    var eventMessage = resolver.GetScopedStateOrDefault<string>(WellKnownContextData.EventMessage);
-    var resolved = ResolveInputVariables(context, resolver.ArgumentLiteral<IValueNode>, pars, eventMessage);
+    string? eventMessage = resolver.GetScopedStateOrDefault<string>(WellKnownContextData.EventMessage);
+    Dictionary<string, ApiVariableValueOrLiteral>? resolved = ResolveInputVariables(context, resolver.ArgumentLiteral<IValueNode>, pars, eventMessage);
     if (resolved == null) return null;
     return resolved.Values.Select(v => v.Value).ToArray();
   }

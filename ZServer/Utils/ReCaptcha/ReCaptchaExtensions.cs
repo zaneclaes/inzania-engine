@@ -1,7 +1,5 @@
 using IZ.Core.Utils;
-using IZ.Server.Emails;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,6 +11,5 @@ public static class ReCaptchaExtensions {
   ) =>
     services
       .Configure<PublicSecretKey<ReCaptchaValidator>>(options => builder.Configuration.GetSection("ReCaptcha").Bind(options))
-      .AddScoped<ReCaptchaValidator>()
-  ;
+      .AddScoped<ReCaptchaValidator>();
 }

@@ -9,8 +9,7 @@ public interface IZHost<TMsg, TPacket, TSession, TMember> : IZP2P<TMsg, TPacket,
   where TSession : IZP2PSession<TMember>
   where TMember : IZP2PMember
   where TMsg : IZP2PMessage<TSession, TMember>
-  where TPacket : ZPacket
-{
+  where TPacket : ZPacket {
   public Task<TSession> StartHosting(params string[] contentTypes);
 
   // public Task StopHosting();

@@ -1,7 +1,6 @@
 #region
 
 using IZ.Core.Contexts;
-using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 
 #endregion
@@ -13,5 +12,4 @@ public abstract class DataObject : ApiObject {
   protected DataObject(IZContext? context = null) : base(context) { }
 
   protected override string ContextualObjectGroup => "Data";
-
 }

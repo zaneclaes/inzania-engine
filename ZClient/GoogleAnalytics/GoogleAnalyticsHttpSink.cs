@@ -1,18 +1,15 @@
-#region
-
-using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 using System.Web;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Json;
 using IZ.Core.Observability.Analytics;
+#region
 
 #if Z_UNITY
+using System.Runtime.InteropServices;
 using Cysharp.Threading.Tasks;
 using ZTask = Cysharp.Threading.Tasks.UniTask;
 using Tasks = Cysharp.Threading.Tasks.UniTask;
@@ -20,6 +17,9 @@ using Tasks = Cysharp.Threading.Tasks.UniTask;
 using ZTask = System.Threading.Tasks.Task;
 #endif
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+using System;
+#endif
 
 #endregion
 

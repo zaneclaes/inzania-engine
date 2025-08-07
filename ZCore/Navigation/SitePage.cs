@@ -1,6 +1,5 @@
 #region
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using IZ.Core.Auth;
@@ -15,17 +14,10 @@ public enum EmbeddingBehaviour {
   NativeOnly = -1,
   PreferNative = 0, // WebGL opens the native screen (default)
   EmbedWebView = 1, // Not implemented in native...
-  OpenExternal = 2,
+  OpenExternal = 2
 }
 
 public class SitePage : LogicBase {
-  protected override bool AllowRootContext => true;
-
-  public virtual bool IncludeInSiteMap => MinimumRoleRequired <= ZUserRole.Visitor;
-
-  public virtual ZUserRole MinimumRoleRequired => ZUserRole.Visitor;
-
-  public virtual EmbeddingBehaviour EmbedBehaviour => EmbeddingBehaviour.PreferNative;
 
   protected SitePage(
     IZContext context, string path, string title, string? desc = null, string? author = null, params string[] keywords
@@ -42,14 +34,13 @@ public class SitePage : LogicBase {
     Keywords = keywords.ToList();
     Paths.Add(Path);
   }
-  // public Type PageType { get; }
+  protected override bool AllowRootContext => true;
 
-  public SitePage WithSubPaths(params string[] paths) {
-    foreach (var path in paths) {
-      Paths.Add(Path + '/' + path.Trim('/'));
-    }
-    return this;
-  }
+  public virtual bool IncludeInSiteMap => MinimumRoleRequired <= ZUserRole.Visitor;
+
+  public virtual ZUserRole MinimumRoleRequired => ZUserRole.Visitor;
+
+  public virtual EmbeddingBehaviour EmbedBehaviour => EmbeddingBehaviour.PreferNative;
 
   [Observable] public List<string> Paths { get; } = new List<string>();
 
@@ -66,4 +57,12 @@ public class SitePage : LogicBase {
   public string? Description { get; }
 
   public List<string> Keywords { get; }
+  // public Type PageType { get; }
+
+  public SitePage WithSubPaths(params string[] paths) {
+    foreach (string path in paths) {
+      Paths.Add(Path + '/' + path.Trim('/'));
+    }
+    return this;
+  }
 }

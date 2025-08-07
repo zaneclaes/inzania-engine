@@ -6,17 +6,6 @@ using IZ.Core.Auth;
 namespace IZ.Server.Graphql;
 
 public class PrincipalIdentity {
-  public string Id { get; }
-
-  public string Username { get; }
-
-  public string? Email { get; }
-
-  public ZUserRole Role { get; }
-
-  public string AuthToken { get; }
-
-  public ClaimsIdentity[] Identities { get; }
 
   public PrincipalIdentity(ClaimsPrincipal principal, string authToken) {
     Id = principal.GetClaim("nameidentifier");
@@ -35,4 +24,15 @@ public class PrincipalIdentity {
     Identities = Array.Empty<ClaimsIdentity>();
     AuthToken = authToken;
   }
+  public string Id { get; }
+
+  public string Username { get; }
+
+  public string? Email { get; }
+
+  public ZUserRole Role { get; }
+
+  public string AuthToken { get; }
+
+  public ClaimsIdentity[] Identities { get; }
 }

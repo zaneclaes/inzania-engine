@@ -1,19 +1,15 @@
 #region
 
-using System.Threading.Tasks;
-using HotChocolate.Execution;
+using System;
 using HotChocolate.Execution.Configuration;
-using HotChocolate.Subscriptions.Diagnostics;
 using IZ.Core;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Utils;
 using IZ.Schema;
-using IZ.Schema.Loaders;
 using IZ.Server.Graphql;
 using IZ.Server.Health;
 using IZ.Server.Http;
-using IZ.Server.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
@@ -22,7 +18,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
 using StackExchange.Redis;
-using RequestDelegate = HotChocolate.Execution.RequestDelegate;
 
 #endregion
 
@@ -66,9 +61,9 @@ public static class HostingExtensions {
 
   private static IRequestExecutorBuilder AddZSubscriptions(this IRequestExecutorBuilder collection) {
     // Redis / memory connection
-    var redisCfg = System.Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+    string? redisCfg = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
     if (!string.IsNullOrEmpty(redisCfg)) {
-      collection = collection.AddRedisSubscriptions((sp) => ConnectionMultiplexer.Connect(redisCfg));
+      collection = collection.AddRedisSubscriptions(sp => ConnectionMultiplexer.Connect(redisCfg));
       Log.Information("[REDIS] {value}", redisCfg);
     } else {
       collection = collection.AddInMemorySubscriptions();
@@ -131,11 +126,9 @@ public static class HostingExtensions {
     })
     .Services;
 
-  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) {
-    return new ApplicationStorage(
-      productName,
-      dirs.GetSection("User").Value!,
-      dirs.GetSection("Tmp").Value!,
-      dirs.GetSection("Www").Value);
-  }
+  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) => new ApplicationStorage(
+    productName,
+    dirs.GetSection("User").Value!,
+    dirs.GetSection("Tmp").Value!,
+    dirs.GetSection("Www").Value);
 }

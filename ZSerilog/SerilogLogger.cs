@@ -16,15 +16,6 @@ public class SerilogLogger : IZLogger {
     _logger = logger;
   }
 
-  private LogEventLevel GetLevel(ZEventLevel level) {
-    if (level == ZEventLevel.Verbose) return LogEventLevel.Verbose;
-    if (level == ZEventLevel.Debug) return LogEventLevel.Debug;
-    if (level == ZEventLevel.Warning) return LogEventLevel.Warning;
-    if (level == ZEventLevel.Error) return LogEventLevel.Error;
-    if (level == ZEventLevel.Fatal) return LogEventLevel.Fatal;
-    return LogEventLevel.Information;
-  }
-
   public void Write(ZEventLevel level, string template, params object?[] args) =>
     _logger.Write(GetLevel(level), template, args);
 
@@ -35,5 +26,14 @@ public class SerilogLogger : IZLogger {
     var logger = _logger.ForContext(context);
     if (enricher != null) logger = logger.ForContext(new SerilogEnricher(enricher));
     return new SerilogLogger(logger);
+  }
+
+  private LogEventLevel GetLevel(ZEventLevel level) {
+    if (level == ZEventLevel.Verbose) return LogEventLevel.Verbose;
+    if (level == ZEventLevel.Debug) return LogEventLevel.Debug;
+    if (level == ZEventLevel.Warning) return LogEventLevel.Warning;
+    if (level == ZEventLevel.Error) return LogEventLevel.Error;
+    if (level == ZEventLevel.Fatal) return LogEventLevel.Fatal;
+    return LogEventLevel.Information;
   }
 }

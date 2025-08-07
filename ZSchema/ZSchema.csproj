@@ -6,12 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="15.1.8" />
-    <PackageReference Include="HotChocolate.Types.Scalars" Version="15.1.8" />
-    <PackageReference Include="HotChocolate.Types.Scalars.Upload" Version="15.1.8" />
+    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="15.1.8"/>
+    <PackageReference Include="HotChocolate.Types.Scalars" Version="15.1.8"/>
+    <PackageReference Include="HotChocolate.Types.Scalars.Upload" Version="15.1.8"/>
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ZCore\ZCore.csproj" />
+    <ProjectReference Include="..\ZCore\ZCore.csproj"/>
   </ItemGroup>
 </Project>

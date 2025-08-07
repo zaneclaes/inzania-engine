@@ -10,26 +10,20 @@ using IZ.Core.Utils;
 namespace IZ.Core.Assets;
 
 public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
+
+  private readonly HashSet<string> _activeDownloads = new HashSet<string>();
+  private string? _assetDir;
   public abstract string Name { get; }
 
   public string AssetDirectory => _assetDir ??= LoadAssetDir();
-  private string? _assetDir;
-
-  private HashSet<string> _activeDownloads = new HashSet<string>();
 
   public string GetAssetPath(string relativePath) => Path.Combine(AssetDirectory, relativePath);
-
-  private string LoadAssetDir() {
-    var dir = FilePaths.GetAbsolutePath(Path.Combine(ZEnv.App.Storage.UserDir, "Assets"));
-    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-    return dir;
-  }
 
   public virtual async Task<byte[]?> GetAssetContents(string relativePath, string? downloadUrl = null, CancellationToken ct = new CancellationToken()) {
     string fp = Path.Combine(AssetDirectory, relativePath);
     bool exists = File.Exists(fp);
     if (!exists && downloadUrl != null && Context.App.Target != ZTarget.Server) {
-      var data = await GetUrl(downloadUrl);
+      byte[] data = await GetUrl(downloadUrl);
       await File.WriteAllBytesAsync(fp, data, ct);
       return data;
     }
@@ -58,17 +52,23 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
     return fp;
   }
 
+  private string LoadAssetDir() {
+    string dir = FilePaths.GetAbsolutePath(Path.Combine(ZEnv.App.Storage.UserDir, "Assets"));
+    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+    return dir;
+  }
+
   // Download a remote file directly and return the path for consumption
   private async Task DownloadAsset(string relativePath, CancellationToken ct = new CancellationToken()) {
     try {
       string fp = GetAssetPath(relativePath);
       Directory.CreateDirectory(Path.GetDirectoryName(fp)!);
 
-      var unixPath = relativePath.Replace("\\\\", "/").Replace("\\", "/");
-      var url = $"{Context.App.Cdn}/{unixPath}";
+      string unixPath = relativePath.Replace("\\\\", "/").Replace("\\", "/");
+      string url = $"{Context.App.Cdn}/{unixPath}";
       Log.Information("[ASSET] download {url} to {fp}", url, fp);
-      var data = await GetAssetContents(relativePath, url, ct) ??
-                 throw new NullReferenceException($"Failed to get contents from {url}");
+      byte[] data = await GetAssetContents(relativePath, url, ct) ??
+                    throw new NullReferenceException($"Failed to get contents from {url}");
       await File.WriteAllBytesAsync(fp, data, ct);
     } finally {
       _activeDownloads.Remove(relativePath);

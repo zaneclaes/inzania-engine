@@ -11,11 +11,6 @@ using IZ.Core.Data;
 namespace IZ.Core.Api;
 
 public class ExecutionResult : TransientObject {
-  // public Type ParentClass { get; }
-
-  public ExecutionPlan Plan { get; }
-
-  public Dictionary<string, Tuple<ZTypeDescriptor, object?>> Args { get; }
 
   public ExecutionResult(
     IZContext context, ExecutionPlan plan, List<object?> args
@@ -25,4 +20,9 @@ public class ExecutionResult : TransientObject {
     Args = plan.CoerceArgs(args);
     // ParentClass = parentType;
   }
+  // public Type ParentClass { get; }
+
+  public ExecutionPlan Plan { get; }
+
+  public Dictionary<string, Tuple<ZTypeDescriptor, object?>> Args { get; }
 }

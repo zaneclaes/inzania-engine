@@ -18,17 +18,17 @@ using IZ.Core.Utils;
 namespace IZ.Core.Json.System;
 
 public class ZArrayConverter<TObj> : JsonConverter<TObj[]>, IHaveContext {
-  public IZContext Context => _converter.Context;
-  public IZLogger Log => _converter.Log;
   private readonly ZContextConverter _converter;
-
-  private JsonSerializerOptions SerializerOptions =>
-    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
   private JsonSerializerOptions? _serializerOptions;
 
   public ZArrayConverter(ZContextConverter inner) {
     _converter = inner;
   }
+
+  private JsonSerializerOptions SerializerOptions =>
+    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
+  public IZContext Context => _converter.Context;
+  public IZLogger Log => _converter.Log;
 
   public override TObj[]? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
     var type = typeToConvert.GetElementType()!;
@@ -45,20 +45,12 @@ public class ZArrayConverter<TObj> : JsonConverter<TObj[]>, IHaveContext {
   public override void Write(Utf8JsonWriter writer, TObj[] value, JsonSerializerOptions options) {
     // Log.Information("[WRITE-ARR] {type}", value.GetType());
     // JsonSerializer.Serialize(writer, value, value.GetType(), SerializerOptions);
-    throw new SystemException($"ZArrayConverter cannot write");
+    throw new SystemException("ZArrayConverter cannot write");
   }
 }
 
 public class ZContextConverter : JsonConverter<object>, IHaveContext {
-  public IZContext Context { get; }
-  public IZLogger Log { get; }
-
-  private JsonSerializerOptions DeserializerOptions =>
-    _deserializerOptions ??= SystemJson.DeserializeOptionsForContext(Context);
   private JsonSerializerOptions? _deserializerOptions;
-
-  private JsonSerializerOptions SerializerOptions =>
-    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
   private JsonSerializerOptions? _serializerOptions;
 
   public ZContextConverter(IZContext context) {
@@ -66,8 +58,16 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     Log = context.Log.ForContext(GetType());
   }
 
+  private JsonSerializerOptions DeserializerOptions =>
+    _deserializerOptions ??= SystemJson.DeserializeOptionsForContext(Context);
+
+  private JsonSerializerOptions SerializerOptions =>
+    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
+  public IZContext Context { get; }
+  public IZLogger Log { get; }
+
   private string[] AddBreadcrumb(string bc, params string[] bcs) {
-    var breadcrums = bcs.ToList();
+    List<string> breadcrums = bcs.ToList();
     if (bcs.Any() && !bc.StartsWith("[")) bc = "." + bc;
     breadcrums.Add(bc);
     return breadcrums.ToArray();
@@ -114,15 +114,15 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         i.IsGenericType &&
         i.GetGenericTypeDefinition() == typeof(IDictionary<,>)
       ) ?? throw new ArgumentException($"Type {type} does not implement IDictionary<,> or is not a generic type");
-    var generics = dictionaryInterface.GetGenericArguments();
+    Type[] generics = dictionaryInterface.GetGenericArguments();
     if (generics[0] != typeof(string)) throw new ArgumentException($"Type {type} does not implement IDictionary<string,>");
     var valueType = generics[1];
 
     if (reader.TokenType == JsonTokenType.StartObject) reader.Read();
     while (reader.TokenType != JsonTokenType.EndObject) {
-      var key = reader.GetString() ?? throw new ArgumentException($"Read non-string key {reader.TokenType}");
+      string key = reader.GetString() ?? throw new ArgumentException($"Read non-string key {reader.TokenType}");
       reader.Read();
-      var val = JsonSerializer.Deserialize(ref reader, valueType, DeserializerOptions); //eadObject(ref reader, valueType, AddBreadcrumb("value", breadcrumbs));
+      object? val = JsonSerializer.Deserialize(ref reader, valueType, DeserializerOptions); //eadObject(ref reader, valueType, AddBreadcrumb("value", breadcrumbs));
       reader.Read();
       dict.Add(key, val);
     }
@@ -162,7 +162,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
           val = reader.GetString();
         } else {
           bool isList = prop?.FieldType.IsListType() ?? false;
-          var ft = isList ? (prop!.FieldType.GetListType()!) : (prop?.FieldType ?? typeof(object));
+          var ft = isList ? prop!.FieldType.GetListType()! : prop?.FieldType ?? typeof(object);
           val = ReadObject(ref reader, ft, AddBreadcrumb(propName, breadcrumbs));
 
           if (isList) { // The server gave a single object, but the datatype is a list
@@ -198,7 +198,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     // Context.Log.Debug("OBJ END1 {idx} {key} {type}", n,reader.TokenType, type);
     reader.Read();
     // if (reader.TokenType == JsonTokenType.EndArray) reader.Read();
-    Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs),reader.TokenType, type);
+    Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
 
     return co;
   }
@@ -206,7 +206,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   public override object? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
     if (reader.TokenType == JsonTokenType.StartArray) {
       Log.Debug("ARR {type} {t2}", typeToConvert, typeToConvert.GenericTypeArguments);
-      var ret = ReadArray(ref reader, typeToConvert, ModelId.GenerateId());
+      object? ret = ReadArray(ref reader, typeToConvert, ModelId.GenerateId());
       Log.Debug("ARR RET {ret} {type} {token}", ret, ret?.GetType(), reader.TokenType);
       return ret;
     }
@@ -216,7 +216,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) {
     if (value is IEnumerable enumerable and not string) {
       writer.WriteStartArray();
-      foreach (var item in enumerable) {
+      foreach (object? item in enumerable) {
         Write(writer, item, options);
       }
       writer.WriteEndArray();
@@ -226,11 +226,11 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     if (value is IAmInternal) {
       // NO-OP
     } else if (value is ContextualObject) {
-      ZObjectDescriptor desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
+      var desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
       writer.WriteStartObject();
       foreach (var prop in desc.AllProperties) {
         if (!prop.IsSettable || prop.IsJsonIgnored) continue;
-        var val = prop.GetValue(value);
+        object? val = prop.GetValue(value);
         if (val is IAmInternal) continue;
         writer.WritePropertyName(prop.Name);
         if (val == null) writer.WriteNullValue();

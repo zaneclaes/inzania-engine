@@ -5,5 +5,5 @@ public enum ZP2PConnectionState {
   OpeningConnection,
   LoadingSession,
   WaitingForPeer,
-  Connected,
+  Connected
 }

@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace IZ.Client.Networking.WebSockets.GraphQL;
 
 public class GraphQLWebSocketMessage {

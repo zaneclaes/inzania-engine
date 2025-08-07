@@ -12,6 +12,16 @@ using IZ.Core.Utils;
 namespace IZ.Core.Api.Types;
 
 public class ZParameterDescriptor : IAmInternal {
+
+  public ZParameterDescriptor(ParameterInfo member) {
+    FieldName = member.Name!.ToFieldName();
+    ParameterType = member.ParameterType;
+    ApiType = ZTypeDescriptor.FromType(ParameterType, member.IsOptional);
+    IsOptional = member.IsOptional || ParameterType.IsListType() || ParameterType.IsArray;
+    DefaultValue = member.DefaultValue;
+    IsTopic = member.GetCustomAttribute<ApiTopicAttribute>() != null;
+    IsEventMessage = member.GetCustomAttribute<EventMessageAttribute>() != null;
+  }
   public string FieldName { get; }
 
   public Type ParameterType { get; }
@@ -25,14 +35,4 @@ public class ZParameterDescriptor : IAmInternal {
   public bool IsTopic { get; }
 
   public bool IsEventMessage { get; }
-
-  public ZParameterDescriptor(ParameterInfo member) {
-    FieldName = member.Name!.ToFieldName();
-    ParameterType = member.ParameterType;
-    ApiType = ZTypeDescriptor.FromType(ParameterType, member.IsOptional);
-    IsOptional = member.IsOptional || ParameterType.IsListType() || ParameterType.IsArray;
-    DefaultValue = member.DefaultValue;
-    IsTopic = member.GetCustomAttribute<ApiTopicAttribute>() != null;
-    IsEventMessage = member.GetCustomAttribute<EventMessageAttribute>() != null;
-  }
 }

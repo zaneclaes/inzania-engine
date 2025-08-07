@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using HotChocolate;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Instrumentation;
 using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
-using HotChocolate.Resolvers;
 using IZ.Core.Api;
 using IZ.Core.Contexts;
 using IZ.Core.Observability.Logging;
@@ -15,16 +12,15 @@ using IZ.Core.Utils;
 using IZ.Schema.Queries;
 using IZ.Schema.Types;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace IZ.Schema.Variables;
 
 public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
-  internal IZLogger Log { get; }
 
   public ApiExecutionEventListener(IZLogger log) {
     Log = log;
   }
+  internal IZLogger Log { get; }
 
   private IDisposable AddRequestSpan(IRequestContext context, string name) {
     Log.Debug("[SPAN] {name}", name);
@@ -32,12 +28,10 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
   }
 
   // 	Scope that encloses the entire GraphQL request execution. Also the first diagnostic event raised during a GraphQL request.w
-  public override IDisposable ExecuteRequest(IRequestContext context) {
+  public override IDisposable ExecuteRequest(IRequestContext context) =>
     // FurRequest? req = context.Services.GetService(typeof(FurRequest)) as FurRequest;
     // return new FurSpan("GQL", nameof(ExecuteRequest), req?.RequestSpan);
-
-    return AddRequestSpan(context, "Execute");
-  }
+    AddRequestSpan(context, "Execute");
 
   private void ReplaceFragmentSpreads(
     IZContext context, IRequestContext requestContext, ISyntaxNode node, Dictionary<string, object> map
@@ -62,7 +56,7 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
     Dictionary<string, ApiVariableValueOrLiteral> coercedValueNodes = new Dictionary<string, ApiVariableValueOrLiteral>();
     Dictionary<string, object?> coercedValues = new Dictionary<string, object?>();
 
-    var req = (reqContext.Request as OperationRequest) ??
+    var req = reqContext.Request as OperationRequest ??
               throw new ArgumentException($"{reqContext.Request.GetType()} is not a OperationRequest");
 
     foreach (var opNode in ops) {
@@ -79,8 +73,8 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
 
         Dictionary<string, ApiVariableValueOrLiteral> inputs = ZInputTypes.ResolveInputVariables(context, req.VariableValues);
 
-        var nodes = opNode.GetNodes().ToList();
-        var variableNodes = nodes.Where(n => n is VariableDefinitionNode).Cast<VariableDefinitionNode>().ToList();
+        List<ISyntaxNode> nodes = opNode.GetNodes().ToList();
+        List<VariableDefinitionNode> variableNodes = nodes.Where(n => n is VariableDefinitionNode).Cast<VariableDefinitionNode>().ToList();
         // Log.Information("[INPUT] func: {funcName} x{count} {vars}", funcName, nodes.Count, variableNodes.Count);
         foreach (var def in variableNodes) {
           string paramName = def.Variable.Name.Value;
@@ -103,7 +97,7 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
         }
       }
       req.WithVariableValues(coercedValues);
-      reqContext.Variables = new List<IVariableValueCollection>() {
+      reqContext.Variables = new List<IVariableValueCollection> {
         new ApiVariableValueCollection(coercedValueNodes)
       };
     }
@@ -118,7 +112,7 @@ public class ApiExecutionEventListener : ExecutionDiagnosticEventListener {
     var ret = AddRequestSpan(reqContext, nameof(ValidateDocument));
     var query = reqContext.Request.Document as OperationDocument;
     var context = reqContext.Services.GetCurrentContext();
-    var docId = reqContext.Request.DocumentId.ToString();
+    string? docId = reqContext.Request.DocumentId.ToString();
     if (query == null && !string.IsNullOrWhiteSpace(docId)) {
       query = reqContext.Services.GetRequiredService<ZQueryAccessor>().TryReadOperation(docId);
     }

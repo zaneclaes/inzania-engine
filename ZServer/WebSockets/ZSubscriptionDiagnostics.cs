@@ -6,6 +6,8 @@ namespace IZ.Server.WebSockets;
 
 public class ZSubscriptionDiagnostics : LogicBase, ISubscriptionDiagnosticEventsListener {
 
+  public ZSubscriptionDiagnostics(IZContext context) : base(context) { }
+
   public void Created(string topicName) {
     Log.Debug("[SUB] {action} {topic}", nameof(Created), topicName);
   }
@@ -51,6 +53,4 @@ public class ZSubscriptionDiagnostics : LogicBase, ISubscriptionDiagnosticEvents
   public void ProviderTopicInfo(string topicName, string infoText) {
     Log.Debug("[SUB] {action} {topic} {info}", nameof(ProviderTopicInfo), topicName, infoText);
   }
-
-  public ZSubscriptionDiagnostics(IZContext context) : base(context) {  }
 }

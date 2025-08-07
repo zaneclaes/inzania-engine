@@ -9,10 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentAssertions" Version="8.5.0" />
-    <PackageReference Include="Serilog.Sinks.XUnit" Version="3.0.19" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.7" />
+    <PackageReference Include="FluentAssertions" Version="8.5.0"/>
+    <PackageReference Include="Serilog.Sinks.XUnit" Version="3.0.19"/>
+    <PackageReference Include="xunit" Version="2.9.3"/>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.7"/>
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.3">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ZCore\ZCore.csproj" />
-    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj" />
+    <ProjectReference Include="..\ZCore\ZCore.csproj"/>
+    <ProjectReference Include="..\ZSerilog\ZSerilog.csproj"/>
   </ItemGroup>
 
 </Project>

@@ -15,13 +15,11 @@ using IZ.Core.Utils;
 using IZ.Data.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace IZ.Data.Storage;
 
 public class ZDbContext : DbContext, IHaveContext {
-  public virtual bool CanStore(object o) => o is DataObject;
-
-  public string Uuid { get; }
 
   public ZDbContext(IZContext root, DbContextOptions opts) : base(opts) {
     Context = root;
@@ -37,8 +35,11 @@ public class ZDbContext : DbContext, IHaveContext {
     // Log.Information("[DB] CREATE {id}\n{stack}", Uuid);//, new ZTrace());
   }
 
+  public string Uuid { get; }
+
   public IZContext Context { get; }
   public IZLogger Log { get; }
+  public virtual bool CanStore(object o) => o is DataObject;
 
   public override void Dispose() {
     // Log.Information("[DB] DISPOSE {id}\n{stack}", Uuid);//, new ZTrace());
@@ -62,7 +63,7 @@ public class ZDbContext : DbContext, IHaveContext {
   }
 
   private void UpdateChanges() {
-    var changedEntities = GetChanges();
+    List<EntityEntry> changedEntities = GetChanges();
     TimeStampData.OnModelChanging(changedEntities);
     string? errorId = this.Sanitize(Context);
     if (errorId != null) throw new ArgumentException($"[DB] creation error: {errorId}");
@@ -87,7 +88,7 @@ public class ZDbContext : DbContext, IHaveContext {
     } catch (Exception ex) {
       if (tries < 3) {
         Log.Information("[DB] {context} failed to get changes x{tries} ({type}: {err}); trying again", Context.ResourceAction, tries, ex.GetType(), ex.Message);
-        return GetChanges(tries+1);
+        return GetChanges(tries + 1);
       }
       throw;
     }
@@ -95,7 +96,7 @@ public class ZDbContext : DbContext, IHaveContext {
 
   // https://stackoverflow.com/questions/16437083/dbcontext-discard-changes-without-disposing/22098063#22098063
   public void RejectChanges() {
-    var entries = GetChanges();
+    List<EntityEntry> entries = GetChanges();
     foreach (var entry in entries)
       switch (entry.State) {
         case EntityState.Modified:
@@ -121,7 +122,7 @@ public class ZDbContext : DbContext, IHaveContext {
 
     // foreach (Type dataType in DataObjectTypes) {
     // try {
-    var entityTypes = modelBuilder.Model.GetEntityTypes().ToList();
+    List<IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes().ToList();
     foreach (var entityType in entityTypes) {
       var dataType = entityType.ClrType;
       if (!typeof(DataObject).IsAssignableFrom(dataType)) continue;
@@ -130,7 +131,7 @@ public class ZDbContext : DbContext, IHaveContext {
 
       // Go through each property...
       var dt = ZTypeDescriptor.FromType(dataType);
-      foreach (var propertyName in dt.ObjectDescriptor.ObjectProperties.Keys) {
+      foreach (string propertyName in dt.ObjectDescriptor.ObjectProperties.Keys) {
         ConfigureModelProperty(dt, propertyName, modelBuilder);
       }
 
@@ -149,7 +150,9 @@ public class ZDbContext : DbContext, IHaveContext {
       // Manual static configure method
       var configureMethod = dataType.GetMethod("ConfigureModel", BindingFlags.Static | BindingFlags.Public);
       if (configureMethod != null) {
-        configureMethod.Invoke(null, new object[] { Context, modelBuilder });
+        configureMethod.Invoke(null, new object[] {
+          Context, modelBuilder
+        });
       }
     }
 
@@ -176,12 +179,12 @@ public class ZDbContext : DbContext, IHaveContext {
         }
       } else {
         var zThru = ZTypeDescriptor.FromType(prop.ThroughPropertyType ?? throw new NullReferenceException(nameof(prop.ThroughPropertyType)));
-        var localProps = zThru.ObjectDescriptor.ObjectProperties.Values.Where(p => p.FieldType == zForeignType.ObjectDescriptor.ObjectType).ToList();
-        var foreignProps = zThru.ObjectDescriptor.ObjectProperties.Values.Where(p => p.FieldType == zTypeDescriptor.ObjectDescriptor.ObjectType).ToList();
+        List<ZPropertyDescriptor> localProps = zThru.ObjectDescriptor.ObjectProperties.Values.Where(p => p.FieldType == zForeignType.ObjectDescriptor.ObjectType).ToList();
+        List<ZPropertyDescriptor> foreignProps = zThru.ObjectDescriptor.ObjectProperties.Values.Where(p => p.FieldType == zTypeDescriptor.ObjectDescriptor.ObjectType).ToList();
         if (localProps.Count != 1 || foreignProps.Count != 1) throw new ArgumentException($"{zThru.ObjectDescriptor.ObjectType} has {localProps.Count}x {zForeignType.ObjectDescriptor.ObjectType} and {foreignProps.Count}x {zTypeDescriptor.ObjectDescriptor.ObjectType}");
 
-        var localSingular = localProps.First().Name;
-        var foreignSingular = foreignProps.First().Name;
+        string localSingular = localProps.First().Name;
+        string foreignSingular = foreignProps.First().Name;
         Log.Debug("[THRU] {type}.{p} => {ct}.{child} ({local} <{intermediate}> {foreign})",
           zTypeDescriptor.OrigType, prop.Name, zForeignType.ObjectDescriptor.ObjectType, prop.ChildPropertyName, localSingular, prop.ThroughPropertyType, foreignSingular);
 
@@ -197,5 +200,3 @@ public class ZDbContext : DbContext, IHaveContext {
     }
   }
 }
-
-

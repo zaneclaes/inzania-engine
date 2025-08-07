@@ -7,9 +7,6 @@ using System.Linq;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
 using IZ.Core.Observability.Logging;
-using Serilog;
-using Serilog.Configuration;
-using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting.Display;
 using Serilog.Parsing;
@@ -24,10 +21,10 @@ public static class SerilogExtensions {
     var parser = new MessageTemplateParser();
     var messageTemplate = parser.Parse(entry.MessageTemplate);
 
-    var props = ZJson.DeserializeObject<Dictionary<string, object>>(entry.Context, entry.Properties)!;
+    Dictionary<string, object>? props = ZJson.DeserializeObject<Dictionary<string, object>>(entry.Context, entry.Properties)!;
 
     // Convert dictionary to LogEventProperty list
-    var logProperties = props
+    List<LogEventProperty> logProperties = props
       .Select(kvp => new LogEventProperty(kvp.Key, new ScalarValue(kvp.Value)))
       .ToList();
 
@@ -35,14 +32,14 @@ public static class SerilogExtensions {
     var logEvent = new LogEvent(
       DateTimeOffset.Now,
       LogEventLevel.Information,
-      exception: null,
-      messageTemplate: messageTemplate,
-      properties: logProperties
+      null,
+      messageTemplate,
+      logProperties
     );
 
     // Format the message
     using var writer = new StringWriter();
-    var formatter = new MessageTemplateTextFormatter("{Message}", null);
+    var formatter = new MessageTemplateTextFormatter("{Message}");
     formatter.Format(logEvent, writer);
     return writer.ToString();
   }
@@ -53,22 +50,22 @@ public static class SerilogExtensions {
   }
 
   private static LogEntry ToLogEntry(this LogFileEntry entry, string fn, string clientId, string? userId, int lineNum) {
-    var msgStr = entry.RenderMessage();
+    string msgStr = entry.RenderMessage();
     if (msgStr.Length > LogEntry.MaxMessageLength) {
       entry.Log.Warning("[LOG] message {len} > {max}", msgStr.Length, LogEntry.MaxMessageLength);
       msgStr = msgStr.Substring(0, LogEntry.MaxMessageLength);
     }
-    var exStr = entry.Exception;
+    string? exStr = entry.Exception;
     if (exStr?.Length > LogEntry.MaxExceptionLength) {
       entry.Log.Warning("[LOG] exception {len} > {max}", exStr.Length, LogEntry.MaxExceptionLength);
       exStr = exStr.Substring(0, LogEntry.MaxExceptionLength);
     }
-    var propStr = ZJson.SerializeObject(entry.Properties);
+    string propStr = ZJson.SerializeObject(entry.Properties);
     if (propStr.Length > LogEntry.MaxPropsLength) {
       entry.Log.Warning("[LOG] properties {len} > {max}", propStr.Length, LogEntry.MaxPropsLength);
       propStr = propStr.Substring(0, LogEntry.MaxPropsLength);
     }
-    return new LogEntry() {
+    return new LogEntry {
       Context = entry.Context,
       FileName = fn,
       ClientId = clientId,
@@ -78,7 +75,7 @@ public static class SerilogExtensions {
       Exception = exStr,
       Properties = propStr,
       Level = entry.Level,
-      LoggedAt = DateTimeOffset.Parse(entry.Timestamp).UtcDateTime,
+      LoggedAt = DateTimeOffset.Parse(entry.Timestamp).UtcDateTime
     };
   }
 }

@@ -13,9 +13,9 @@ using IZ.Core.Data;
 namespace IZ.Data.Resolvers;
 
 public class DataModelQuery : TransientObject, IZQueryable {
-  private readonly IQueryable _q;
 
   private readonly ZEfCoreQueryProvider _provider;
+  private readonly IQueryable _q;
 
   public DataModelQuery(ZEfCoreQueryProvider provider, IQueryable q) : base(provider.Context) {
     _q = q;
@@ -32,10 +32,10 @@ public class DataModelQuery : TransientObject, IZQueryable {
 
 public class DataModelQuery<T> : DataModelQuery, IZQueryable<T> {
   private readonly IQueryable<T> _qt;
-
-  public IEnumerator<T> GetEnumerator() => _qt.GetEnumerator();
   public DataModelQuery(ZEfCoreQueryProvider provider, IQueryable<T> q) : base(provider, q) {
     _qt = q;
   }
+
+  public IEnumerator<T> GetEnumerator() => _qt.GetEnumerator();
   public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = new CancellationToken()) => (_qt as IAsyncEnumerable<T>)!.GetAsyncEnumerator(cancellationToken);
 }

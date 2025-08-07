@@ -8,7 +8,6 @@ using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
-using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using SocketBuilder = System.Func<
   IZ.Core.Contexts.IZContext, System.Uri, string, System.Collections.Generic.Dictionary<string, string>?, IZ.Client.Networking.WebSockets.IWebSocket>;
@@ -42,7 +41,7 @@ public static class TuneQueries {
       [ZHeaders.ClientId] = (context.App as ZClientApp)!.ClientId!,
       [ZHeaders.ApplicationVersion] = (context.App as ZClientApp)!.Version?.ToString() ?? "0.0.0",
       [ZHeaders.RequestId] = ModelId.GenerateId(),
-      [ZHeaders.Env] = context.App.Env.ToString(),
+      [ZHeaders.Env] = context.App.Env.ToString()
     };
 
     var at = context.GetService<IStoredUserSession>();
@@ -52,7 +51,7 @@ public static class TuneQueries {
     }
 
     if (extra != null) {
-      foreach (var key in extra.Keys) {
+      foreach (string key in extra.Keys) {
         ret[key] = extra[key];
       }
     }
@@ -88,5 +87,4 @@ public static class TuneQueries {
   //
   //   return lines;
   // }
-
 }

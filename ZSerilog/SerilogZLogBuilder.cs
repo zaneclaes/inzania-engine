@@ -11,11 +11,11 @@ using Serilog.Configuration;
 namespace IZ.Logging.SerilogLogging;
 
 public class SerilogZLogBuilder : ZLogBuilder {
-  public static SerilogZLogBuilder GetDefault() => new SerilogZLogBuilder().WithZData();
 
   public LoggerConfiguration SerilogConfig { get; private set; } = new LoggerConfiguration()
     .Destructure.ToMaximumDepth(10)
     .Enrich.FromLogContext();
+  public static SerilogZLogBuilder GetDefault() => new SerilogZLogBuilder().WithZData();
 
   public override ZLogBuilder TransformObject<TObj>(Func<TObj, object> func) {
     SerilogConfig = SerilogConfig.Destructure.ByTransforming(func);

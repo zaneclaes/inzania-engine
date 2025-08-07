@@ -44,7 +44,7 @@ public class ApiResponse : TransientObject {
     if (Errors.Any()) {
       res.Add("errors", Errors.Select(e => e.ToApiResponseData(includeDetails)));
     } else {
-      object? data = string.IsNullOrWhiteSpace(ResponsePath) ? _data : Extract(ResponsePath.Split('.').ToArray());
+      object? data = string.IsNullOrWhiteSpace(ResponsePath) ? _data : Extract(ResponsePath.Split('.'));
       res.Add("data", data ?? new { });
     }
     if (Meta.Any()) res.Add("meta", Meta);

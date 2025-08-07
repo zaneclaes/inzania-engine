@@ -1,8 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using IZ.Core.Data;
-using IZ.P2P.Shared;
-
 namespace IZ.P2P.Data;
 
 public interface IZP2PConnectionOption {

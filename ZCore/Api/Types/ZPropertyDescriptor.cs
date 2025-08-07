@@ -11,6 +11,29 @@ using IZ.Core.Utils;
 namespace IZ.Core.Api.Types;
 
 public class ZPropertyDescriptor : ZFieldDescriptor {
+
+  public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
+    .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable) {
+
+    PropertyInfo = propertyInfo;
+    IsInherited = parentProp != null;
+    Name = propertyInfo.Name;
+    FieldName = propertyInfo.Name.ToFieldName();
+    IsSettable = propertyInfo.CanWrite;
+    Order = propertyInfo.GetCustomAttribute<ApiOrderAttribute>()?.Order ?? -1;
+    Observable = propertyInfo.GetCustomAttribute<ObservableAttribute>();
+    bool hasJsonIgnore = propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() != null;
+    IsJsonIgnored = !IsSettable || hasJsonIgnore;
+    // IsLogIgnored = propertyInfo.GetCustomAttribute<LogIgnoreAttribute>() != null || hasJsonIgnore;
+    IsInputIgnored = propertyInfo.GetCustomAttribute<InputIgnoreAttribute>() != null || IsJsonIgnored;
+
+    var parent = propertyInfo.GetCustomAttribute<ApiParentAttribute>();
+    if (parent != null) {
+      ChildPropertyName = parent.ChildProperty;
+      ThroughPropertyType = parent.ThroughModelType;
+      ChildDeleteBehavior = parent.DeleteBehavior;
+    }
+  }
   private PropertyInfo PropertyInfo { get; }
 
   // public bool IsLogIgnored { get; }
@@ -43,29 +66,6 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     PropertyInfo.SetMethod!.Invoke(obj, new[] {
       val
     });
-  }
-
-  public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
-    .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable) {
-
-    PropertyInfo = propertyInfo;
-    IsInherited = parentProp != null;
-    Name = propertyInfo.Name;
-    FieldName = propertyInfo.Name.ToFieldName();
-    IsSettable = propertyInfo.CanWrite;
-    Order = propertyInfo.GetCustomAttribute<ApiOrderAttribute>()?.Order ?? -1;
-    Observable = propertyInfo.GetCustomAttribute<ObservableAttribute>();
-    bool hasJsonIgnore = propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() != null;
-    IsJsonIgnored = !IsSettable || hasJsonIgnore;
-    // IsLogIgnored = propertyInfo.GetCustomAttribute<LogIgnoreAttribute>() != null || hasJsonIgnore;
-    IsInputIgnored = propertyInfo.GetCustomAttribute<InputIgnoreAttribute>() != null || IsJsonIgnored;
-
-    var parent = propertyInfo.GetCustomAttribute<ApiParentAttribute>();
-    if (parent != null) {
-      ChildPropertyName = parent.ChildProperty;
-      ThroughPropertyType = parent.ThroughModelType;
-      ChildDeleteBehavior = parent.DeleteBehavior;
-    }
   }
 
   public override string ToString() => $"<{PropertyInfo.Name}: {FieldTypeDescriptor}>";

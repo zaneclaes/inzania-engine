@@ -18,66 +18,42 @@ namespace IZ.Core.Contexts;
 
 public abstract class ContextualObject : IDisposable, IEventEnricher {
   private readonly IZContext? _baseContext;
-  private IZContext? _context;
-  private IZLogger? _logger;
-
-  [ApiIgnore]
-  public virtual string Uuid => _uuid ??= GetUuid();
-  private string? _uuid;
-
-  internal ZTypeDescriptor ApiType => _apiType ??= ZTypeDescriptor.FromType(GetType());
   private ZTypeDescriptor? _apiType;
-
-  private string GetUuid() => GetType().Name + "#" + UuidId;
-  protected virtual string UuidId => _transientId ??= ModelId.GenerateId();
-  private string? _transientId;
-
-  public override string ToString() => Uuid;
-
-  // Low-cardinality grouping of objects used for metric tags & event property groups
-  protected abstract string ContextualObjectGroup { get; }
-
-  [ApiIgnore] [JsonIgnore] [NotMapped]
-  public Dictionary<string, object> EventProperties => _eventProperties ??= BuildEventProperties();
+  private IZContext? _context;
   private Dictionary<string, object>? _eventProperties;
-  private Dictionary<string, object> BuildEventProperties() => Context.EventProperties
-    .Union(GetObservableProperties())
-    .Union(new Dictionary<string, object> {
-      [$"{ContextualObjectGroup}.{GetType().Name}.Id"] = UuidId
-    }).ToDictionary(k => k.Key, k => k.Value);
-
-  [ApiIgnore] [JsonIgnore]
-  public Dictionary<string, object> EventTags => _eventTags ??= BuildEventTags();
   private Dictionary<string, object>? _eventTags;
-  private Dictionary<string, object> BuildEventTags() => Context.EventTags
-    .Union(GetObservableProperties(true))
-    .Union(new Dictionary<string, object> {
-      ["object_group"] = ContextualObjectGroup
-    }).ToDictionary(k => k.Key, k => k.Value);
-
-  protected virtual Dictionary<string, object> GetObservableProperties(bool isMetric = false) {
-    Dictionary<string, object> ret = new Dictionary<string, object>();
-    foreach (var prop in ApiType.ObjectDescriptor.AllProperties) {
-      if (prop.Observable == null) continue;
-      if (isMetric && prop.Observable.MetricName == null) continue;
-      string key = isMetric ? prop.Observable.MetricName! : prop.FieldName;
-      object? val = prop.GetValue(this);
-      if (val != null) ret[key] = val;
-    }
-    return ret;
-  }
+  private IZLogger? _logger;
+  private string? _transientId;
+  private string? _uuid;
 
   protected ContextualObject(IZContext? context = null) {
     _baseContext = context;
   }
 
+  [ApiIgnore]
+  public virtual string Uuid => _uuid ??= GetUuid();
+
+  internal ZTypeDescriptor ApiType => _apiType ??= ZTypeDescriptor.FromType(GetType());
+  protected virtual string UuidId => _transientId ??= ModelId.GenerateId();
+
+  // Low-cardinality grouping of objects used for metric tags & event property groups
+  protected abstract string ContextualObjectGroup { get; }
+
   [JsonIgnore] [ApiIgnore]
   protected bool IsDisposed { get; private set; }
+
+  protected virtual bool AllowRootContext => false;
 
   public virtual void Dispose() {
     if (IsDisposed) return;
     IsDisposed = true;
   }
+
+  [ApiIgnore] [JsonIgnore] [NotMapped]
+  public Dictionary<string, object> EventProperties => _eventProperties ??= BuildEventProperties();
+
+  [ApiIgnore] [JsonIgnore]
+  public Dictionary<string, object> EventTags => _eventTags ??= BuildEventTags();
 
   [NotMapped] [ApiIgnore] [JsonIgnore]
   public IZLogger Log => _logger ??= Context.Log;
@@ -94,6 +70,32 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
       // else _context = value.Spawn(GetType());
       _context = value;
     }
+  }
+
+  private string GetUuid() => GetType().Name + "#" + UuidId;
+
+  public override string ToString() => Uuid;
+  private Dictionary<string, object> BuildEventProperties() => Context.EventProperties
+    .Union(GetObservableProperties())
+    .Union(new Dictionary<string, object> {
+      [$"{ContextualObjectGroup}.{GetType().Name}.Id"] = UuidId
+    }).ToDictionary(k => k.Key, k => k.Value);
+  private Dictionary<string, object> BuildEventTags() => Context.EventTags
+    .Union(GetObservableProperties(true))
+    .Union(new Dictionary<string, object> {
+      ["object_group"] = ContextualObjectGroup
+    }).ToDictionary(k => k.Key, k => k.Value);
+
+  protected virtual Dictionary<string, object> GetObservableProperties(bool isMetric = false) {
+    Dictionary<string, object> ret = new Dictionary<string, object>();
+    foreach (var prop in ApiType.ObjectDescriptor.AllProperties) {
+      if (prop.Observable == null) continue;
+      if (isMetric && prop.Observable.MetricName == null) continue;
+      string key = isMetric ? prop.Observable.MetricName! : prop.FieldName;
+      object? val = prop.GetValue(this);
+      if (val != null) ret[key] = val;
+    }
+    return ret;
   }
 
   // Set the internal context if it is not set, thus preventing a root context error
@@ -138,8 +140,6 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
       }
     }
   }
-
-  protected virtual bool AllowRootContext => false;
 
   protected virtual IZContext SpawnInContext(IZContext? context) {
     if (context != null) return context;

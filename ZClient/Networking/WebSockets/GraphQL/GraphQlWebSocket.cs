@@ -2,17 +2,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using IZ.Client.Networking.WebSockets;
 using IZ.Client.Queries;
 using IZ.Core;
-using IZ.Core.Api;
 using IZ.Core.Api.GraphQLWebSockets;
-using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Exceptions;
@@ -27,7 +23,11 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
 
   private readonly Dictionary<string, string> _headers;
 
+  private readonly Func<JsonElement, Task<TData>> _parser;
+
   private readonly GraphRequest _request;
+
+  private readonly string _subProtocol = "graphql-ws";
 
   private readonly Uri _subscriptionUrl;
 
@@ -35,12 +35,6 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
 
   private string _socketId = "";
   private GqlWebSocketState _state = GqlWebSocketState.Ready;
-
-  private readonly string _subProtocol = "graphql-ws";
-
-  public IGraphQLWebSocketDelegate<TData> Delegate { get; set; }
-
-  private Func<JsonElement, Task<TData>> _parser;
 
   public GraphQlWebSocket(
     IZContext context, GraphRequest req, IGraphQLWebSocketDelegate<TData> del, Func<JsonElement, Task<TData>> parser, Dictionary<string, string>? headers = null
@@ -53,9 +47,15 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     CreateSocket();
   }
 
+  public IGraphQLWebSocketDelegate<TData> Delegate { get; set; }
+
   public DateTime LastHeartbeat { get; private set; } = ZEnv.Now;
 
   public bool HasEverConnected { get; private set; }
+
+  private IWebSocket? Socket { get; set; }
+
+  public bool IsActive => State == GqlWebSocketState.Subscribed;
   public GqlWebSocketState State {
     get => _state;
     private set {
@@ -66,9 +66,14 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     }
   }
 
-  private IWebSocket? Socket { get; set; }
+  public void Update() {
+    Socket?.DispatchMessageQueue();
+  }
 
-  public bool IsActive => State == GqlWebSocketState.Subscribed;
+  public override void Dispose() {
+    Disconnect();
+    base.Dispose();
+  }
 
   private void DisposeSocket() {
     if (Socket != null) {
@@ -109,15 +114,15 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     _connectionAttempts = 0;
 
     State = GqlWebSocketState.Connecting;
-    var gqlPayload = new GraphQLWebSocketMessage() {
+    var gqlPayload = new GraphQLWebSocketMessage {
       Type = "connection_init",
-      Payload = new ZWebSocketConnectionPayload() {
+      Payload = new ZWebSocketConnectionPayload {
         Authorization = _headers[ZHeaders.Authorization],
         ClientId = _headers[ZHeaders.ClientId],
         ApplicationVersion = _headers[ZHeaders.ApplicationVersion],
         RequestId = _headers[ZHeaders.RequestId],
-        Env = _headers[ZHeaders.Env],
-      },
+        Env = _headers[ZHeaders.Env]
+      }
     };
     await Send(ZJson.SerializeObject(gqlPayload));
     await WaitUntil(GqlWebSocketState.Connected);
@@ -177,7 +182,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       // var jsonData = payload.GetProperty("data");
       TData? data = null;
       try {
-        data = await _parser((JsonElement)payload);//  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
+        data = await _parser((JsonElement) payload); //  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
       } catch (Exception e) {
         Log.Error(e, "[GQL-WS] failed to parse {type} from {payloadType} {data}", typeof(TData).Name, payload.GetType(), payload.ToString());
       }
@@ -237,16 +242,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   public void Disconnect() {
     var socket = Socket;
     DisposeSocket();
-    if (socket?.State == System.Net.WebSockets.WebSocketState.Connecting || socket?.State == System.Net.WebSockets.WebSocketState.Open) CloseSocket(socket).Forget();
+    if (socket?.State == WebSocketState.Connecting || socket?.State == WebSocketState.Open) CloseSocket(socket).Forget();
     Log.Debug("[GQL-WS] Disconnect: Disposed & Disconnected");
-  }
-
-  public void Update() {
-    Socket?.DispatchMessageQueue();
-  }
-
-  public override void Dispose() {
-    Disconnect();
-    base.Dispose();
   }
 }

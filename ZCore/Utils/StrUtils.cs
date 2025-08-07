@@ -33,7 +33,7 @@ public static class StringUtils {
 
   public static bool IsNumeric(this string input) {
     if (input.StartsWith("-")) input = input.Substring(1);
-    var parts = input.Split('.');
+    string[] parts = input.Split('.');
     if (parts.Length > 2) return false;
     return parts.All(p => p.ToCharArray().All(char.IsDigit));
   }

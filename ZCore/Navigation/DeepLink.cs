@@ -2,36 +2,17 @@
 
 using System;
 using System.Linq;
-using HotChocolate.Utilities;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
-using IZ.Core.Utils;
-using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
 namespace IZ.Core.Navigation;
 
 public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
-  private static string Schema => ZEnv.ProductName.ToLower();
-
-  public bool IsValid => Page != null;
-
-  [Observable] public TPage? Page { get; }
 
   private readonly string? _path;
-
-  [Observable] public string[] Parts { get; }
-
-  public bool IsInCategory(string category) =>
-    FirstPart.Equals(category, StringComparison.InvariantCultureIgnoreCase);
-
-  public string FirstPart => GetPart(0) ?? "";
-
-  public string Path => string.Join("/", Parts);
-
-  public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
 
   protected DeepLink(IZContext context, string path) : base(context) {
     _path = path.Split("://").Last().Split("#").First().Split("?").First().Trim('/').ToLower();
@@ -41,6 +22,22 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
       Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
     }
   }
+  private static string Schema => ZEnv.ProductName.ToLower();
+
+  public bool IsValid => Page != null;
+
+  [Observable] public TPage? Page { get; }
+
+  [Observable] public string[] Parts { get; }
+
+  public string FirstPart => GetPart(0) ?? "";
+
+  public string Path => string.Join("/", Parts);
+
+  public bool IsInCategory(string category) =>
+    FirstPart.Equals(category, StringComparison.InvariantCultureIgnoreCase);
+
+  public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
 
   public string ToUrl() => Schema + "://" + Path;
 

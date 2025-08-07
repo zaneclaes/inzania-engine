@@ -11,7 +11,6 @@ using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Utils;
-using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
@@ -61,5 +60,4 @@ public class ZObjectType<TData> : ObjectType<TData> where TData : ApiObject {
       // ZEnv.Log.Information("[OUT] [{type}] {arg} = {type}", typeof(TData), fieldName, prop.PropertyType);
     }
   }
-
 }

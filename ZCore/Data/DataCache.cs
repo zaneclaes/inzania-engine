@@ -37,6 +37,8 @@ public class DataCache<T> : DataCache, IZQueryable<T> {
   public Expression Expression => _items.AsQueryable().Expression;
 
   public IQueryProvider Provider => _items.AsQueryable().Provider;
+  public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = new CancellationToken()) => throw new NotImplementedException();
+  public IZQueryProvider QueryProvider { get; } = null!;
 
   public override void Cache(params object[] objects) {
     foreach (object? o in objects) {
@@ -44,6 +46,4 @@ public class DataCache<T> : DataCache, IZQueryable<T> {
       _items.Add(obj);
     }
   }
-  public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = new CancellationToken()) => throw new NotImplementedException();
-  public IZQueryProvider QueryProvider { get; } = null!;
 }

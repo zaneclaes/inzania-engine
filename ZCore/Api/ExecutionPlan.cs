@@ -11,7 +11,6 @@ using IZ.Core.Api.Fragments;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
-using Microsoft.Extensions.DependencyInjection;
 
 #endregion
 
@@ -20,37 +19,9 @@ namespace IZ.Core.Api;
 public class ExecutionPlan {
   public const char QueryIdSplit = '-';
 
-  public string Id { get; }
-
-  [ApiDocs("The name of the method being invoked")]
-  public string FieldName { get; set; }
-
-  [ApiDocs("query/mutation/subscription")]
-  public ApiExecutionType OperationType { get; set; }
-
-  public string OperationName { get; }
-
-  public ZTypeDescriptor ReturnType { get; }
-
-  public ResultSet Set { get; }
-
-  public FragmentSet Fragments { get; }
-
-  private readonly ZMethodDescriptor _method;
-
   private static readonly Dictionary<string, ExecutionPlan> Plans = new Dictionary<string, ExecutionPlan>();
 
-  public static ExecutionPlan Load(IZContext context, Type parent, string operationName, ResultSet resultSet) =>
-    Load(context, GetClassExecutionType(parent), operationName, resultSet);
-
-  public static ExecutionPlan Load(IFragmentProvider frags, ApiExecutionType op, string operationName, ResultSet resultSet) {
-    string key = $"{op} {operationName} {resultSet}";
-    if (Plans.TryGetValue(key, out var plan)) return plan;
-    return Plans[key] = new ExecutionPlan(frags, op, operationName, resultSet);
-  }
-
-  public static ExecutionPlan Load(IZContext context, ApiExecutionType op, string operationName, ResultSet resultSet) =>
-    Load(context.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
+  private readonly ZMethodDescriptor _method;
 
   private ExecutionPlan(
     IFragmentProvider fragmentProvider, ApiExecutionType op, string operationName, ResultSet? resultSet = null
@@ -68,6 +39,34 @@ public class ExecutionPlan {
       throw new SystemException("Failed to create fragments", e);
     }
   }
+
+  public string Id { get; }
+
+  [ApiDocs("The name of the method being invoked")]
+  public string FieldName { get; set; }
+
+  [ApiDocs("query/mutation/subscription")]
+  public ApiExecutionType OperationType { get; set; }
+
+  public string OperationName { get; }
+
+  public ZTypeDescriptor ReturnType { get; }
+
+  public ResultSet Set { get; }
+
+  public FragmentSet Fragments { get; }
+
+  public static ExecutionPlan Load(IZContext context, Type parent, string operationName, ResultSet resultSet) =>
+    Load(context, GetClassExecutionType(parent), operationName, resultSet);
+
+  public static ExecutionPlan Load(IFragmentProvider frags, ApiExecutionType op, string operationName, ResultSet resultSet) {
+    string key = $"{op} {operationName} {resultSet}";
+    if (Plans.TryGetValue(key, out var plan)) return plan;
+    return Plans[key] = new ExecutionPlan(frags, op, operationName, resultSet);
+  }
+
+  public static ExecutionPlan Load(IZContext context, ApiExecutionType op, string operationName, ResultSet resultSet) =>
+    Load(context.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
 
   public Dictionary<string, Tuple<ZTypeDescriptor, object?>> CoerceArgs(List<object?> args) {
     Dictionary<string, Tuple<ZTypeDescriptor, object?>> ret = new Dictionary<string, Tuple<ZTypeDescriptor, object?>>();
@@ -127,7 +126,7 @@ public class ExecutionPlan {
   private static IValueNode PrepareArgGql(object? arg) {
     if (arg == null) return NullValueNode.Default;
     if (arg is IList list) {
-      var arr = new List<IValueNode>();
+      List<IValueNode> arr = new List<IValueNode>();
       for (int i = 0; i < list.Count; i++) {
         arr.Add(PrepareArgGql(list[i]));
       }
@@ -155,7 +154,7 @@ public class ExecutionPlan {
     // if (!(arg is ApiObject obj)) return arg;
 
     List<ObjectFieldNode> fields = new List<ObjectFieldNode>();
-    foreach (var inputName in desc.ObjectDescriptor.Inputs.Keys) {
+    foreach (string inputName in desc.ObjectDescriptor.Inputs.Keys) {
       var node = PrepareArgGql(desc.ObjectDescriptor.Inputs[inputName].GetValue(arg));
       fields.Add(new ObjectFieldNode(inputName, node));
     }

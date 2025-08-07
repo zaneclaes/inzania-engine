@@ -1,13 +1,12 @@
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
-using IZ.P2P.Data;
 
 namespace IZ.P2P.Shared;
 
 public enum P2PCloseReason {
   HostEnded,
   ServerConnectionLost,
-  AllMembersLeft,
+  AllMembersLeft
 }
 
 public interface IZP2PConnectionDelegate<TMsg, TPacket, TSession, TMember> : IHaveContext where TMsg : class {

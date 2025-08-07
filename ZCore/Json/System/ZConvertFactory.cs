@@ -36,17 +36,17 @@ public class EnumConvertFactory : JsonConverterFactory {
 }
 
 public class ZConvertFactory : EnumConvertFactory, IHaveContext {
-  public IZContext Context { get; }
-  public IZLogger Log { get; }
+  private readonly Dictionary<Type, JsonConverter> _arrayConverters = new Dictionary<Type, JsonConverter>();
 
   private readonly ZContextConverter _contextConverter;
-  private readonly Dictionary<Type, JsonConverter> _arrayConverters = new Dictionary<Type, JsonConverter>();
 
   public ZConvertFactory(IZContext context) {
     Context = context;
     _contextConverter = new ZContextConverter(context);
     Log = context.Log.ForContext(GetType());
   }
+  public IZContext Context { get; }
+  public IZLogger Log { get; }
 
   private JsonConverter GetArrayConverter(Type t) {
     if (_arrayConverters.TryGetValue(t, out var converter)) return converter;

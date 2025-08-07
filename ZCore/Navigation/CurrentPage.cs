@@ -12,8 +12,7 @@ namespace IZ.Core.Navigation;
 public class CurrentPage<TPage, TLink, TMap> : TransientObject
   where TPage : SitePage
   where TLink : DeepLink<TPage>
-  where TMap : Sitemap<TPage, TLink>
-{
+  where TMap : Sitemap<TPage, TLink> {
   public CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
     // Nav = nav;
     Path = path;

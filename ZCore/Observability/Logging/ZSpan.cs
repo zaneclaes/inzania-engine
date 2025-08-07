@@ -9,6 +9,11 @@ using IZ.Core.Contexts;
 namespace IZ.Core.Observability.Logging;
 
 public class ZSpan : IZSpan {
+
+  protected ZSpan() {
+    // Context = context;
+    // Log = context.Log;
+  }
   // public IZContext Context { get; }
 
   // public IZLogger Log { get; }
@@ -20,11 +25,6 @@ public class ZSpan : IZSpan {
   public virtual void SetSession(IZSession session) { }
 
   public virtual void Dispose() { }
-
-  protected ZSpan() {
-    // Context = context;
-    // Log = context.Log;
-  }
 
   public static ZSpan ForContext() => new ZSpan();
 }

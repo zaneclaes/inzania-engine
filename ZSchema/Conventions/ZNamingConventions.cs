@@ -29,10 +29,9 @@ public class ZNamingConventions : DefaultNamingConventions {
   //   return base.GetEnumValueName(value);
   // }
 
-  public override string GetEnumValueName(object value) {
-  //   return "E" + ((int) value); // hacky way for GQL to allow integers
-  return base.GetEnumValueName(value);
-  }
+  public override string GetEnumValueName(object value) =>
+    //   return "E" + ((int) value); // hacky way for GQL to allow integers
+    base.GetEnumValueName(value);
 
   public override string? GetTypeDescription(Type type, TypeKind kind) {
     if (type is null) {

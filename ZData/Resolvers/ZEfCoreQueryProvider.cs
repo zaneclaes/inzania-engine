@@ -15,16 +15,7 @@ namespace IZ.Data.Resolvers;
 
  #pragma warning disable EF1001
 public class ZEfCoreQueryProvider : EntityQueryProvider, IZQueryProvider {
- #pragma warning restore EF1001
   private readonly IAsyncQueryProvider _inner;
-
-  public IQueryProvider Provider { get; }
-
-  public IZDataRepository Repository { get; }
-
-  public IZContext Context { get; }
-
-  public IZLogger Log { get; }
 
 #pragma warning disable EF1001
   public ZEfCoreQueryProvider(IZContext context, IZDataRepository repo, IAsyncQueryProvider inner) : base(null!) {
@@ -36,6 +27,14 @@ public class ZEfCoreQueryProvider : EntityQueryProvider, IZQueryProvider {
     Provider = inner;
   }
 
+  public IQueryProvider Provider { get; }
+
+  public IZDataRepository Repository { get; }
+
+  public IZContext Context { get; }
+
+  public IZLogger Log { get; }
+
   public override IQueryable CreateQuery(Expression expression) => new DataModelQuery(this, _inner.CreateQuery(expression));
   public override IQueryable<TElement> CreateQuery<TElement>(Expression expression) => new DataModelQuery<TElement>(this, _inner.CreateQuery<TElement>(expression));
   public override object Execute(Expression expression) => _inner.Execute(expression)!;
@@ -44,4 +43,5 @@ public class ZEfCoreQueryProvider : EntityQueryProvider, IZQueryProvider {
 
   public override TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = new CancellationToken()) =>
     _inner.ExecuteAsync<TResult>(expression, cancellationToken);
+ #pragma warning restore EF1001
 }

@@ -14,7 +14,7 @@ using System.Runtime.CompilerServices;
 namespace IZ.Core.Utils.Cryptography;
 
 /// <summary>
-/// XXHash implementation.
+///   XXHash implementation.
 /// </summary>
 public static class XXHash {
   private const ulong prime64v1 = 11400714785074694791ul;
@@ -30,7 +30,7 @@ public static class XXHash {
   private const uint prime32v5 = 374761393u;
 
   /// <summary>
-  /// Generate a 32-bit xxHash value.
+  ///   Generate a 32-bit xxHash value.
   /// </summary>
   /// <param name="buffer">Input buffer.</param>
   /// <param name="seed">Optional seed.</param>
@@ -63,7 +63,7 @@ public static class XXHash {
   }
 
   /// <summary>
-  /// Generate a 32-bit xxHash value from a stream.
+  ///   Generate a 32-bit xxHash value from a stream.
   /// </summary>
   /// <param name="stream">Input stream.</param>
   /// <param name="seed">Optional seed.</param>
@@ -114,7 +114,7 @@ public static class XXHash {
   }
 
   /// <summary>
-  /// Generate a 64-bit xxHash value.
+  ///   Generate a 64-bit xxHash value.
   /// </summary>
   /// <param name="buffer">Input buffer.</param>
   /// <param name="seed">Optional seed.</param>
@@ -145,7 +145,7 @@ public static class XXHash {
   }
 
   /// <summary>
-  /// Generate a 64-bit xxHash value from a stream.
+  ///   Generate a 64-bit xxHash value from a stream.
   /// </summary>
   /// <param name="stream">Input stream.</param>
   /// <param name="seed">Optional seed.</param>

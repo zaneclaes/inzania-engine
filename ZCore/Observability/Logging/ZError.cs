@@ -38,9 +38,9 @@ public class ZError : TransientObject {
 
   [JsonPropertyName("innerException")] public ZError? InnerException { get; set; }
 
-  public static ZError Guard(Exception ex, IZContext? context = null) => TransformException(ex) ?? new ZError(ex, context);
+  private string ExceptionStr => InnerException == null ? "" : " (" + InnerException + ")";
 
-  private string ExceptionStr => InnerException == null ? "" : (" (" + InnerException.ToString() + ")");
+  public static ZError Guard(Exception ex, IZContext? context = null) => TransformException(ex) ?? new ZError(ex, context);
 
   public override string ToString() => $"[{Name}] {Message}{ExceptionStr}";
 }

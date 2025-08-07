@@ -8,10 +8,8 @@ using HotChocolate.AspNetCore;
 using HotChocolate.Execution;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
-using IZ.Server.Requests;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog;
 
 #endregion
 
@@ -41,5 +39,3 @@ public class ZHttpInterceptor : DefaultHttpRequestInterceptor {
     await base.OnCreateAsync(http, executor, builder, cancellationToken);
   }
 }
-
-

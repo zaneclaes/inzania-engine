@@ -4,5 +4,5 @@ public enum ZNetworkInterfaceType {
   Ethernet, // Also serves as unknown/fallback
   WiFi,
   Cellular,
-  Vpn,
+  Vpn
 }
