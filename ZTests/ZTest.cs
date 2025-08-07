@@ -10,10 +10,9 @@ using Xunit.Abstractions;
 
 namespace ZTests;
 
-public abstract class ZTest<ZTA> : LogicBase where ZTA : ZTestApp {
-  private ZTestRootContext _rootContext;
+public abstract class ZTest<TA> : LogicBase where TA : ZTestApp {
 
-  protected ZTA App { get;  private set; }
+  protected TA App { get;  private set; }
 
   // Where the test project lives
   protected virtual string TestProjectDir => Path.Combine("..", "..", "..");
@@ -25,13 +24,15 @@ public abstract class ZTest<ZTA> : LogicBase where ZTA : ZTestApp {
 
   protected string MonoRepoRoot => SolutionDir;
 
-  protected ZTest(ZTA app) {
+  protected ZTest(TA app, ITestOutputHelper output) {
+    ZTestRootContext rootContext;
     App = app;
-    Context = _rootContext = new ZTestRootContext(App, new ServiceCollection()
-      .AddZApp<ZTA, RootContext>(App)
-      .BuildServiceProvider());
+    Context = rootContext = new ZTestRootContext(App, app.GetLoggerForTestOutput(output));
+      // , new ServiceCollection()
+      // .AddZApp<TA, ZTestRootContext>(App)
+      // .BuildServiceProvider());
 
-    ZEnv.SetRootContextSpawner(() => _rootContext);
+    ZEnv.SetRootContextSpawner(() => rootContext);
     ZEnv.App = app;
   }
 

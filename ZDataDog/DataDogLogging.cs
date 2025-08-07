@@ -58,7 +58,7 @@ public static class DataDogLogging {
     return new DatadogConfiguration(datadogConfiguration?.Url ?? datadogConfiguration1.Url, datadogConfiguration != null ? datadogConfiguration.Port : datadogConfiguration1.Port, datadogConfiguration != null ? datadogConfiguration.UseSSL : datadogConfiguration1.UseSSL, datadogConfiguration != null ? datadogConfiguration.UseTCP : datadogConfiguration1.UseTCP);
   }
 
-  public static SerilogLogBuilder WriteToDataDog(this SerilogLogBuilder c, string productName, ZEnvironment env, params string[] tags) {
+  public static SerilogZLogBuilder WriteToDataDog(this SerilogZLogBuilder c, string productName, ZEnvironment env, params string[] tags) {
     List<string> t = tags.ToList();
     t.AddRange((Environment.GetEnvironmentVariable("DD_TAGS") ?? "").Split(',').Where(s => s.Length > 0));
     t.Add($"env:{env.ToShortString()}");

@@ -50,7 +50,8 @@ public class ZConvertFactory : EnumConvertFactory, IHaveContext {
 
   private JsonConverter GetArrayConverter(Type t) {
     if (_arrayConverters.TryGetValue(t, out var converter)) return converter;
-    return _arrayConverters[t] = (JsonConverter) Activator.CreateInstance(typeof(ZArrayConverter<>).MakeGenericType(t), _contextConverter)!;
+    return _arrayConverters[t] = (JsonConverter)
+      Activator.CreateInstance(typeof(ZArrayConverter<>).MakeGenericType(t), _contextConverter)!;
   }
 
   public override bool CanConvert(Type typeToConvert) {

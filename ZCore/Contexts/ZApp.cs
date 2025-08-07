@@ -31,15 +31,16 @@ public abstract class ZApp : IGetLogged {
 
   protected ZApp(
     string productName, string domainName,
-    Func<IZContext, IZAppSettings> settingsBuilder, Func<IServiceProvider> fallbackServiceProviderFactory,
-    ZEnvironment env, IZLogger? log = null, ZTarget? target = null
+    Func<IZContext, IZAppSettings> settingsBuilder,
+    Func<IServiceProvider> fallbackServiceProviderFactory,
+    ZEnvironment env, Func<ZLogBuilder>? logFactory = null, ZTarget? target = null
   ) {
     ProductName = productName;
     Env = env;
     _fallbackServiceProviderFactory = fallbackServiceProviderFactory;
     CoreAssembly = Assembly.GetExecutingAssembly();
     AppAssembly = Assembly.GetEntryAssembly() ?? CoreAssembly;
-    Log = log ?? ZEnv.Log;
+    Log = logFactory?.Invoke().BuildToSingleton() ?? ZEnv.Log;
     Target = target ?? ZTarget.PublicApp;
     if (env <= ZEnvironment.Development) {
       DomainName = "localhost";

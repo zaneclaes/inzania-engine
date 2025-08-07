@@ -10,38 +10,41 @@ using Serilog.Configuration;
 
 namespace IZ.Logging.SerilogLogging;
 
-public class SerilogLogBuilder : LogBuilder {
+public class SerilogZLogBuilder : ZLogBuilder {
+  public static SerilogZLogBuilder GetDefault() => new SerilogZLogBuilder().WithZData();
 
   public LoggerConfiguration SerilogConfig { get; private set; } = new LoggerConfiguration()
     .Destructure.ToMaximumDepth(10)
     .Enrich.FromLogContext();
 
-  public override LogBuilder TransformObject<TObj>(Func<TObj, object> func) {
+  public override ZLogBuilder TransformObject<TObj>(Func<TObj, object> func) {
     SerilogConfig = SerilogConfig.Destructure.ByTransforming(func);
     return this;
   }
 
-  public override LogBuilder TransformObjectWhere<TObj>(Func<Type, bool> pred, Func<TObj, object> func) {
+  public override ZLogBuilder TransformObjectWhere<TObj>(Func<Type, bool> pred, Func<TObj, object> func) {
     SerilogConfig = SerilogConfig.Destructure.ByTransformingWhere(pred, func);
     return this;
   }
 
-  public override LogBuilder WriteToConsole() {
+  public override ZLogBuilder WriteToConsole() {
     SerilogConfig = SerilogConfig.WriteTo.Console();
     return this;
   }
 
-  public SerilogLogBuilder WriteTo(Func<LoggerSinkConfiguration, LoggerConfiguration> func) {
+  public SerilogZLogBuilder WriteTo(Func<LoggerSinkConfiguration, LoggerConfiguration> func) {
     SerilogConfig = func(SerilogConfig.WriteTo);
     return this;
   }
 
-  public SerilogLogBuilder ReadFrom(Func<LoggerSettingsConfiguration, LoggerConfiguration> func) {
+  public SerilogZLogBuilder ReadFrom(Func<LoggerSettingsConfiguration, LoggerConfiguration> func) {
     SerilogConfig = func(SerilogConfig.ReadFrom);
     return this;
   }
 
   public override IZLogger BuildToSingleton() => ZEnv.Log = new SerilogLogger(Log.Logger = SerilogConfig.CreateLogger());
+
+  public override IZLogger Build() => new SerilogLogger(SerilogConfig.CreateLogger());
 
   public override void Dispose() { }
 }

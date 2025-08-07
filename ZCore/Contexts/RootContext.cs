@@ -22,8 +22,8 @@ namespace IZ.Core.Contexts;
 public class RootContext : BaseContext, IZRootContext {
 
   public RootContext(
-    ZApp app, IServiceProvider services
-  ) : base(app, services) {
+    ZApp app, IServiceProvider services, IZLogger? logger = null
+  ) : base(app, services, logger) {
     Init();
     // Log.Information("[ROOT] created {type}#{id}: {stack}", GetType().Name, _uuid, new ZTrace());
   }

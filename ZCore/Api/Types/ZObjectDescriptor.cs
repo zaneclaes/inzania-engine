@@ -59,11 +59,12 @@ public class ZObjectDescriptor : IAmInternal {
     if (t == typeof(long)) return long.Parse(val);
     if (t == typeof(ulong)) return ulong.Parse(val);
     if (t == typeof(float)) return float.Parse(val);
-    if (t == typeof(bool)) return bool.Parse(val);
-    if (t == typeof(decimal)) return decimal.Parse(val);
     if (t == typeof(double)) return double.Parse(val);
+    if (t == typeof(decimal)) return decimal.Parse(val);
+    if (t == typeof(byte)) return byte.Parse(val);
+    if (t == typeof(bool)) return bool.Parse(val);
     if (t.IsEnum) return val.IsNumeric() ? int.Parse(val) : Enum.Parse(t, val, true);
-    ZEnv.Log.Warning("[TYPE] {type} unknown from {val}", t.Name, val);
+    ZEnv.Log.Warning("[TYPE] {type} unknown from {val} ({scalar})", t.Name, val, t.IsScalar() ? "scalar" : "non-scalar");
     return val;
   }
 

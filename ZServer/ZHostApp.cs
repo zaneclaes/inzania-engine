@@ -57,7 +57,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     (c) => new HostAppSettings(productName, builder.Configuration),
     () => builder.Services.BuildServiceProvider(),
     Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!),
-    CreateLogger(builder.Configuration),
+    () => CreateLogger(builder.Configuration),
     ZTarget.PublicApp
   ) {
     DataDogTracing.Enable();
@@ -66,11 +66,9 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     builder.Services.AddZServerCore(this);
   }
 
-  private static IZLogger CreateLogger(IConfiguration config) => new SerilogLogBuilder()
-    .WithZData()
+  private static ZLogBuilder CreateLogger(IConfiguration config) => SerilogZLogBuilder.GetDefault()
     .ReadFrom(c => c.Configuration(config, new ConfigurationReaderOptions(
-      Assembly.GetExecutingAssembly(), typeof(DatadogSink).Assembly, typeof(ConsoleTheme).Assembly)))
-    .BuildToSingleton();
+      Assembly.GetExecutingAssembly(), typeof(DatadogSink).Assembly, typeof(ConsoleTheme).Assembly)));
 
   public override IServiceProvider CreateServices() => WebApp?.Services ?? base.CreateServices();
 

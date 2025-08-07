@@ -19,8 +19,8 @@ public abstract class ZClientApp : ZApp {
   protected ZClientApp(
     string productName, string domainName,
     Func<IZContext, TuneClientAppSettings> settings, Func<IServiceProvider> fallbackServiceProviderFactory,
-    ZEnvironment env, IZLogger? log = null, ZTarget? target = null
-  ) : base(productName, domainName, settings, fallbackServiceProviderFactory, env, log, target) {
+    ZEnvironment env, Func<ZLogBuilder>? logFactory = null, ZTarget? target = null
+  ) : base(productName, domainName, settings, fallbackServiceProviderFactory, env, logFactory, target) {
     Settings = settings.Invoke(ZJson.DefaultContext);
   }
 }

@@ -85,19 +85,6 @@ public static class ZLogging {
     }
   }
 
-  private static List<Type> _scalars = new List<Type> {
-    typeof(string),
-    typeof(int),
-    typeof(uint),
-    typeof(float),
-    typeof(decimal),
-    typeof(byte),
-    typeof(short),
-    typeof(ushort),
-    typeof(long),
-    typeof(ulong)
-  };
-
   public static string[] GetStackTrace(this Exception e) {
     return (e.StackTrace ?? "")
       .Split('\n')
@@ -106,7 +93,7 @@ public static class ZLogging {
       .ToArray();
   }
 
-  public static TBuilder WithZData<TBuilder>(this TBuilder c) where TBuilder : LogBuilder {
+  public static TBuilder WithZData<TBuilder>(this TBuilder c) where TBuilder : ZLogBuilder {
     c
       // .Destructure.UsingAttributes()
       .TransformObjectWhere<object>(t => t.HasAssignableType<IGetLogged>(), TransformObject<IGetLogged>)

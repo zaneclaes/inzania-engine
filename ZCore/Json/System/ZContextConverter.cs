@@ -17,14 +17,16 @@ using IZ.Core.Utils;
 
 namespace IZ.Core.Json.System;
 
-public class ZArrayConverter<TObj> : JsonConverter<TObj[]> {
-  private readonly JsonConverter<object> _converter;
+public class ZArrayConverter<TObj> : JsonConverter<TObj[]>, IHaveContext {
+  public IZContext Context => _converter.Context;
+  public IZLogger Log => _converter.Log;
+  private readonly ZContextConverter _converter;
 
   private JsonSerializerOptions SerializerOptions =>
     _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
   private JsonSerializerOptions? _serializerOptions;
 
-  public ZArrayConverter(JsonConverter<object> inner) {
+  public ZArrayConverter(ZContextConverter inner) {
     _converter = inner;
   }
 
@@ -41,7 +43,9 @@ public class ZArrayConverter<TObj> : JsonConverter<TObj[]> {
   }
 
   public override void Write(Utf8JsonWriter writer, TObj[] value, JsonSerializerOptions options) {
-    JsonSerializer.Serialize(writer, value, value.GetType(), SerializerOptions);
+    // Log.Information("[WRITE-ARR] {type}", value.GetType());
+    // JsonSerializer.Serialize(writer, value, value.GetType(), SerializerOptions);
+    throw new SystemException($"ZArrayConverter cannot write");
   }
 }
 
@@ -210,6 +214,15 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) {
+    if (value is IEnumerable enumerable and not string) {
+      writer.WriteStartArray();
+      foreach (var item in enumerable) {
+        Write(writer, item, options);
+      }
+      writer.WriteEndArray();
+      return;
+    }
+
     if (value is IAmInternal) {
       // NO-OP
     } else if (value is ContextualObject) {
@@ -224,8 +237,10 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         else Write(writer, val, options);
       }
       writer.WriteEndObject();
-    } else {
+    } else if (value.GetType().IsScalar()) {
       JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
+    } else {
+      throw new SystemException($"Cannot serialize object of type {value.GetType()}");
     }
   }
 }

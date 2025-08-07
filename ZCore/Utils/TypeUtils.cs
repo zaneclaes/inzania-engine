@@ -9,6 +9,25 @@ using System.Collections.Generic;
 namespace IZ.Core.Utils;
 
 public static class TypeUtils {
+  private static readonly HashSet<Type> _scalarTypes = new HashSet<Type> {
+    typeof(string),
+    typeof(char),
+    typeof(int),
+    typeof(uint),
+    typeof(short),
+    typeof(ushort),
+    typeof(long),
+    typeof(ulong),
+    typeof(float),
+    typeof(double),
+    typeof(decimal),
+    typeof(byte),
+    typeof(bool),
+    typeof(DateTime),
+    typeof(Guid),
+  };
+
+  public static bool IsScalar(this Type type) => type.IsPrimitive || type.IsEnum || _scalarTypes.Contains(type);
 
   private static readonly ConcurrentDictionary<string, bool> _assignableTypes = new ConcurrentDictionary<string, bool>();
   public static Type? GetListType(this Type t) => t.IsListType() ? t.GetGenericArguments()[0] : null;
