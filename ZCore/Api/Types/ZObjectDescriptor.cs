@@ -34,7 +34,7 @@ public class ZObjectDescriptor : IAmInternal {
     if (IsFile) {
       IsScalar = false;
       InputTypeName = "Upload";
-    } else if (t.HasAssignableType<ApiObject>() || t.HasAssignableType<ZRequestBase>()) {
+    } else if (!t.IsScalar()) { // t.HasAssignableType<ApiObject>() || t.HasAssignableType<ZRequestBase>()
       IsScalar = false;
       InputTypeName = TypeName + "Input";
       List<PropertyInfo> parentProps = t.BaseType?.GetProperties().Where(p => p.CanRead).ToList() ?? new List<PropertyInfo>();

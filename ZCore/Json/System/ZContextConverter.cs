@@ -131,13 +131,12 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   }
 
   private object? ReadObject(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
-    Log.Debug("[JSON] OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
+    Log.Verbose("[JSON] OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
 
     object ret = Activator.CreateInstance(type)!;
     // Context.Log.Debug("OBJ {key} {type}", reader.TokenType, type);
-    var co = ret as ContextualObject;
     // if (!(ret is ContextualObject co)) throw new ArgumentException($"Read non-object {type}");
-    if (co != null) co.Context = Context;
+    if (ret is ContextualObject contextualObject) contextualObject.Context = Context;
     var typeDescriptor = ZTypeDescriptor.FromType(type);
 
     if (reader.TokenType == JsonTokenType.StartObject) reader.Read();
@@ -175,20 +174,21 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       } else if (reader.TokenType == JsonTokenType.StartArray) {
         val = ReadArray(ref reader, prop?.FieldType ?? typeof(List<object>), AddBreadcrumb(propName, breadcrumbs));
       } else { // Scalars
+        var tt = reader.TokenType;
         if (prop != null && !prop.IsJsonIgnored) {
-          if (reader.TokenType != JsonTokenType.Number && reader.TokenType != JsonTokenType.String && reader.TokenType != JsonTokenType.Null
-              && reader.TokenType != JsonTokenType.True && reader.TokenType != JsonTokenType.False)
+          if (tt != JsonTokenType.Number && tt != JsonTokenType.String && tt != JsonTokenType.Null
+              && tt != JsonTokenType.True && tt != JsonTokenType.False)
             Context.Log.Warning("[JSON] READ JSON {token}", reader.TokenType);
-          if (reader.TokenType != JsonTokenType.Null)
+          if (tt != JsonTokenType.Null)
             val = JsonSerializer.Deserialize(ref reader, prop.FieldType, DeserializerOptions); // reader.GetDouble();
         }
         reader.Read();
 
-        Context.Log.Debug("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, reader.TokenType);
+        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, tt);
       }
       if (prop != null) {
         if (!prop.IsJsonIgnored) {
-          // Context.Log.Debug("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
+          Context.Log.Verbose("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
           prop.SetValue(ret, val);
         } else {
           Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {ret}", propName, val, val?.GetType(), ret.GetType());
@@ -200,7 +200,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     // if (reader.TokenType == JsonTokenType.EndArray) reader.Read();
     Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
 
-    return co;
+    return ret;
   }
 
   public override object? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
@@ -225,7 +225,9 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
 
     if (value is IAmInternal) {
       // NO-OP
-    } else if (value is ContextualObject) {
+    } else if (value.GetType().IsScalar()) {
+      JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
+    } else {
       var desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
       writer.WriteStartObject();
       foreach (var prop in desc.AllProperties) {
@@ -237,10 +239,6 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         else Write(writer, val, options);
       }
       writer.WriteEndObject();
-    } else if (value.GetType().IsScalar()) {
-      JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
-    } else {
-      throw new SystemException($"Cannot serialize object of type {value.GetType()}");
     }
   }
 }
