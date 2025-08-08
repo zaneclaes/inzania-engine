@@ -31,8 +31,8 @@ public abstract class ZControllerBase : ControllerBase, IHaveContext {
 
   private IZLogger? _logger;
 
-  protected ZControllerBase(IZContext furContext) {
-    Context = furContext;
+  protected ZControllerBase(IZContext context) {
+    Context = context;
   }
   public IZContext Context { get; }
   public IZLogger Log => _logger ??= Context.Log.ForContext(GetType());

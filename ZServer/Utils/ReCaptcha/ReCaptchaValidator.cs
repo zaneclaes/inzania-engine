@@ -11,10 +11,9 @@ using Microsoft.Extensions.Options;
 namespace IZ.Server.Utils.ReCaptcha;
 
 public class ReCaptchaValidator : LogicBase {
+  private readonly ReCaptchaOptions _opts;
 
-  private readonly PublicSecretKey<ReCaptchaValidator> _opts;
-
-  public ReCaptchaValidator(IZContext ctx, IOptions<PublicSecretKey<ReCaptchaValidator>> opts) : base(ctx) {
+  public ReCaptchaValidator(IZContext ctx, IOptions<ReCaptchaOptions> opts) : base(ctx) {
     _opts = opts.Value;
   }
   public string PublicKey => _opts.PublicKey;

@@ -1,4 +1,5 @@
 using IZ.Core.Utils;
+using IZ.Core.Utils.ReCaptcha;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,6 @@ public static class ReCaptchaExtensions {
     this IServiceCollection services, WebApplicationBuilder builder
   ) =>
     services
-      .Configure<PublicSecretKey<ReCaptchaValidator>>(options => builder.Configuration.GetSection("ReCaptcha").Bind(options))
+      .Configure<ReCaptchaOptions>(options => builder.Configuration.GetSection("ReCaptcha").Bind(options))
       .AddScoped<ReCaptchaValidator>();
 }
