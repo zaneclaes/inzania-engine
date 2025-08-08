@@ -40,6 +40,9 @@ public static class ZMetrics {
   public static readonly string SkillScoreGroup = $"{SkillGroup}.score";
   public static readonly string SkillLevelGroup = $"{SkillGroup}.level";
 
+  public static readonly string StripeGroup = "stripe";
+  public static readonly string StripeWebhookGroup = $"{StripeGroup}.webhook";
+
   private static Dictionary<string, object> GetTags(this IEventEnricher m, Dictionary<string, object>? tags = null) {
     Dictionary<string, object>? ret = m.EventTags.ToDictionary(k => k.Key, k => k.Value);
     if (tags != null)
