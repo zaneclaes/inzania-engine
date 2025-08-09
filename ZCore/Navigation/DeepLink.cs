@@ -14,15 +14,30 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
 
   private readonly string? _path;
 
+  public readonly string Scheme;
+
+  public readonly string? Hash;
+
+  public readonly string? QueryString;
+
   protected DeepLink(IZContext context, string path) : base(context) {
-    _path = path.Split("://").Last().Split("#").First().Split("?").First().Trim('/').ToLower();
+    var schemes = path.Split("://");
+    Scheme = schemes.Length > 1 ? schemes[0] : ZEnv.ProductName.ToLowerInvariant();
+
+    var hashes = schemes.Last().Split("#");
+    Hash = hashes.Length > 1 ? hashes[1] : null;
+
+    var qps = hashes.First().Split("?");
+    QueryString = qps.Length > 1 ? qps[1] : null;
+
+    _path = qps.First().Trim('/').ToLower();
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
     Page = context.GetRequiredService<Sitemap>().GetPagePath<TPage>(string.Join("/", Parts));
     if (!IsValid) {
       Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
     }
   }
-  private static string Schema => ZEnv.ProductName.ToLower();
+  // private static string Schema => ZEnv.ProductName.ToLower();
 
   public bool IsValid => Page != null;
 
@@ -39,7 +54,7 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
 
   public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
 
-  public string ToUrl() => Schema + "://" + Path;
+  public string ToUrl() => Scheme + "://" + Path;
 
   public override string ToString() => ToUrl() + $" ({_path})";
 
