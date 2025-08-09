@@ -25,5 +25,7 @@ public interface IZAuthenticator : IHaveContext {
 
   public Task<T> MigrateUser<T>(T oldUser, T newUser) where T : ModelId, IZUser;
 
+  public Task<T> ResolveSubscriptions<T>(T user) where T : class, IZUser;
+
   public Task<IZIdentity> Authenticate(IZContext context, string? clientId, string? authToken, ClaimsPrincipal user);
 }
