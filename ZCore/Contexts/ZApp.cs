@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
@@ -25,6 +26,9 @@ public abstract class ZApp : IGetLogged {
 
   private readonly Func<IServiceProvider> _fallbackServiceProviderFactory;
   private IFragmentProvider? _fragmentProvider;
+
+  public readonly Stopwatch Uptimer = Stopwatch.StartNew();
+  public TimeSpan Uptime => TimeSpan.FromMilliseconds(Uptimer.Elapsed.TotalMilliseconds);
 
   protected ZApp(
     string productName, string domainName,

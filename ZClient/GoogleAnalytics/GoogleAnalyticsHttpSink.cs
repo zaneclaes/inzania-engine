@@ -35,10 +35,9 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
   private const string GA4ApiEndpoint = "https://www.google-analytics.com/mp/collect";
 
-  private AnalyticsStream Stream => _stream ?? IzGoogleAnalytics.StagingStream;
-  private AnalyticsStream? _stream;
+  private AnalyticsOptions? _analyticsOptions;
 
-  protected string Url => $"{GA4ApiEndpoint}?measurement_id={Stream.MeasurementId}&api_secret={HttpUtility.UrlEncode(Stream.ApiSecret)}";
+  protected string Url => $"{GA4ApiEndpoint}?measurement_id={_analyticsOptions?.MeasurementId}&api_secret={HttpUtility.UrlEncode(_analyticsOptions?.ApiSecret)}";
 
   private HttpClient Client => _client ??= new HttpClient();
   private HttpClient? _client;
@@ -65,8 +64,8 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 #endif
   }
 
-  public ZTask Config(AnalyticsStream stream, string clientId, string sessionId, string? userId, Dictionary<string, object>? userProps = null) {
-    _stream = stream;
+  public ZTask Config(AnalyticsOptions options, string clientId, string sessionId, string? userId, Dictionary<string, object>? userProps = null) {
+    _analyticsOptions = options;
     _client = null;
     _userId = userId;
     _installId = clientId;

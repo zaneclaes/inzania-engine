@@ -25,8 +25,8 @@ namespace IZ.Client;
 public class ClientContext : RootContext {
 
   private readonly Dictionary<string, Stopwatch> _taskTimers = new Dictionary<string, Stopwatch>();
+  public TimeSpan Uptime => Context.App.Uptime;
 
-  public readonly Stopwatch Uptimer;
   private IZAnalytics? _analytics;
 
   private IAnalyticsSink? _analyticsSink;
@@ -34,7 +34,6 @@ public class ClientContext : RootContext {
   private ZVisitorIdentity? _visitorIdentity;
 
   protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
-    Uptimer = Stopwatch.StartNew();
     Log.Information("[START] entrypoint...");
   }
   // private IZChildContext? _span;
@@ -45,7 +44,7 @@ public class ClientContext : RootContext {
 
   public IZUser? CurrentUser => _userIdentity?.IZUser;
 
-  public override IZAnalytics? Analytics => _analytics ??= new IzGoogleAnalytics(this);
+  public override IZAnalytics Analytics => _analytics ??= new ZGoogleAnalytics(this);
 
   public bool IsStarted { get; private set; }
 
@@ -65,8 +64,10 @@ public class ClientContext : RootContext {
     RestoreSession()
   };
 
+  protected virtual Dictionary<string, object>? GetUserAnalyticsProperties() => null;
+
   protected virtual List<ZTask> GetReadyTasks() => new List<ZTask> {
-    Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity)
+    Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity, GetUserAnalyticsProperties())
   };
 
   public ZTask AwaitStart() => Tasks.WaitUntil(() => IsStarted || StartupException != null);
@@ -79,16 +80,16 @@ public class ClientContext : RootContext {
 
   public void StopTaskTimer(string taskName, string? functionName = null) {
     if (!string.IsNullOrWhiteSpace(functionName)) taskName = $"{taskName}.{functionName}";
-    if (!_taskTimers.ContainsKey(taskName)) {
+    if (!_taskTimers.TryGetValue(taskName, out var timer)) {
       Log.Warning("[TIMER] invalid task timer {name}", taskName);
       return;
     }
-    _taskTimers[taskName].Stop();
+    timer.Stop();
   }
 
   public async ZTask Startup(Installation install, IAnalyticsSink? sink = null) {
     Log.Information("[START] starting v{version} after {ms}ms with {@settings}...",
-      install.SemVer, Uptimer.ElapsedMilliseconds, ClientApp.Settings);
+      install.SemVer, Uptime.TotalMilliseconds, ClientApp.Settings);
     Install = install;
     ClientApp.ClientId = install.ClientId;
     ClientApp.Version = install.SemVer;
@@ -99,9 +100,9 @@ public class ClientContext : RootContext {
 
     try {
       await ZTask.WhenAll(GetStartupTasks().ToArray());
-      Log.Information("[START] entering ready state after {ms}ms; breakdown: {tasks}", Uptimer.ElapsedMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
+      Log.Information("[START] entering ready state after {ms}ms; breakdown: {tasks}", Uptime.TotalMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await ZTask.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptimer.ElapsedMilliseconds,
+      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptime.TotalMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
     } catch (Exception e) {
@@ -109,7 +110,6 @@ public class ClientContext : RootContext {
       StartupException = e;
     } finally {
       IsSessionRestored = true; // just in case... if somehow task didn't execute
-      Uptimer.Stop();
     }
   }
 

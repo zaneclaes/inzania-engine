@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using IZ.Client.GoogleAnalytics.Events;
@@ -7,6 +8,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
+using Tuneality.Core.Clients;
 #region
 
 #if Z_UNITY
@@ -21,7 +23,8 @@ using ZTask = System.Threading.Tasks.Task;
 
 namespace IZ.Client.GoogleAnalytics;
 
-public class IzGoogleAnalytics : LogicBase, IZAnalytics {
+public class ZGoogleAnalytics : LogicBase, IZAnalytics {
+  private const double EngagementSampling = 5.0;
 
   private readonly Queue<AnalyticsEvent> _queue = new Queue<AnalyticsEvent>();
 
@@ -33,13 +36,14 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
 
   private ZVisitorIdentity? _visitor;
 
-  public IzGoogleAnalytics(IZContext context) : base(context) { }
-  public static AnalyticsStream ProdStream { get; } = new AnalyticsStream("Chordzy", "G-XXGK8DWT14", 8189434535);
-  public static AnalyticsStream StagingStream { get; } = new AnalyticsStream("Chordzy Test", "G-MV3MFD3WDH", 8193422753);
+  public ZGoogleAnalytics(IZContext context) : base(context) { }
 
-  public AnalyticsStream Stream => GetStreamForContext(Context);
+  public AnalyticsOptions StreamOptions => _stream ??= Context.GetRequiredService<TuneClientAppSettings>().GoogleAnalytics;
+  private AnalyticsOptions? _stream = null;
 
-  public async ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null) {
+  private TimeSpan _lastEngagementTime = TimeSpan.Zero;
+
+  public async ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     if (sink == null) return;
     if (identity == null) {
       if (_visitor == null) {
@@ -48,13 +52,13 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
       }
       identity = _visitor;
     }
-    await (_sink = sink).Config(Stream, identity.ClientId, identity.SessionId, identity.IZUser?.Id);
-    await ((IZAnalytics) this).SetIdentity(identity);
+    await (_sink = sink).Config(StreamOptions, identity.ClientId, identity.SessionId, identity.IZUser?.Id);
+    await ((IZAnalytics) this).SetIdentity(identity, userProps);
     ProcessQueue();
   }
 
   public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props) =>
-    _sink!.Config(Stream, installId, sessionId, userId, props);
+    _sink!.Config(StreamOptions, installId, sessionId, userId, props);
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
     if (_sink == null) {
@@ -74,10 +78,28 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     }); // data
   }
 
+  private long? GatherEngagementTime() {
+    var ts = Context.App.Uptime;
+    var elapsed = ts - _lastEngagementTime;
+    if (elapsed.TotalSeconds < EngagementSampling) return null;
+    _lastEngagementTime = ts;
+    return (long) elapsed.TotalMilliseconds;
+  }
+
+  public ZTask UserEngagement() {
+    var elapsed = GatherEngagementTime();
+    if (!elapsed.HasValue) return ZTask.CompletedTask;
+
+    Log.Debug("[ENG] {msec}msec", elapsed.Value);
+    return ((IZAnalytics) this).SendEvent("user_engagement", new UserEngagementEventParams() {
+      EngagementTimeMsec = elapsed.Value
+    }); // data
+  }
+
   public ZTask ScreenView(string name, string? klass = null) =>
     ((IZAnalytics) this).SendEvent("screen_view", new ScreenViewEventParams {
       Name = name,
-      Class = klass
+      Class = klass,
     }); // data
 
   public ZTask Share(string method) =>
@@ -129,8 +151,6 @@ public class IzGoogleAnalytics : LogicBase, IZAnalytics {
     _sink?.Dispose();
     _sink = null;
   }
-  public static AnalyticsStream GetStreamForContext(IZContext context) =>
-    context.App.Env <= ZEnvironment.Staging ? StagingStream : ProdStream;
 
   private void ProcessQueue() {
     if (_sink == null || !_queue.Any()) return;

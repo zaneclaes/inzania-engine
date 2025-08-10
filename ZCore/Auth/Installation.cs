@@ -12,6 +12,8 @@ public class Installation : TransientObject {
 
   [MaxLength(ClientIdLength)] public string ClientId { get; set; } = null!;
 
+  [MaxLength(128)] public string? Language { get; set; }
+
   [MaxLength(128)] public string Name { get; set; } = null!;
 
   [MaxLength(64)] public string Os { get; set; } = null!;

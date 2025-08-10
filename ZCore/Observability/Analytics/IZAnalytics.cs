@@ -41,28 +41,29 @@ public interface IZAnalytics : IHaveContext, IDisposable {
   // i.e., "Score" + scoreId
   public ZTask SelectContent(string contentType, string contentId);
 
-  public ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null);
+  public ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null, Dictionary<string, object>? userProps = null);
 
   public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props);
 
-  public ZTask SetIdentity(IZIdentity identity) {
-    Dictionary<string, object>? props = new Dictionary<string, object> {
-      ["env"] = Context.App.Env.ToString()
-    };
+  public ZTask SetIdentity(IZIdentity identity, Dictionary<string, object>? userProps = null) {
+    userProps ??= new Dictionary<string, object>();
+    userProps["env"] = Context.App.Env.ToString();
     var user = identity.IZUser;
     if (user != null) {
       var age = ZEnv.Now - user.CreatedAt;
-      if (age.TotalDays < 7) props["user_age"] = "days";
-      else if (age.TotalDays < 30) props["user_age"] = "weeks";
-      else if (age.TotalDays < 365) props["user_age"] = "months";
-      else props["user_age"] = "years";
+      if (age.TotalDays < 7) userProps["user_age"] = "days";
+      else if (age.TotalDays < 30) userProps["user_age"] = "weeks";
+      else if (age.TotalDays < 365) userProps["user_age"] = "months";
+      else userProps["user_age"] = "years";
       // props["user_id"] = ;
     }
-    return SetUserProperties(identity.ClientId, identity.SessionId, user?.Id, props);
+    return SetUserProperties(identity.ClientId, identity.SessionId, user?.Id, userProps);
   }
 
   private ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<NullParams>(name, new NullParams()));
   public ZTask SendEvent<T>(string name, T pars) where T : IEventParams => SendEvent(new AnalyticsEvent<T>(name, pars));
+
+  public ZTask UserEngagement();
 
   // public Task SelectScorePart(ScorePart part) => SelectContent(nameof(ScorePart), part.GetScoreUuid());
 
