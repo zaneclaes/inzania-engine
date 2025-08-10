@@ -10,9 +10,9 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Navigation;
 
-public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
+public class DeepLink : TransientObject {
 
-  private readonly string? _path;
+  protected readonly string? _path;
 
   public readonly string Scheme;
 
@@ -20,7 +20,13 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
 
   public readonly string? QueryString;
 
-  protected DeepLink(IZContext context, string path) : base(context) {
+  [Observable] public string[] Parts { get; }
+
+  public string[] SubPaths => Parts.Length > 1 ? Parts.Skip(1).ToArray() : new string[] { };
+
+  public string Path => string.Join("/", Parts);
+
+  public DeepLink(IZContext context, string path) : base(context) {
     var schemes = path.Split("://");
     Scheme = schemes.Length > 1 ? schemes[0] : ZEnv.ProductName.ToLowerInvariant();
 
@@ -32,6 +38,20 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
 
     _path = qps.First().Trim('/').ToLower();
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
+  }
+
+  public string ToUrl() => Scheme + "://" + Path;
+
+  public string FirstPart => GetPart(0) ?? "";
+
+  public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
+
+  public override string ToString() => ToUrl() + $" ({_path})";
+}
+
+public abstract class DeepLink<TPage> : DeepLink where TPage : SitePage {
+
+  protected DeepLink(IZContext context, string path) : base(context, path) {
     Page = context.GetRequiredService<Sitemap>().GetPagePath<TPage>(string.Join("/", Parts));
     if (!IsValid) {
       Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
@@ -43,20 +63,9 @@ public abstract class DeepLink<TPage> : TransientObject where TPage : SitePage {
 
   [Observable] public TPage? Page { get; }
 
-  [Observable] public string[] Parts { get; }
-
-  public string FirstPart => GetPart(0) ?? "";
-
-  public string Path => string.Join("/", Parts);
-
   public bool IsInCategory(string category) =>
     FirstPart.Equals(category, StringComparison.InvariantCultureIgnoreCase);
 
-  public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
-
-  public string ToUrl() => Scheme + "://" + Path;
-
-  public override string ToString() => ToUrl() + $" ({_path})";
 
   // Only returns an object if the path has components
   // public static DeepLink? FromPath(IZContext context, string? path) {

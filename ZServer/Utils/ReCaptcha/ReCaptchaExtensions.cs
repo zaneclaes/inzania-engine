@@ -1,3 +1,4 @@
+using IZ.Core.Contexts;
 using IZ.Core.Utils;
 using IZ.Core.Utils.ReCaptcha;
 using Microsoft.AspNetCore.Builder;
@@ -11,6 +12,6 @@ public static class ReCaptchaExtensions {
     this IServiceCollection services, WebApplicationBuilder builder
   ) =>
     services
-      .Configure<ReCaptchaOptions>(options => builder.Configuration.GetSection("ReCaptcha").Bind(options))
+      .AddTransient<ReCaptchaOptions>(options => builder.Configuration.GetSection("ReCaptcha").ToZObject<ReCaptchaOptions>(options.GetRequiredService<IZContext>()))
       .AddScoped<ReCaptchaValidator>();
 }

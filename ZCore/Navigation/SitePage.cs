@@ -17,6 +17,12 @@ public enum EmbeddingBehaviour {
   OpenExternal = 2
 }
 
+public interface ISitePageContent {
+  public string? Title { get; }
+
+  public DeepLink GetDeepLink(params string[] paths);
+}
+
 public class SitePage : LogicBase {
 
   protected SitePage(
@@ -58,6 +64,8 @@ public class SitePage : LogicBase {
 
   public List<string> Keywords { get; }
   // public Type PageType { get; }
+
+  public virtual ISitePageContent? GetContent(params string[] components) => null;
 
   public SitePage WithSubPaths(params string[] paths) {
     foreach (string path in paths) {

@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using IZ.Core.Assets;
+using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 using IZ.Core.Utils;
 
@@ -10,7 +11,7 @@ using IZ.Core.Utils;
 
 namespace IZ.Core.Contexts;
 
-public class ApplicationStorage {
+public class ApplicationStorage : TransientObject {
 
   private static string? _zDir;
 

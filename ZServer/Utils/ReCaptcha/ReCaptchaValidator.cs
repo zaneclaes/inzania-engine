@@ -13,8 +13,8 @@ namespace IZ.Server.Utils.ReCaptcha;
 public class ReCaptchaValidator : LogicBase {
   private readonly ReCaptchaOptions _opts;
 
-  public ReCaptchaValidator(IZContext ctx, IOptions<ReCaptchaOptions> opts) : base(ctx) {
-    _opts = opts.Value;
+  public ReCaptchaValidator(IZContext ctx, ReCaptchaOptions opts) : base(ctx) {
+    _opts = opts;
   }
   public string PublicKey => _opts.PublicKey;
 

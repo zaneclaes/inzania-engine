@@ -14,7 +14,7 @@ public abstract class Sitemap : LogicBase {
   public Sitemap(IZContext context) : base(context) { }
   public XElement Xml { get; protected set; } = null!;
 
-  public abstract T GetPageType<T>() where T : SitePage;
+  public abstract T GetPage<T>() where T : SitePage;
 
   public abstract T? GetPagePath<T>(string path) where T : SitePage;
 }
@@ -41,7 +41,7 @@ public abstract class Sitemap<TPage, TLink> : Sitemap where TPage : SitePage whe
 
   // public SitePage? GetPage(SiteCategory category) => Pages.FirstOrDefault(p => p.Category == category);
 
-  public override T GetPageType<T>() => (Pages.First(p => p is T) as T)!;
+  public override T GetPage<T>() => (Pages.First(p => p is T) as T)!;
 
   public override T? GetPagePath<T>(string path) where T : class => GetPage(path) as T;
 

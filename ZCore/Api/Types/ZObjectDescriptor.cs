@@ -162,7 +162,7 @@ public class ZObjectDescriptor : IAmInternal {
     return type;
   }
 
-  internal static ZObjectDescriptor LoadZObjectDescriptor(Type t) {
+  public static ZObjectDescriptor LoadZObjectDescriptor(Type t) {
     var innerType = StripOuterTypes(t);
     string key = innerType.Name;
     if (key.Contains("`") || key.Contains("[]")) throw new SystemException($"Invalid type {innerType} from {t}");

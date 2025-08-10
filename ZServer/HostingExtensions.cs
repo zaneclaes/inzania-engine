@@ -1,10 +1,15 @@
 #region
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using HotChocolate.Execution.Configuration;
 using IZ.Core;
+using IZ.Core.Api.Types;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
+using IZ.Core.Data;
 using IZ.Core.Utils;
 using IZ.Schema;
 using IZ.Server.Graphql;
@@ -131,4 +136,42 @@ public static class HostingExtensions {
     dirs.GetSection("User").Value!,
     dirs.GetSection("Tmp").Value!,
     dirs.GetSection("Www").Value);
+
+  public static TObj ToZObject<TObj>(this IConfigurationSection section, IZContext context) where TObj : ApiObject =>
+    (section.ToZObject(typeof(TObj), context) as TObj)!;
+
+  private static object ToZObject(this IConfigurationSection section, Type t, IZContext context) {
+    var desc = ZObjectDescriptor.LoadZObjectDescriptor(t);
+    var obj = (Activator.CreateInstance(t) as ApiObject)!;
+    obj.Context = context;
+    foreach (var prop in desc.AllProperties) {
+      if (!prop.IsSettable || prop.IsJsonIgnored || prop.FieldType.IsAssignableTo(typeof(IAmInternal))) continue;
+      var key = prop.FieldName.ToTitleCase("");
+      object? val = null;
+      if (prop.FieldTypeDescriptor.IsList) {
+        if (prop.FieldTypeDescriptor.ObjectDescriptor.IsScalar) {
+          val = section.GetSection(key).Get(prop.FieldType)!;
+        } else if (prop.FieldTypeDescriptor.ObjectDescriptor.ObjectType.IsAssignableTo(typeof(ApiObject))) {
+          var list = (Activator.CreateInstance(prop.FieldType) as IList)!;
+          var children = section.GetSection(key).GetChildren().ToArray();
+          foreach (var child in children) {
+            list.Add(child.ToZObject(prop.FieldTypeDescriptor.ObjectDescriptor.ObjectType, context));
+          }
+          val = list;
+        } else {
+          context.Log.Warning("[CFG] {prop} is not API object", prop.FieldName);
+        }
+      } else if (!prop.FieldTypeDescriptor.ObjectDescriptor.IsScalar) {
+        if (!prop.FieldTypeDescriptor.ObjectDescriptor.ObjectType.IsAssignableTo(typeof(ApiObject))) {
+          context.Log.Warning("[CFG] {prop} is not API object", prop.FieldName);
+        } else {
+          val = section.GetSection(key).ToZObject(prop.FieldTypeDescriptor.ObjectDescriptor.ObjectType, context);
+        }
+      } else {
+        val = section.GetValue(prop.FieldType, key);
+      }
+      prop.SetValue(obj, val);
+    }
+    return obj;
+  }
 }
