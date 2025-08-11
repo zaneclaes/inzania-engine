@@ -16,9 +16,8 @@ using IZ.Core.Utils;
 
 namespace IZ.Schema.Types;
 
-public class ZObjectType<TData> : ObjectType<TData> where TData : ApiObject {
+public class ZObjectType<TData> : ObjectType<TData>  {
   private readonly List<MethodInfo> _methodInfos = new List<MethodInfo>();
-
 
   protected override void Configure(IObjectTypeDescriptor<TData> descriptor) {
     ZEnv.Log.Verbose("[OUT] {type}", typeof(TData));
