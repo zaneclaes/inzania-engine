@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -19,7 +20,7 @@ namespace IZ.Core.Api;
 public class ExecutionPlan {
   public const char QueryIdSplit = '-';
 
-  private static readonly Dictionary<string, ExecutionPlan> Plans = new Dictionary<string, ExecutionPlan>();
+  private static readonly ConcurrentDictionary<string, ExecutionPlan> _plans = new ConcurrentDictionary<string, ExecutionPlan>();
 
   private readonly ZMethodDescriptor _method;
 
@@ -61,8 +62,8 @@ public class ExecutionPlan {
 
   public static ExecutionPlan Load(IFragmentProvider frags, ApiExecutionType op, string operationName, ResultSet resultSet) {
     string key = $"{op} {operationName} {resultSet}";
-    if (Plans.TryGetValue(key, out var plan)) return plan;
-    return Plans[key] = new ExecutionPlan(frags, op, operationName, resultSet);
+    if (_plans.TryGetValue(key, out var plan)) return plan;
+    return _plans[key] = new ExecutionPlan(frags, op, operationName, resultSet);
   }
 
   public static ExecutionPlan Load(IZContext context, ApiExecutionType op, string operationName, ResultSet resultSet) =>
