@@ -20,7 +20,7 @@ public interface IZAppSettings {
   public ZAuthOptions? Auth { get; }
 }
 
-public abstract class ZApp : IGetLogged {
+public abstract class ZApp : IGetLogged, IDisposable {
 
   private readonly IZAppSettings? _appSettings;
 
@@ -112,4 +112,8 @@ public abstract class ZApp : IGetLogged {
   public virtual IServiceProvider CreateServices() => _fallbackServiceProviderFactory.Invoke();
 
   public virtual bool HandleZException(ZException e) => false;
+
+  public virtual void Dispose() {
+    Storage.Dispose();
+  }
 }

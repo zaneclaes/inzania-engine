@@ -40,13 +40,15 @@ public class DeepLink : TransientObject {
     Parts = _path.Split('/').Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
   }
 
-  public string ToUrl() => Scheme + "://" + Path;
+  public string ToDeepLinkUrl() => Scheme + "://" + Path;
+
+  public string ToWebUrl() => Context.App.Url + "/" + Path;
 
   public string FirstPart => GetPart(0) ?? "";
 
   public string? GetPart(int index) => Parts.Length > index ? Parts[index] : null;
 
-  public override string ToString() => ToUrl() + $" ({_path})";
+  public override string ToString() => ToDeepLinkUrl() + $" ({_path})";
 }
 
 public abstract class DeepLink<TPage> : DeepLink where TPage : SitePage {
