@@ -7,8 +7,9 @@ namespace IZ.Core.Auth;
 public interface IStoredUserSession {
 
   public string? AccessToken { get; }
-
   public string? Username { get; }
+  public ZUserRole? LastRole { get; }
+
   public event EventHandler<IZSession?> OnUserSessionChanged;
 
   public IZIdentity? LoadUserSession(IZSession? session);

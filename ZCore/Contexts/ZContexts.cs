@@ -44,7 +44,7 @@ public static class ZContexts {
   private static string? CheckUserRole(IZUser? user, ZUserRole minRole, params string[] bypassIds) {
     if (user == null) return nameof(user);
     if (user.Role >= minRole) return null;
-    if (!bypassIds.Contains(user.Id)) return user.Role.ToString();
+    if (!bypassIds.Contains(user.Id)) return user.Role.ToString() + " User";
     return null;
   }
 

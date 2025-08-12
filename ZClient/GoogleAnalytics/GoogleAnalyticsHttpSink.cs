@@ -26,7 +26,8 @@ using System;
 namespace IZ.Client.GoogleAnalytics;
 
 public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
-  private Dictionary<string, object> _userProps = new Dictionary<string, object>();
+  private readonly Dictionary<string, object> _userProps = new Dictionary<string, object>();
+
   private string _installId = ModelId.GenerateId();
   private string _sessionId = "";
   private string? _userId;
@@ -70,7 +71,12 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     _userId = userId;
     _installId = clientId;
     _sessionId = sessionId;
-    if (userProps != null) _userProps = userProps;
+    if (userProps != null) {
+      // always merge, so userProps are never deleted
+      foreach (var k in userProps.Keys) {
+        _userProps[k] = userProps[k];
+      }
+    }
     return ZTask.CompletedTask;
   }
 

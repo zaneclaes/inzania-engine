@@ -58,7 +58,7 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   }
 
   public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props) =>
-    _sink!.Config(StreamOptions, installId, sessionId, userId, props);
+    _sink?.Config(StreamOptions, installId, sessionId, userId, props) ?? ZTask.CompletedTask;
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
     if (_sink == null) {

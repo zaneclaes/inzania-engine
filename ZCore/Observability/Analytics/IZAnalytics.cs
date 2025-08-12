@@ -57,6 +57,7 @@ public interface IZAnalytics : IHaveContext, IDisposable {
       else userProps["user_age"] = "years";
       // props["user_id"] = ;
     }
+
     return SetUserProperties(identity.ClientId, identity.SessionId, user?.Id, userProps);
   }
 
