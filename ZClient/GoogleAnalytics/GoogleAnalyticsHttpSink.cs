@@ -1,12 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Web;
+using IZ.Core;
+using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Json;
 using IZ.Core.Observability.Analytics;
+using IZ.Core.Utils;
 #region
 
 #if Z_UNITY
@@ -29,10 +34,11 @@ namespace IZ.Client.GoogleAnalytics;
 public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   private Dictionary<string, object> _userProps = new Dictionary<string, object>();
 
-  private static long SessionId = DateTime.UtcNow.Ticks;
+  private static long SessionId = (long) ZEnv.Now.GetUnixTimestampSec();
 
-  private string _installId = ModelId.GenerateId();
-  private string? _userId;
+  private string _clientId = ModelId.GenerateId();
+
+  private IZIdentity? _userIdentity;
 
   public GoogleAnalyticsHttpSink(IZContext c) : base(c) { }
 
@@ -40,10 +46,25 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
   private AnalyticsOptions? _analyticsOptions;
 
+  private Installation? _installation;
+
   protected string Url => $"{GA4ApiEndpoint}?measurement_id={_analyticsOptions?.MeasurementId}&api_secret={HttpUtility.UrlEncode(_analyticsOptions?.ApiSecret)}";
 
-  private HttpClient Client => _client ??= new HttpClient();
+  private HttpClient Client => _client ??= CreateClient();
   private HttpClient? _client;
+
+  private HttpClient CreateClient() {
+    var httpClient = new HttpClient();
+
+    httpClient.DefaultRequestHeaders.UserAgent.Clear();
+    httpClient.DefaultRequestHeaders.UserAgent.Add(
+      new ProductInfoHeaderValue(Context.App.ProductName, _installation?.Version ?? "0.0.0"));
+    if (_installation != null) {
+      httpClient.DefaultRequestHeaders.UserAgent.Add(
+        new ProductInfoHeaderValue($"(Unity; {_installation.Os}; {_installation.Os})"));
+    }
+    return httpClient;
+  }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
   [DllImport("__Internal")]
@@ -60,20 +81,32 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
         return ZTask.CompletedTask;
       }
 #else
-    var req = new GaParams(_installId, _userId, _userProps);
+    var req = new GaParams(_clientId, _userIdentity?.IZUser?.Id, _userProps);
+    e.EventParams ??= new BaseParams();
+    if (_installation != null) e.EventParams.LoadInstallation(_installation);
+    e.EventParams.SessionId = SessionId;
+    e.EventParams.SessionNumber = _installation?.SessionNumber ?? 0;
     req.Events.Add(e);
     string json = ZJson.SerializeObject(req);
     return SendRequest(json);
 #endif
   }
-
-  public ZTask Config(AnalyticsOptions options, string clientId, string? userId, Dictionary<string, object>? userProps = null) {
+  public async ZTask Config(
+    AnalyticsOptions options, Installation install, IZIdentity? identity = null, Dictionary<string, object>? userProps = null
+  ) {
     _analyticsOptions = options;
     _client = null;
-    _userId = userId;
-    _installId = clientId;
+    _installation = install;
+    _clientId = install.ClientId;
+    await SetIdentity(identity, userProps);
+  }
+
+  public async ZTask SetIdentity(IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
+    _userIdentity = identity;
     if (userProps != null) _userProps = userProps;
-    return ZTask.CompletedTask;
+    _client?.Dispose();
+    _client = null;
+    await SendEvent(new AnalyticsEvent<BaseParams>("session_start", new BaseParams()));
   }
 
   protected virtual async ZTask SendRequest(string? json = null) {
@@ -81,7 +114,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
     var res = await Client.PostAsync(Url, json == null ? null : new StringContent(json, Encoding.UTF8, "application/json"));
 
-    // Log.Information("[GA] {mid} {cde} ? {ok} ({url})", Stream.MeasurementId, res.StatusCode, res.IsSuccessStatusCode, Client.BaseAddress);
+    // Log.Information("[GA] {cde} ? {ok} ({url})", res.StatusCode, res.IsSuccessStatusCode, Client.BaseAddress);
     // return res.IsSuccessStatusCode;
   }
 

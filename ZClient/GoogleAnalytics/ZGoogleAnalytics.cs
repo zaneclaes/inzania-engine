@@ -24,7 +24,7 @@ using ZTask = System.Threading.Tasks.Task;
 namespace IZ.Client.GoogleAnalytics;
 
 public class ZGoogleAnalytics : LogicBase, IZAnalytics {
-  private const double EngagementSampling = 5.0;
+  private const double EngagementSampling = 10.0;
 
   private readonly Queue<AnalyticsEvent> _queue = new Queue<AnalyticsEvent>();
 
@@ -35,6 +35,7 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   private IAnalyticsSink? _sink;
 
   private ZVisitorIdentity? _visitor;
+  private IZIdentity? _identity;
 
   public ZGoogleAnalytics(IZContext context) : base(context) { }
 
@@ -47,13 +48,14 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   private Dictionary<string, object> MergeUserProps(Dictionary<string, object>? userProps) {
     if (userProps is null) return _userProps;
-    foreach (var prop in userProps) {
+    var props = userProps.ToList();
+    foreach (var prop in props) {
       _userProps[prop.Key] = prop.Value;
     }
     return _userProps;
   }
 
-  public async ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
+  public async ZTask Configure(IAnalyticsSink? sink, Installation install, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     if (sink == null) return;
     if (identity == null) {
       if (_visitor == null) {
@@ -62,13 +64,15 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
       }
       identity = _visitor;
     }
-    await (_sink = sink).Config(StreamOptions, identity.ClientId, identity.IZUser?.Id);
-    await ((IZAnalytics) this).SetIdentity(identity, MergeUserProps(userProps));
+    if (_identity?.IZUser?.Id != identity.IZUser?.Id) _userProps.Clear();
+    _identity = identity;
+    await (_sink = sink).Config(StreamOptions, install, identity, MergeUserProps(userProps));
+    // await ((IZAnalytics) this).SetIdentity(identity, MergeUserProps(userProps));
     ProcessQueue();
   }
 
-  public ZTask SetUserProperties(string installId, string? userId, Dictionary<string, object>? props = null) =>
-    _sink?.Config(StreamOptions, installId, userId, MergeUserProps(props)) ?? ZTask.CompletedTask;
+  public ZTask SetUserProperties(IZIdentity? identity, Dictionary<string, object>? props = null) =>
+    _sink?.SetIdentity(identity, MergeUserProps(props)) ?? ZTask.CompletedTask;
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
     if (_sink == null) {
@@ -110,50 +114,59 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     ((IZAnalytics) this).SendEvent("screen_view", new ScreenViewEventParams {
       Name = name,
       Class = klass,
+      EngagementTimeMsec = GatherEngagementTime()
     }); // data
 
   public ZTask Share(string method) =>
     ((IZAnalytics) this).SendEvent("share", new MethodEventParams {
-      Method = method
+      Method = method,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask LoginBegin(string method) =>
     ((IZAnalytics) this).SendEvent("login_begin", new MethodEventParams {
-      Method = method
+      Method = method,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask LoginEnd(string method) =>
     ((IZAnalytics) this).SendEvent("login", new MethodEventParams {
-      Method = method
+      Method = method,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask SignUp(string method) =>
     ((IZAnalytics) this).SendEvent("sign_up", new MethodEventParams {
-      Method = method
+      Method = method,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask Search(string searchTerm) =>
     ((IZAnalytics) this).SendEvent("search", new SearchEventParams {
-      SearchTerm = searchTerm
+      SearchTerm = searchTerm,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask EarnPoints(long score, int? level = null, string? character = null) =>
     ((IZAnalytics) this).SendEvent("post_score", new ScoreEventParams {
       Score = score,
       Level = level,
-      Character = character
+      Character = character,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask SelectContent(string contentType, string contentId) =>
     ((IZAnalytics) this).SendEvent("select_content", new ContentEventParams {
       ContentType = contentType,
-      ContentId = contentId
+      ContentId = contentId,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public ZTask Exception(string desc, bool fatal = false) =>
     ((IZAnalytics) this).SendEvent("exception", new ExceptionEventParams {
       Description = desc,
-      IsFatal = fatal
+      IsFatal = fatal,
+      EngagementTimeMsec = GatherEngagementTime()
     });
 
   public override void Dispose() {

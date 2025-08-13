@@ -7,6 +7,13 @@ using Semver;
 
 namespace IZ.Core.Auth;
 
+public enum DeviceType {
+  Unknown,
+  Browser,
+  Desktop,
+  Mobile,
+}
+
 public class Installation : TransientObject {
   public const int ClientIdLength = 128;
   private SemVersion? _semVersion;
@@ -24,6 +31,10 @@ public class Installation : TransientObject {
   [MaxLength(64)] public string Model { get; set; } = null!;
 
   [MaxLength(32)] public string Processor { get; set; } = null!;
+
+  public DeviceType DeviceType { get; set; }
+
+  public int SessionNumber { get; set; } // Used in analytics
 
   public int ProcessorCount { get; set; }
 

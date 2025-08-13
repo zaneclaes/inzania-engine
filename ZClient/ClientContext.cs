@@ -67,7 +67,7 @@ public class ClientContext : RootContext {
   protected virtual Dictionary<string, object>? GetUserAnalyticsProperties() => null;
 
   protected virtual List<ZTask> GetReadyTasks() => new List<ZTask> {
-    Context.Analytics!.Configure(_analyticsSink, Context.CurrentIdentity, GetUserAnalyticsProperties())
+    Context.Analytics!.Configure(_analyticsSink, Install, Context.CurrentIdentity, GetUserAnalyticsProperties())
   };
 
   public ZTask AwaitStart() => Tasks.WaitUntil(() => IsStarted || StartupException != null);

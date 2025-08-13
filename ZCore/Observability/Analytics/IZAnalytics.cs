@@ -41,16 +41,16 @@ public interface IZAnalytics : IHaveContext, IDisposable {
   // i.e., "Score" + scoreId
   public ZTask SelectContent(string contentType, string contentId);
 
-  public ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null, Dictionary<string, object>? userProps = null);
+  public ZTask Configure(IAnalyticsSink? sink, Installation install, IZIdentity? identity, Dictionary<string, object>? props = null);
 
-  public ZTask SetUserProperties(string installId, string? userId, Dictionary<string, object>? props = null);
+  public ZTask SetUserProperties(IZIdentity? identity, Dictionary<string, object>? props = null);
 
-  public ZTask SetIdentity(IZIdentity identity, Dictionary<string, object>? userProps = null) {
-    userProps ??= new Dictionary<string, object>();
-    userProps["env"] = Context.App.Env.ToString();
-    var user = identity.IZUser;
-    return SetUserProperties(identity.ClientId, user?.Id, userProps);
-  }
+  // public ZTask SetIdentity(IZIdentity identity, Dictionary<string, object>? userProps = null) {
+  //   userProps ??= new Dictionary<string, object>();
+  //   userProps["env"] = Context.App.Env.ToString();
+  //   var user = identity.IZUser;
+  //   return SetUserProperties(user?.Id, userProps);
+  // }
 
   private ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<BaseParams>(name, new BaseParams()));
   public ZTask SendEvent<T>(string name, T pars) where T : IEventParams => SendEvent(new AnalyticsEvent<T>(name, pars));
