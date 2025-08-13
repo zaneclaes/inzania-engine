@@ -7,7 +7,7 @@ using IZ.Core.Observability.Analytics;
 
 namespace IZ.Client.GoogleAnalytics.Events;
 
-public class ScreenViewEventParams : IEventParams {
+public class ScreenViewEventParams : BaseParams {
   [JsonPropertyName("screen_class")] public string? Class { get; set; }
 
   [JsonPropertyName("screen_name")] public string Name { get; set; } = null!;

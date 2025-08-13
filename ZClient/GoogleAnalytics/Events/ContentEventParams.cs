@@ -7,7 +7,7 @@ using IZ.Core.Observability.Analytics;
 
 namespace IZ.Client.GoogleAnalytics.Events;
 
-public class ContentEventParams : IEventParams {
+public class ContentEventParams : BaseParams {
   [JsonPropertyName("content_type")] public string ContentType { get; set; } = default!;
 
   [JsonPropertyName("content_id")] public string ContentId { get; set; } = default!;

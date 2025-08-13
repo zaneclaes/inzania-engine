@@ -3,6 +3,7 @@ using System.Security.Principal;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
+using IZ.Core.Observability.Analytics;
 
 namespace IZ.Core.Auth;
 

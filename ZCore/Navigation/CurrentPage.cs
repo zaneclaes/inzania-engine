@@ -24,7 +24,7 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
 
   private ISitePageContent? _content;
 
-  public CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
+  protected CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
     // Nav = nav;
     Path = path;
     Sitemap = sitemap;
@@ -32,6 +32,10 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
     _content = SitePage?.GetContent(new DeepLink(Context, path).SubPaths);
   }
   // public NavigationManager Nav { get; private set; }
+
+  public void SetContent(ISitePageContent? content) {
+    _content = content;
+  }
 
   public void SendPageView() {
     var title = _content?.Title ?? SitePage?.Title ?? $"{Path.Split("/").First()}";

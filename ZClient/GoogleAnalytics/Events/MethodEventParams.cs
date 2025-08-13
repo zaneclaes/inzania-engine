@@ -7,6 +7,6 @@ using IZ.Core.Observability.Analytics;
 
 namespace IZ.Client.GoogleAnalytics.Events;
 
-public class MethodEventParams : IEventParams {
+public class MethodEventParams : BaseParams {
   [JsonPropertyName("method")] public string Method { get; set; } = default!;
 }

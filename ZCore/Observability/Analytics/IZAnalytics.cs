@@ -43,25 +43,16 @@ public interface IZAnalytics : IHaveContext, IDisposable {
 
   public ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null, Dictionary<string, object>? userProps = null);
 
-  public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props);
+  public ZTask SetUserProperties(string installId, string? userId, Dictionary<string, object>? props = null);
 
   public ZTask SetIdentity(IZIdentity identity, Dictionary<string, object>? userProps = null) {
     userProps ??= new Dictionary<string, object>();
     userProps["env"] = Context.App.Env.ToString();
     var user = identity.IZUser;
-    if (user != null) {
-      var age = ZEnv.Now - user.CreatedAt;
-      if (age.TotalDays < 7) userProps["user_age"] = "days";
-      else if (age.TotalDays < 30) userProps["user_age"] = "weeks";
-      else if (age.TotalDays < 365) userProps["user_age"] = "months";
-      else userProps["user_age"] = "years";
-      // props["user_id"] = ;
-    }
-
-    return SetUserProperties(identity.ClientId, identity.SessionId, user?.Id, userProps);
+    return SetUserProperties(identity.ClientId, user?.Id, userProps);
   }
 
-  private ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<NullParams>(name, new NullParams()));
+  private ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<BaseParams>(name, new BaseParams()));
   public ZTask SendEvent<T>(string name, T pars) where T : IEventParams => SendEvent(new AnalyticsEvent<T>(name, pars));
 
   public ZTask UserEngagement();

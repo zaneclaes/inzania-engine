@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
@@ -26,10 +27,11 @@ using System;
 namespace IZ.Client.GoogleAnalytics;
 
 public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
-  private readonly Dictionary<string, object> _userProps = new Dictionary<string, object>();
+  private Dictionary<string, object> _userProps = new Dictionary<string, object>();
+
+  private static long SessionId = DateTime.UtcNow.Ticks;
 
   private string _installId = ModelId.GenerateId();
-  private string _sessionId = "";
   private string? _userId;
 
   public GoogleAnalyticsHttpSink(IZContext c) : base(c) { }
@@ -65,18 +67,12 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 #endif
   }
 
-  public ZTask Config(AnalyticsOptions options, string clientId, string sessionId, string? userId, Dictionary<string, object>? userProps = null) {
+  public ZTask Config(AnalyticsOptions options, string clientId, string? userId, Dictionary<string, object>? userProps = null) {
     _analyticsOptions = options;
     _client = null;
     _userId = userId;
     _installId = clientId;
-    _sessionId = sessionId;
-    if (userProps != null) {
-      // always merge, so userProps are never deleted
-      foreach (var k in userProps.Keys) {
-        _userProps[k] = userProps[k];
-      }
-    }
+    if (userProps != null) _userProps = userProps;
     return ZTask.CompletedTask;
   }
 
@@ -87,5 +83,10 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
     // Log.Information("[GA] {mid} {cde} ? {ok} ({url})", Stream.MeasurementId, res.StatusCode, res.IsSuccessStatusCode, Client.BaseAddress);
     // return res.IsSuccessStatusCode;
+  }
+
+  public override void Dispose() {
+    _client?.Dispose();
+    base.Dispose();
   }
 }

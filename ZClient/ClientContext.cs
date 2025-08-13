@@ -139,7 +139,7 @@ public class ClientContext : RootContext {
 
   public virtual void Logout() {
     _userIdentity = null;
-    ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(null);
+    ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(Install,null);
   }
 
   public override void Dispose() {

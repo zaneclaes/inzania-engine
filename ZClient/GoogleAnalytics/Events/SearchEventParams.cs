@@ -7,6 +7,6 @@ using IZ.Core.Observability.Analytics;
 
 namespace IZ.Client.GoogleAnalytics.Events;
 
-public class SearchEventParams : IEventParams {
+public class SearchEventParams : BaseParams {
   [JsonPropertyName("search_term")] public string SearchTerm { get; set; } = default!;
 }

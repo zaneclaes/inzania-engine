@@ -43,6 +43,16 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   private TimeSpan _lastEngagementTime = TimeSpan.Zero;
 
+  private readonly Dictionary<string, object> _userProps = new Dictionary<string, object>();
+
+  private Dictionary<string, object> MergeUserProps(Dictionary<string, object>? userProps) {
+    if (userProps is null) return _userProps;
+    foreach (var prop in userProps) {
+      _userProps[prop.Key] = prop.Value;
+    }
+    return _userProps;
+  }
+
   public async ZTask Configure(IAnalyticsSink? sink, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     if (sink == null) return;
     if (identity == null) {
@@ -52,13 +62,13 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
       }
       identity = _visitor;
     }
-    await (_sink = sink).Config(StreamOptions, identity.ClientId, identity.SessionId, identity.IZUser?.Id);
-    await ((IZAnalytics) this).SetIdentity(identity, userProps);
+    await (_sink = sink).Config(StreamOptions, identity.ClientId, identity.IZUser?.Id);
+    await ((IZAnalytics) this).SetIdentity(identity, MergeUserProps(userProps));
     ProcessQueue();
   }
 
-  public ZTask SetUserProperties(string installId, string sessionId, string? userId, Dictionary<string, object> props) =>
-    _sink?.Config(StreamOptions, installId, sessionId, userId, props) ?? ZTask.CompletedTask;
+  public ZTask SetUserProperties(string installId, string? userId, Dictionary<string, object>? props = null) =>
+    _sink?.Config(StreamOptions, installId, userId, MergeUserProps(props)) ?? ZTask.CompletedTask;
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
     if (_sink == null) {

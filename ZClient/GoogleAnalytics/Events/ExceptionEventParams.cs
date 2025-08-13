@@ -7,7 +7,7 @@ using IZ.Core.Observability.Analytics;
 
 namespace IZ.Client.GoogleAnalytics.Events;
 
-public class ExceptionEventParams : IEventParams {
+public class ExceptionEventParams : BaseParams {
   [JsonPropertyName("description")] public string Description { get; set; } = default!;
 
   [JsonPropertyName("fatal")] public bool IsFatal { get; set; } = false;

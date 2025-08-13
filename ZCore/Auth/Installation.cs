@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
+using IZ.Core.Observability.Analytics;
 using Semver;
 
 namespace IZ.Core.Auth;

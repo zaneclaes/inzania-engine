@@ -17,5 +17,5 @@ namespace IZ.Core.Observability.Analytics;
 public interface IAnalyticsSink : IDisposable {
   public ZTask SendEvent(AnalyticsEvent e); //  where T : IEventParams;
 
-  public ZTask Config(AnalyticsOptions options, string clientId, string sessionId, string? userId = null, Dictionary<string, object>? userProps = null);
+  public ZTask Config(AnalyticsOptions options, string clientId, string? userId = null, Dictionary<string, object>? userProps = null);
 }

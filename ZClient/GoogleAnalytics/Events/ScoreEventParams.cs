@@ -7,7 +7,7 @@ using IZ.Core.Observability.Analytics;
 
 namespace IZ.Client.GoogleAnalytics.Events;
 
-public class ScoreEventParams : IEventParams {
+public class ScoreEventParams : BaseParams {
   [JsonPropertyName("score")] public long Score { get; set; }
 
   [JsonPropertyName("level")] public int? Level { get; set; }

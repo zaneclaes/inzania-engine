@@ -6,7 +6,9 @@ using System.Text.Json.Serialization;
 
 namespace IZ.Core.Observability.Analytics;
 
-public interface IEventParams { }
+public interface IEventParams {
+  public long SessionId { get; set; }
+}
 
 public class AnalyticsEvent {
 
@@ -19,7 +21,9 @@ public class AnalyticsEvent {
   [JsonIgnore] public IEventParams? EventParams { get; set; }
 }
 
-public class NullParams : IEventParams { }
+public class BaseParams : IEventParams {
+  [JsonPropertyName("session_id")] public long SessionId { get; set; }
+}
 
 public class AnalyticsEvent<T> : AnalyticsEvent where T : IEventParams {
 
