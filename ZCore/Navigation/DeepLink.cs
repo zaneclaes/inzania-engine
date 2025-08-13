@@ -56,7 +56,9 @@ public abstract class DeepLink<TPage> : DeepLink where TPage : SitePage {
   protected DeepLink(IZContext context, string path) : base(context, path) {
     Page = context.GetRequiredService<Sitemap>().GetPagePath<TPage>(string.Join("/", Parts));
     if (!IsValid) {
-      Log.Warning("[DL] invalid page {section}", string.Join("/", Parts));
+      var p = string.Join("/", Parts);
+      if (p != "not-found")
+       Log.Warning("[DL] invalid page {section}", p);
     }
   }
   // private static string Schema => ZEnv.ProductName.ToLower();
@@ -67,7 +69,6 @@ public abstract class DeepLink<TPage> : DeepLink where TPage : SitePage {
 
   public bool IsInCategory(string category) =>
     FirstPart.Equals(category, StringComparison.InvariantCultureIgnoreCase);
-
 
   // Only returns an object if the path has components
   // public static DeepLink? FromPath(IZContext context, string? path) {
