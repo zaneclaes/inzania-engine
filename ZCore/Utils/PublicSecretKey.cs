@@ -3,7 +3,7 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Utils;
 
-public abstract class PublicSecretKey : TransientObject {
+public abstract class PublicSecretKey : AppOptions<PublicSecretKey> {
   [Observable] public string PublicKey { get; set; } = null!;
   [ApiSecret] public string SecretKey { get; set; } = null!;
 }

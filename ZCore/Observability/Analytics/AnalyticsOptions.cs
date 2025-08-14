@@ -9,7 +9,7 @@ using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Observability.Analytics;
 
-public class AnalyticsOptions : TransientObject {
+public class AnalyticsOptions : AppOptions<AnalyticsOptions> {
   [Observable] public string Name { get; set; } = null!;
   [Observable] public string MeasurementId { get; set; } = null!;
   [Observable] public long StreamId { get; set; }
