@@ -46,15 +46,15 @@ public class ZDbContext : DbContext, IHaveContext {
     base.Dispose();
   }
 
-  protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
-    if (!optionsBuilder.IsConfigured) {
-      string fn = Path.Join(Context.App.Storage.UserDir, $"{Context.App.ProductName.ToSnakeCase()}.db");
-      Log.Information("[DB] falling back on {fn}", fn);
-      optionsBuilder.UseSqlite($"Data Source={fn}");
-    }
-
-    base.OnConfiguring(optionsBuilder);
-  }
+  // protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
+  //   if (!optionsBuilder.IsConfigured) {
+  //     string fn = Path.Join(Context.App.Storage.UserDir, $"{Context.App.ProductName.ToSnakeCase()}.db");
+  //     Log.Information("[DB] falling back on {fn}", fn);
+  //     optionsBuilder.UseSqlite($"Data Source={fn}");
+  //   }
+  //
+  //   base.OnConfiguring(optionsBuilder);
+  // }
 
   private DataState DataStateFromEntityState(EntityState es) {
     if (es == EntityState.Added) return DataState.Created;
