@@ -126,7 +126,7 @@ public class ClientContext : RootContext {
       Login(await storedSession.RestoreUserSession(Install));
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
-      Logout();
+      await Logout();
     }
     IsSessionRestored = true;
     StopTaskTimer(nameof(RestoreSession));
@@ -137,9 +137,10 @@ public class ClientContext : RootContext {
     _userIdentity = userIdentity;
   }
 
-  public virtual void Logout() {
+  public virtual ZTask Logout() {
     _userIdentity = null;
     ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(Install,null);
+    return ZTask.CompletedTask;
   }
 
   public override void Dispose() {
