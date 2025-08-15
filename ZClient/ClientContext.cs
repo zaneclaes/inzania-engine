@@ -133,7 +133,7 @@ public class ClientContext : RootContext {
   }
 
   public virtual void Login(IZIdentity userIdentity) {
-    Log.Information("[LOGIN] {uid}", userIdentity);
+    Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
     _userIdentity = userIdentity;
   }
 
