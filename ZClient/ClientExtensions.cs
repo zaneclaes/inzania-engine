@@ -8,20 +8,21 @@ using HotChocolate.Transport.Http;
 using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
+using IZ.Core.Utils;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Json;
 using StrawberryShake.Transport.Http;
+using Tuneality.Core.Auth;
 
 #endregion
 
 namespace IZ.Client;
 
 public static class ClientExtensions {
-  public static IServiceCollection AddTuneQueries<TSession, TConn>(this IServiceCollection c, Func<IServiceProvider, TConn> connBuilder)
-    where TSession : class, IStoredUserSession where TConn : class, IHttpConnection => c
-    .AddSingleton<IStoredUserSession, TSession>()
+  public static IServiceCollection AddTuneQueries<TConn>(this IServiceCollection c, Func<IServiceProvider, TConn> connBuilder)
+   where TConn : class, IHttpConnection => c
     .AddSingleton<IServerConnection, ZGraphServerConnection>()
     .AddSingleton<IHttpConnection, TConn>(connBuilder) //
     // .AddTuneQuery().Services

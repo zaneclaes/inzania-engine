@@ -5,10 +5,10 @@ namespace IZ.Core.Auth;
 
 // Retrieves the access token for the current user
 public interface IStoredUserSession {
-
-  public string? AccessToken { get; }
-  public string? Username { get; }
-  public ZUserRole? LastRole { get; }
+  public StoredSession? StoredSession { get; }
+  // public string? AccessToken { get; }
+  public string? LastUsername { get; }
+  public ZUserRole LastRole { get; }
 
   public event EventHandler<IZSession?> OnUserSessionChanged;
 
