@@ -52,7 +52,7 @@ public class ClientContext : RootContext {
 
   public virtual bool IsRunning => IsStarted && !IsShutDown;
 
-  public Installation Install { get; private set; } = null!;
+  public Installation Install { get; protected set; } = null!;
 
   public Exception? StartupException { get; private set; }
 
