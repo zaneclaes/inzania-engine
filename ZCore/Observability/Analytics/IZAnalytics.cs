@@ -38,6 +38,12 @@ public interface IZAnalytics : IHaveContext, IDisposable {
   // Record points earned
   public ZTask EarnPoints(long points, int? skillLevel = null, string? character = null);
 
+  public ZTask OperationTimingSuccess(string op, long elapsedMilliseconds, int successCode = 1);
+  public ZTask OperationTimingFailure(string op, long elapsedMilliseconds, Exception? ex = null);
+
+  public ZTask OperationTiming(string op, long elapsedMilliseconds, Exception? ex = null) =>
+    ex == null ? OperationTimingSuccess(op, elapsedMilliseconds) : OperationTimingFailure(op, elapsedMilliseconds, ex);
+
   // i.e., "Score" + scoreId
   public ZTask SelectContent(string contentType, string contentId);
 

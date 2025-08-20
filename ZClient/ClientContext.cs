@@ -78,13 +78,15 @@ public class ClientContext : RootContext {
     _taskTimers.Add(taskName, Stopwatch.StartNew());
   }
 
-  public void StopTaskTimer(string taskName, string? functionName = null) {
+  public void StopTaskTimer(string taskName, string? functionName = null, Exception? exception = null) {
     if (!string.IsNullOrWhiteSpace(functionName)) taskName = $"{taskName}.{functionName}";
     if (!_taskTimers.TryGetValue(taskName, out var timer)) {
       Log.Warning("[TIMER] invalid task timer {name}", taskName);
       return;
     }
     timer.Stop();
+    Analytics.OperationTiming(taskName, timer.ElapsedMilliseconds, exception);
+    Log.Information("[START] {task} finished in {ms}ms", taskName, timer.ElapsedMilliseconds);
   }
 
   public async ZTask Startup(Installation install, IAnalyticsSink? sink = null) {

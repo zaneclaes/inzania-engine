@@ -92,6 +92,24 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     }); // data
   }
 
+
+  public ZTask OperationTimingSuccess(string op, long elapsedMilliseconds, int successCode = 1) {
+    return ((IZAnalytics) this).SendEvent("operation_timing", new OperationTimingParams() {
+      OperationName = op,
+      DurationMs = elapsedMilliseconds,
+      Success = successCode,
+    });
+  }
+
+  public ZTask OperationTimingFailure(string op, long elapsedMilliseconds, Exception? ex = null) {
+    return ((IZAnalytics) this).SendEvent("operation_timing", new OperationTimingParams() {
+      OperationName = op,
+      DurationMs = elapsedMilliseconds,
+      Success = 0,
+      ErrorCode = ex == null ? null : $"{ex.GetType().Name}: {ex.Message}",
+    });
+  }
+
   private long? GatherEngagementTime() {
     var ts = Context.App.Uptime;
     var elapsed = ts - _lastEngagementTime;
