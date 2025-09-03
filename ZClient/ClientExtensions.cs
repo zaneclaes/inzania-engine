@@ -14,7 +14,6 @@ using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Json;
 using StrawberryShake.Transport.Http;
-using Tuneality.Core.Auth;
 
 #endregion
 

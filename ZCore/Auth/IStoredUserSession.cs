@@ -12,7 +12,7 @@ public interface IStoredUserSession {
 
   public event EventHandler<IZSession?> OnUserSessionChanged;
 
-  public IZIdentity? LoadUserSession(Installation install, IZSession? session);
+  public IZIdentity? UpdateUserSession(Installation install, IZSession? session);
 
   public Task<IZIdentity> RestoreUserSession(Installation install);
 }

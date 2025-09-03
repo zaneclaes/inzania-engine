@@ -8,7 +8,6 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
-using Tuneality.Core.Clients;
 #region
 
 #if Z_UNITY
@@ -37,9 +36,10 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   private ZVisitorIdentity? _visitor;
   private IZIdentity? _identity;
 
-  public ZGoogleAnalytics(IZContext context) : base(context) { }
+  public ZGoogleAnalytics(ZApp app) : base(new WorkContext(app, nameof(ZGoogleAnalytics))) { }
 
-  public AnalyticsOptions StreamOptions => _stream ??= Context.GetRequiredService<TuneClientAppSettings>().GoogleAnalytics;
+  public AnalyticsOptions StreamOptions => _stream ??= Context.GetRequiredService<IZAppSettings>().GoogleAnalytics ??
+                                                       throw new NullReferenceException("Missing GA settings");
   private AnalyticsOptions? _stream = null;
 
   private TimeSpan _lastEngagementTime = TimeSpan.Zero;

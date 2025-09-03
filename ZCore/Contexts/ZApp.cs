@@ -8,6 +8,7 @@ using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Exceptions;
 using IZ.Core.Observability;
+using IZ.Core.Observability.Analytics;
 using IZ.Core.Observability.Logging;
 // ReSharper disable VirtualMemberCallInConstructor
 
@@ -18,6 +19,7 @@ namespace IZ.Core.Contexts;
 public interface IZAppSettings {
   public ApplicationStorage? Storage { get; }
   public ZAuthOptions? Auth { get; }
+  public AnalyticsOptions? GoogleAnalytics { get; }
 }
 
 public abstract class ZApp : IGetLogged, IDisposable {

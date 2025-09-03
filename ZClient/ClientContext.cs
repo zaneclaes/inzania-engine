@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using IZ.Client.GoogleAnalytics;
 using IZ.Core.Auth;
+using IZ.Core.Auth.Args;
 using IZ.Core.Contexts;
+using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,8 +32,6 @@ public class ClientContext : RootContext {
   private IZAnalytics? _analytics;
 
   private IAnalyticsSink? _analyticsSink;
-  private IZIdentity? _userIdentity;
-  private ZVisitorIdentity? _visitorIdentity;
 
   protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
     Log.Information("[START] entrypoint...");
@@ -41,10 +41,12 @@ public class ClientContext : RootContext {
   public ZClientApp ClientApp => App as ZClientApp ?? throw new SystemException($"ClientApp is a {App?.GetType()}");
 
   public override IZIdentity? CurrentIdentity => _userIdentity ?? (_visitorIdentity ??= GetVisitorIdentity());
+  private IZIdentity? _userIdentity;
+  private ZVisitorIdentity? _visitorIdentity;
 
-  public IZUser? CurrentUser => _userIdentity?.IZUser;
+  public virtual IZUser? CurrentUser => _userIdentity?.IZUser;
 
-  public override IZAnalytics Analytics => _analytics ??= new ZGoogleAnalytics(this);
+  public override IZAnalytics Analytics => _analytics ??= Context.GetRequiredService<IZAnalytics>();
 
   public bool IsStarted { get; private set; }
 
@@ -115,7 +117,7 @@ public class ClientContext : RootContext {
     }
   }
 
-  private async ZTask RestoreSession() {
+  protected async ZTask RestoreSession(bool logoutOnException = true) {
     var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
     // if (storedSession.AccessToken == null) {
     //   _userIdentity = null;
@@ -125,23 +127,68 @@ public class ClientContext : RootContext {
     _userIdentity = null;
     StartTaskTimer(nameof(RestoreSession));
     try {
-      Login(await storedSession.RestoreUserSession(Install));
+      var userIdentity = await storedSession.RestoreUserSession(Install);
+      Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
+      _userIdentity = userIdentity;
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
-      await Logout();
+      if (logoutOnException) await Logout();
     }
     IsSessionRestored = true;
     StopTaskTimer(nameof(RestoreSession));
   }
 
-  public virtual void Login(IZIdentity userIdentity) {
-    Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
+  public virtual void SetCurrentUserSession(IZSession? session) {
+    var userIdentity = Context.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install, session);
+    if (userIdentity == null) {
+      Log.Information("[LOGIN] NULL id from {session}", session);
+    } else {
+      Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
+    }
     _userIdentity = userIdentity;
   }
 
+  protected const string LoginMethod = "password";
+
+  // // effective "test the access token and update user data" function
+  // public async ZTask UpdateCurrentUser() {
+  //   var user = await Context.BeginRequest<AuthQuery>().CurrentUser().Execute(CommonFormats.Me);
+  //   Context.GetRequiredService<TuneClientNavigator>().OnLoginComplete();
+  //   Log.Information("[LOGIN]  succeeded: {user}", user);
+  // }
+  //
+  // public async ZTask Login(LoginArgs args) {
+  //   Log.Information("[LOGIN] begin login as {username}", args.Username);
+  //   Context.Analytics?.LoginBegin(LoginMethod).Forget();
+  //   var session = await Context.BeginRequest<AuthMutation>().Login(args, Install).Execute();
+  //   var userIdentity = ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(Install, session);
+  //   if (userIdentity == null) {
+  //     Log.Information("[LOGIN] NULL id for {session}", session);
+  //   } else {
+  //     SetCurrentUserIdentity(userIdentity);
+  //   }
+  //
+  //   var user = await Context.BeginRequest<AuthQuery>().CurrentUser().Execute(CommonFormats.Me);
+  //   Log.Information("[LOGIN] re-validation succeeded: {user}", user);
+  //   Context.GetRequiredService<TuneClientNavigator>().OnLoginComplete();
+  //   Context.Analytics?.LoginEnd(LoginMethod).Forget();
+  // }
+  //
+  // public async ZTask Signup(SignUpArgs args) {
+  //   Log.Information("[SIGNUP] begin as {email} {username}", args.Email, args.Username);
+  //   var session = await Context.BeginRequest<AuthMutation>().SignUp(args, Install).Execute();
+  //   SetCurrentUserIdentity(ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(Install, session)!);
+  //   var user = await Context.BeginRequest<AuthQuery>().CurrentUser().Execute(CommonFormats.Me);
+  //   Log.Information("[SIGNUP] succeeded: {user}", user);
+  //
+  //   Context.Analytics?.SignUp(LoginMethod).Forget();
+  // }
+
   public virtual ZTask Logout() {
+    // TODO: send Logout graphGQL and flag session as soft deleted
     _userIdentity = null;
-    ServiceProvider.GetRequiredService<IStoredUserSession>().LoadUserSession(Install,null);
+    ServiceProvider.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install,null);
+    Log.Information("[LOGOUT] cleared user identity");
     return ZTask.CompletedTask;
   }
 

@@ -10,6 +10,7 @@ using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Seeds;
+using IZ.Core.Observability.Analytics;
 using IZ.Core.Observability.Logging;
 using IZ.Core.Utils;
 using IZ.Data.Providers;
@@ -41,6 +42,7 @@ public class HostAppSettings : IZAppSettings {
 
   public ApplicationStorage? Storage { get; }
   public ZAuthOptions? Auth { get; }
+  public AnalyticsOptions? GoogleAnalytics { get; }
 }
 
 public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {

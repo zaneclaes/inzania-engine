@@ -3,6 +3,7 @@
 using IZ.Core;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
+using IZ.Core.Observability.Analytics;
 using IZ.Core.Observability.Logging;
 using IZ.Logging.SerilogLogging;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ namespace ZTests;
 public class ZTestAppSettings : IZAppSettings {
   public ApplicationStorage? Storage { get; set; }
   public ZAuthOptions? Auth { get; set; }
+  public AnalyticsOptions? GoogleAnalytics { get; }
 }
 
 public class ZTestApp : ZApp {
