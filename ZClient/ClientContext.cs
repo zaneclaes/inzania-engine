@@ -117,6 +117,11 @@ public class ClientContext : RootContext {
     }
   }
 
+  protected virtual void UpdateUserIdentity(IZIdentity userIdentity) {
+    Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
+    _userIdentity = userIdentity;
+  }
+
   protected async ZTask RestoreSession(bool logoutOnException = true) {
     var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
     // if (storedSession.AccessToken == null) {
@@ -124,12 +129,11 @@ public class ClientContext : RootContext {
     //   IsSessionRestored = true;
     //   return;
     // }
-    _userIdentity = null;
     StartTaskTimer(nameof(RestoreSession));
     try {
       var userIdentity = await storedSession.RestoreUserSession(Install);
-      Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
-      _userIdentity = userIdentity;
+      Log.Information("[LOGIN] {user} via {sessionId}", userIdentity.IZUser, userIdentity.SessionId);
+      UpdateUserIdentity(userIdentity);
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       if (logoutOnException) await Logout();
@@ -141,11 +145,12 @@ public class ClientContext : RootContext {
   public virtual void SetCurrentUserSession(IZSession? session) {
     var userIdentity = Context.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install, session);
     if (userIdentity == null) {
-      Log.Information("[LOGIN] NULL id from {session}", session);
+      Log.Warning("[LOGIN] NULL id from {session}", session);
+      _userIdentity = null;
     } else {
       Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
+      UpdateUserIdentity(userIdentity);
     }
-    _userIdentity = userIdentity;
   }
 
   protected const string LoginMethod = "password";
