@@ -46,6 +46,9 @@ public class ClientContext : RootContext {
 
   public virtual IZUser? CurrentUser => _userIdentity?.IZUser;
 
+  public virtual IZSession? CurrentSession => _session;
+  private IZSession? _session;
+
   public override IZAnalytics Analytics => _analytics ??= Context.GetRequiredService<IZAnalytics>();
 
   public bool IsStarted { get; private set; }
@@ -143,6 +146,7 @@ public class ClientContext : RootContext {
   }
 
   public virtual void SetCurrentUserSession(IZSession? session) {
+    _session = session;
     var userIdentity = Context.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install, session);
     if (userIdentity == null) {
       Log.Warning("[LOGIN] NULL id from {session}", session);

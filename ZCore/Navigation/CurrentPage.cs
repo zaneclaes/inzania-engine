@@ -20,6 +20,8 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
 
   public TPage? SitePage => DeepLink?.Page;
 
+  [Observable] public string Title => _content?.Title ?? SitePage?.Title ?? $"{Path.Split("/").First()}";
+
   [Observable] public string Path { get; }
 
   private ISitePageContent? _content;
@@ -38,8 +40,9 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
   }
 
   public void SendPageView() {
-    var title = _content?.Title ?? SitePage?.Title ?? $"{Path.Split("/").First()}";
-    // Context.Log.Information("[GA] {path} => {title}", Page?.Path ?? Path, title);
-    Context.Analytics?.PageView(SitePage?.Path ?? Path, title);
+    // Context.Log.Information("[GA] {path} => {page}", Path, Title);
+    Context.Analytics?.PageView(SitePage?.Path ?? Path, Title);
   }
+
+  public override string ToString() => $"<{Title} {Path} />";
 }

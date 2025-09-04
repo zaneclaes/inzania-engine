@@ -1,10 +1,11 @@
 using IZ.Core.Data;
+using IZ.Core.Data.Attributes;
 
 namespace IZ.Core.Auth;
 
 public class StoredSession : TransientObject {
-  public string UserId { get; set; } = null!;
-  public string Username { get; set; } = null!;
+  [Observable] public string UserId { get; set; } = null!;
+  [Observable] public string Username { get; set; } = null!;
   public string AccessToken { get; set; } = null!;
-  public ZUserRole UserRole { get; set; }
+  [Observable] public ZUserRole UserRole { get; set; }
 }

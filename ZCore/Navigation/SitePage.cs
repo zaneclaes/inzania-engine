@@ -73,4 +73,6 @@ public class SitePage : LogicBase {
     }
     return this;
   }
+
+  public override string ToString() => $"<{Title} {Path} />";
 }
