@@ -14,6 +14,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
+using StrawberryShake.Transport.Http;
 
 #endregion
 
