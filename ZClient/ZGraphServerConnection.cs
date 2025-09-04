@@ -14,7 +14,10 @@ using IZ.Core.Contexts;
 using IZ.Core.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
+
+#if !Z_UNITY
 using StrawberryShake.Transport.Http;
+#endif
 
 #endregion
 

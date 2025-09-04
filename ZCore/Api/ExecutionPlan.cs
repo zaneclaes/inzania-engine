@@ -7,11 +7,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using HotChocolate.Language;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
+
+#if !Z_UNITY
+using HotChocolate.Language;
+#endif
 
 #endregion
 
@@ -124,6 +127,7 @@ public class ExecutionPlan {
     return mapped;
   }
 
+#if !Z_UNITY
   private static IValueNode PrepareArgGql(object? arg) {
     if (arg == null) return NullValueNode.Default;
     if (arg is IList list) {
@@ -161,6 +165,7 @@ public class ExecutionPlan {
     }
     return new ObjectValueNode(fields);
   }
+#endif
 
   public string ToGraphQLDocument() {
     string op = $"{OperationType.ToString().ToLower()} {OperationName}";

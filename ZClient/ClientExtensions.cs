@@ -2,9 +2,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
-using HotChocolate.Transport.Http;
+using IZ.Client.Queries;
 using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -13,7 +14,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Json;
+
+#if !Z_UNITY
 using StrawberryShake.Transport.Http;
+#endif
 
 #endregion
 
@@ -36,29 +40,51 @@ public static class ClientExtensions {
     dirs.GetSection("Tmp").Value!,
     dirs.GetSection("Www").Value);
 
-  public static GraphQLHttpRequest ToGraphQlHttpRequest(this OperationRequest request) {
-    (string? id, string? name, var document, IReadOnlyDictionary<string, object?>? variables, IReadOnlyDictionary<string, object?>? extensions, _, IReadOnlyDictionary<string, Upload?>? files, _) = request;
+  public static Tuple<GraphRequest, List<IFileUpload>> ToGraphRequest(this OperationRequest opReq) {
+    // var req = opReq.ToGraphQlHttpRequest();
 
-#if NETSTANDARD2_0
-    string? body = Encoding.UTF8.GetString(document.Body.ToArray());
-#else
-    string body = Encoding.UTF8.GetString(document.Body);
-#endif
+    var variables = MapVariables(opReq.Variables);
+    Dictionary<string, object?> vars = variables?.ToDictionary(v => v.Key, v => v.Value) ??
+                                       new Dictionary<string, object?>();
 
-    bool hasFiles = files is {Count: > 0};
-
-    variables = MapVariables(variables);
-    if (hasFiles && variables is not null) {
-      variables = MapFilesToVariables(variables, files!);
+    List<IFileUpload> fileUploads = new List<IFileUpload>();
+    // string fileMap = "{ }";
+    if (vars.ContainsKey("file") && vars["file"] is IFileUpload fileUpload) {
+      fileUploads.Add(fileUpload);
+      // fileMap = "{ \"0\": [\"variables.file\"] }";
+      vars["file"] = null;
     }
 
-    var operation =
-      new HotChocolate.Transport.OperationRequest(body, id, name, variables, extensions);
-
-    return new GraphQLHttpRequest(operation) {
-      EnableFileUploads = hasFiles
-    };
+    return new Tuple<GraphRequest, List<IFileUpload>>(new GraphRequest {
+      Id = opReq.Id!,
+      // Query = string.IsNullOrWhiteSpace(),
+      Variables = vars //  req.Operation.VariablesNode ?????
+    }, fileUploads);
   }
+
+//   public static GraphQLHttpRequest ToGraphQlHttpRequest(this OperationRequest request) {
+//     (string? id, string? name, var document, IReadOnlyDictionary<string, object?>? variables, IReadOnlyDictionary<string, object?>? extensions, _, IReadOnlyDictionary<string, Upload?>? files, _) = request;
+//
+// #if NETSTANDARD2_0
+//     string? body = Encoding.UTF8.GetString(document.Body.ToArray());
+// #else
+//     string body = Encoding.UTF8.GetString(document.Body);
+// #endif
+//
+//     bool hasFiles = files is {Count: > 0};
+//
+//     variables = MapVariables(variables);
+//     if (hasFiles && variables is not null) {
+//       variables = MapFilesToVariables(variables, files!);
+//     }
+//
+//     var operation =
+//       new HotChocolate.Transport.OperationRequest(body, id, name, variables, extensions);
+//
+//     return new GraphQLHttpRequest(operation) {
+//       EnableFileUploads = hasFiles
+//     };
+//   }
 
   /// <summary>
   ///   Converts the variables into a dictionary that can be serialized. This is necessary
@@ -129,81 +155,81 @@ public static class ClientExtensions {
 #endif
   }
 
-  private static IReadOnlyDictionary<string, object?> MapFilesToVariables(
-    IReadOnlyDictionary<string, object?> variables,
-    IReadOnlyDictionary<string, Upload?> files) {
-    foreach (KeyValuePair<string, Upload?> file in files) {
-      string? path = file.Key;
-      Upload? upload = file.Value;
-
-      if (!upload.HasValue) {
-        continue;
-      }
-
-      string? currentPath = path.Substring("variables.".Length);
-      object? currentObject = variables;
-      int index;
-      while ((index = currentPath.IndexOf('.')) >= 0) {
-        string? segment = currentPath.Substring(0, index);
-        switch (currentObject) {
-          case Dictionary<string, object> dictionary:
-            if (!dictionary.TryGetValue(segment, out currentObject)) {
-              throw new InvalidOperationException(
-                string.Format("File map does not match {0}", path));
-            }
-
-            break;
-
-          case List<object> array:
-            if (!int.TryParse(segment, out int arrayIndex)) {
-              throw new InvalidOperationException(
-                string.Format("File map does not match {0}", path));
-            }
-
-            if (arrayIndex >= array.Count) {
-              throw new InvalidOperationException(
-                string.Format("File map does not match {0}", path));
-            }
-
-            currentObject = array[arrayIndex];
-            break;
-
-          default:
-            throw new InvalidOperationException(
-              string.Format("File map does not match {0}", path));
-        }
-
-        currentPath = currentPath.Substring(index + 1);
-      }
-
-      switch (currentObject) {
-        case Dictionary<string, object> result:
-          result[currentPath] =
-            new FileReference(upload.Value.Content, upload.Value.FileName);
-          break;
-
-        case List<object> array:
-          if (!int.TryParse(currentPath, out int arrayIndex)) {
-            throw new InvalidOperationException(
-              string.Format("File map does not match {0}", path));
-          }
-
-          if (arrayIndex >= array.Count) {
-            throw new InvalidOperationException(
-              string.Format("File map does not match {0}", path));
-          }
-
-          array[arrayIndex] =
-            new FileReference(upload.Value.Content, upload.Value.FileName);
-
-          break;
-
-        default:
-          throw new InvalidOperationException(
-            string.Format("File map does not match {0}", path));
-      }
-    }
-
-    return variables;
-  }
+  // private static IReadOnlyDictionary<string, object?> MapFilesToVariables(
+  //   IReadOnlyDictionary<string, object?> variables,
+  //   IReadOnlyDictionary<string, Upload?> files) {
+  //   foreach (KeyValuePair<string, Upload?> file in files) {
+  //     string? path = file.Key;
+  //     Upload? upload = file.Value;
+  //
+  //     if (!upload.HasValue) {
+  //       continue;
+  //     }
+  //
+  //     string? currentPath = path.Substring("variables.".Length);
+  //     object? currentObject = variables;
+  //     int index;
+  //     while ((index = currentPath.IndexOf('.')) >= 0) {
+  //       string? segment = currentPath.Substring(0, index);
+  //       switch (currentObject) {
+  //         case Dictionary<string, object> dictionary:
+  //           if (!dictionary.TryGetValue(segment, out currentObject)) {
+  //             throw new InvalidOperationException(
+  //               string.Format("File map does not match {0}", path));
+  //           }
+  //
+  //           break;
+  //
+  //         case List<object> array:
+  //           if (!int.TryParse(segment, out int arrayIndex)) {
+  //             throw new InvalidOperationException(
+  //               string.Format("File map does not match {0}", path));
+  //           }
+  //
+  //           if (arrayIndex >= array.Count) {
+  //             throw new InvalidOperationException(
+  //               string.Format("File map does not match {0}", path));
+  //           }
+  //
+  //           currentObject = array[arrayIndex];
+  //           break;
+  //
+  //         default:
+  //           throw new InvalidOperationException(
+  //             string.Format("File map does not match {0}", path));
+  //       }
+  //
+  //       currentPath = currentPath.Substring(index + 1);
+  //     }
+  //
+  //     switch (currentObject) {
+  //       case Dictionary<string, object> result:
+  //         result[currentPath] =
+  //           new FileReference(upload.Value.Content, upload.Value.FileName);
+  //         break;
+  //
+  //       case List<object> array:
+  //         if (!int.TryParse(currentPath, out int arrayIndex)) {
+  //           throw new InvalidOperationException(
+  //             string.Format("File map does not match {0}", path));
+  //         }
+  //
+  //         if (arrayIndex >= array.Count) {
+  //           throw new InvalidOperationException(
+  //             string.Format("File map does not match {0}", path));
+  //         }
+  //
+  //         array[arrayIndex] =
+  //           new FileReference(upload.Value.Content, upload.Value.FileName);
+  //
+  //         break;
+  //
+  //       default:
+  //         throw new InvalidOperationException(
+  //           string.Format("File map does not match {0}", path));
+  //     }
+  //   }
+  //
+  //   return variables;
+  // }
 }

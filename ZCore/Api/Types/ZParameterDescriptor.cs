@@ -2,10 +2,13 @@
 
 using System;
 using System.Reflection;
-using HotChocolate;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
 using IZ.Core.Utils;
+
+#if !Z_UNITY
+using HotChocolate;
+#endif
 
 #endregion
 
