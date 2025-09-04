@@ -13,7 +13,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Json;
-using StrawberryShake.Transport.Http;
 
 #endregion
 
