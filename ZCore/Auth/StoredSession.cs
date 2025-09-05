@@ -8,4 +8,6 @@ public class StoredSession : TransientObject {
   [Observable] public string Username { get; set; } = null!;
   public string AccessToken { get; set; } = null!;
   [Observable] public ZUserRole UserRole { get; set; }
+
+  public override string ToString() => $"<#{UserId} ({Username}) [{UserRole}]>";
 }
