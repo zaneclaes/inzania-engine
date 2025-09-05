@@ -18,13 +18,35 @@ public enum EmbeddingBehaviour {
   OpenExternal = 2
 }
 
-public interface ISitePageContent {
+public class SeoImage {
+  public string Url { get; set; } = null!;
+
+  public string? Alt { get; set; }
+
+  public int Width { get; set; } = 1280;
+
+  public int Height { get; set; } = 630;
+}
+
+public interface ISitePage {
   public string? Title { get; }
 
+  public string Path { get; }
+
+  public string CanonicalPath { get; }
+
+  public string? Description { get; }
+
+  public List<string> Keywords { get; }
+
+  public SeoImage? Image { get; }
+}
+
+public interface ISiteSubPage : ISitePage {
   public DeepLink GetDeepLink(params string[] paths);
 }
 
-public class SitePage : LogicBase {
+public class SitePage : LogicBase, ISitePage {
 
   protected SitePage(
     IZContext context, string path, string title, string? desc = null, string? author = null, params string[] keywords
@@ -56,6 +78,8 @@ public class SitePage : LogicBase {
 
   [Observable] public string Title { get; }
 
+  public SeoImage? Image => null;
+
   public XElement GenerateSitemap(string rootUrl) {
     return new XElement("url",
       new XElement("loc", rootUrl + "/" + CanonicalPath)
@@ -79,7 +103,7 @@ public class SitePage : LogicBase {
   public List<string> Keywords { get; }
   // public Type PageType { get; }
 
-  public virtual ISitePageContent? GetContent(params string[] components) => null;
+  public virtual ISiteSubPage? GetContent(params string[] components) => null;
 
   public SitePage WithSubPaths(params string[] paths) {
     foreach (string path in paths) {

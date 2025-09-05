@@ -34,7 +34,7 @@ public class ClientContext : RootContext {
   private IAnalyticsSink? _analyticsSink;
 
   protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
-    Log.Information("[START] entrypoint...");
+    // Log.Information("[START] entrypoint...");
   }
   // private IZChildContext? _span;
 

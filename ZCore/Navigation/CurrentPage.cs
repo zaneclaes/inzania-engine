@@ -18,30 +18,32 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
 
   [Observable] public TLink? DeepLink { get; }
 
-  public TPage? SitePage => DeepLink?.Page;
+  public TPage? TopPage => DeepLink?.Page;
 
-  [Observable] public string Title => _content?.Title ?? SitePage?.Title ?? $"{Path.Split("/").First()}";
+  public ISitePage? Content => (_content as ISitePage) ?? TopPage;
+
+  [Observable] public string Title => Content?.Title ?? $"{Path.Split("/").First()}";
 
   [Observable] public string Path { get; }
 
-  private ISitePageContent? _content;
+  private ISiteSubPage? _content;
 
   protected CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
     // Nav = nav;
     Path = path;
     Sitemap = sitemap;
     DeepLink = deepLink; // TuneDeepLink.FromPath(context, Path);
-    _content = SitePage?.GetContent(new DeepLink(Context, path).SubPaths);
+    _content = TopPage?.GetContent(new DeepLink(Context, path).SubPaths);
   }
   // public NavigationManager Nav { get; private set; }
 
-  public void SetContent(ISitePageContent? content) {
+  public void SetContent(ISiteSubPage? content) {
     _content = content;
   }
 
   public void SendPageView() {
     // Context.Log.Information("[GA] {path} => {page}", Path, Title);
-    Context.Analytics?.PageView(SitePage?.Path ?? Path, Title);
+    Context.Analytics?.PageView(TopPage?.Path ?? Path, Title);
   }
 
   public override string ToString() => $"<{Title} {Path} />";
