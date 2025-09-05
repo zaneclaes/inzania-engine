@@ -52,8 +52,7 @@ public abstract class Sitemap<TPage, TLink> : Sitemap where TPage : SitePage whe
     if (path.Contains("#")) path = path.Split("#").First();
     path = path.Trim('/');
     // Log.Information("[PAGE] find '{path}' in {paths}", path, string.Join(", ", Map.Values.SelectMany(p => p.Paths)));
-    if (string.IsNullOrWhiteSpace(path)) return Pages.First();
-    return Map.Values.FirstOrDefault(sp => sp.Paths.Any(p => path.StartsWith(p + "/") || path.Equals(p)));
+    return Map.Values.FirstOrDefault(sp => sp.MatchesPath(path));
   }
 
   private static Dictionary<string, TPage> GetRouteTypeMap(List<TPage> types) => types
@@ -66,13 +65,7 @@ public abstract class Sitemap<TPage, TLink> : Sitemap where TPage : SitePage whe
     foreach (var page in map.Values) {
       if (!page.IncludeInSiteMap) continue;
       // var page = map[path];
-      foreach (string path in page.Paths) {
-        urlset.Add(new XElement("url",
-          new XElement("loc", rootUrl + "/" + path)
-          // TODO: if you have a way to detect last changes...
-          // new XElement("lastmod", "...");
-        ));
-      }
+      urlset.Add(page.GenerateSitemap(rootUrl));
     }
     return urlset;
   }

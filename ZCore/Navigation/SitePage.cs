@@ -2,6 +2,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
@@ -32,6 +33,7 @@ public class SitePage : LogicBase {
     Template = path.Trim('/');
     List<string>? args = Template.Split(':').ToList();
     Path = args.First().Trim('/');
+    Section = Path.Split('/').First().ToLowerInvariant();
     args.RemoveAt(0);
     Args = args.Select(a => a.Trim('/')).ToArray();
     Title = title;
@@ -48,11 +50,23 @@ public class SitePage : LogicBase {
 
   public virtual EmbeddingBehaviour EmbedBehaviour => EmbeddingBehaviour.PreferNative;
 
+  public virtual bool MatchesPath(string path) => path.Split('/').First().ToLowerInvariant() == Section;
+
   [Observable] public List<string> Paths { get; } = new List<string>();
 
   [Observable] public string Title { get; }
 
+  public XElement GenerateSitemap(string rootUrl) {
+    return new XElement("url",
+      new XElement("loc", rootUrl + "/" + CanonicalPath)
+    );
+  }
+
   public string Path { get; }
+
+  public virtual string CanonicalPath => Path;
+
+  public string Section { get; }
 
   public string[] Args { get; }
 
