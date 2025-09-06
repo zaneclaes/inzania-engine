@@ -10,7 +10,7 @@ using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Utils;
-using Microsoft.Extensions.Configuration;
+// using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StrawberryShake;
 using StrawberryShake.Json;
@@ -34,11 +34,11 @@ public static class ClientExtensions {
     // .AddSingleton<StrawberryShake.IOperationResultBuilder<global::System.Text.Json.JsonDocument, GraphResult>, GraphBuilder>()
     .AddSingleton<IResultPatcher<JsonDocument>, JsonResultPatcher>();
 
-  public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) => new ApplicationStorage(
-    productName,
-    dirs.GetSection("User").Value!,
-    dirs.GetSection("Tmp").Value!,
-    dirs.GetSection("Www").Value);
+  // public static ApplicationStorage ToZApplicationDirectories(this IConfigurationSection dirs, string productName) => new ApplicationStorage(
+  //   productName,
+  //   dirs.GetSection("User").Value!,
+  //   dirs.GetSection("Tmp").Value!,
+  //   dirs.GetSection("Www").Value);
 
   public static Tuple<GraphRequest, List<IFileUpload>> ToGraphRequest(this OperationRequest opReq) {
     // var req = opReq.ToGraphQlHttpRequest();
