@@ -5,7 +5,6 @@ using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
-using IZ.Core.Utils.Cryptography;
 
 #endregion
 
@@ -52,9 +51,9 @@ public static class CryptographyUtils {
   public static string ToBase62String(this string str) => Base62Encode(Encoding.UTF8.GetBytes(str));
   public static string ToBase64String(this string str) => Convert.ToBase64String(Encoding.UTF8.GetBytes(str));
 
-  public static ulong ToSimpleHashVal(this string str) => XXHash.Hash64(Encoding.UTF8.GetBytes(str));
-
-  public static string ToSimpleHashStr(this string str) => str.ToSimpleHashVal().ToString("X");
+  // public static ulong ToSimpleHashVal(this string str) => XXHash.Hash64(Encoding.UTF8.GetBytes(str));
+  //
+  // public static string ToSimpleHashStr(this string str) => str.ToSimpleHashVal().ToString("X");
 
   public static string ToChecksum(this byte[] str) {
     using var cryptoProvider = SHA1.Create();

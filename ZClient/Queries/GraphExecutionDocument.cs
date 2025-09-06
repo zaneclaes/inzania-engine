@@ -31,7 +31,7 @@ public class GraphExecutionDocument : TransientObject, IDocument {
     // }
     Kind = executionResult.Plan.OperationType.ToOperationKind();
     Id = executionResult.Plan.Id;
-    Hash = new DocumentHash("md5Hash", Id.ToSimpleHashStr());
+    Hash = new DocumentHash("md5Hash", Id.ToMd5Hash());
   }
   public string Id { get; }
 
