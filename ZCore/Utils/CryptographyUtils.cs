@@ -15,7 +15,8 @@ public static class CryptographyUtils {
   // Encoding as base62 provides the shortest possible ALPHANUMERIC length
   private const string Base62Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   public static string ToMd5Hash(this string str) =>
-    BitConverter.ToString(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(str))).Replace("-", string.Empty);
+    Md5.ComputeHashString(str).ToUpperInvariant().Replace("-", string.Empty);
+    // BitConverter.ToString(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(str))).Replace("-", string.Empty);
 
   public static string ToSha256String(this string input) {
     if (string.IsNullOrWhiteSpace(input)) return string.Empty;

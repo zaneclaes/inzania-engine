@@ -18,6 +18,10 @@ public abstract class ApiObject : ContextualObject {
   }
 
   protected override string ContextualObjectGroup => "Object";
+  protected Task<TData> ResolveRequiredId<TData>(
+    string localId, string localPropName, string? foreignPropName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
+  ) where TData : ModelKey<string> => ResolveRequiredId<string, TData>(localId, localPropName, foreignPropName, beforeFilter, afterFilter);
 
   protected async Task<TData> ResolveRequiredId<TKey, TData>(
     TKey localId, string localPropName, string? foreignPropName = null,
@@ -53,6 +57,11 @@ public abstract class ApiObject : ContextualObject {
     if (afterFilter != null) query = afterFilter(query);
     return query;
   }
+
+  protected Task<TData?> ResolveOptionalId<TData>(
+    string? localId, string localPropName, string? foreignPropName = null,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
+  ) where TData : ModelKey<string> => ResolveOptionalId<string, TData>(localId, localPropName, foreignPropName, beforeFilter, afterFilter);
 
   protected async Task<TData?> ResolveOptionalId<TKey, TData>(
     TKey? localId, string localPropName, string? foreignPropName = null,

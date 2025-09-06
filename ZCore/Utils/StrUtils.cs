@@ -15,9 +15,9 @@ public static class StringUtils {
 
   public static string UrlToShopId(this string url) => url.Split("//").Last().ToSnakeCase();
 
-  public static string Slugify(this string name) => regexAlphaNumeric.Replace( // lowercase string separated by spaces, so we can strip punct.
+  public static string Slugify(this string name) => regexAlphaNumeric.Replace( // lowercase string separated by dashes (strips out punctuation)
     name.ToSnakeCase().Replace('_', ' '), string.Empty
-  ).Replace(' ', '-');
+  ).Trim().Replace(' ', '-');
 
   public static string ToFieldName(this string str) => str.ToCamelCase();
 
