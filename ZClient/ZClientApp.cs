@@ -3,7 +3,7 @@ using IZ.Core;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
 using IZ.Core.Observability.Logging;
-using Semver;
+using IZ.Core.Utils;
 
 namespace IZ.Client;
 
