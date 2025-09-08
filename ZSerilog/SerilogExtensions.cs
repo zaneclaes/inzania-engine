@@ -51,20 +51,21 @@ public static class SerilogExtensions {
 
   private static LogEntry ToLogEntry(this LogFileEntry entry, string fn, string clientId, string? userId, int lineNum) {
     string msgStr = entry.RenderMessage();
-    if (msgStr.Length > LogEntry.MaxMessageLength) {
-      entry.Log.Warning("[LOG] message {len} > {max}", msgStr.Length, LogEntry.MaxMessageLength);
-      msgStr = msgStr.Substring(0, LogEntry.MaxMessageLength);
-    }
+    // if (msgStr.Length > LogEntry.MaxMessageLength) {
+    //   entry.Log.Warning("[LOG] message {len} > {max}", msgStr.Length, LogEntry.MaxMessageLength);
+    //   msgStr = msgStr.Substring(0, LogEntry.MaxMessageLength);
+    // }
     string? exStr = entry.Exception;
-    if (exStr?.Length > LogEntry.MaxExceptionLength) {
-      entry.Log.Warning("[LOG] exception {len} > {max}", exStr.Length, LogEntry.MaxExceptionLength);
-      exStr = exStr.Substring(0, LogEntry.MaxExceptionLength);
-    }
+    // if (exStr?.Length > LogEntry.MaxExceptionLength) {
+    //   entry.Log.Warning("[LOG] exception {len} > {max}", exStr.Length, LogEntry.MaxExceptionLength);
+    //   exStr = exStr.Substring(0, LogEntry.MaxExceptionLength);
+    // }
     string propStr = ZJson.SerializeObject(entry.Properties);
-    if (propStr.Length > LogEntry.MaxPropsLength) {
-      entry.Log.Warning("[LOG] properties {len} > {max}", propStr.Length, LogEntry.MaxPropsLength);
-      propStr = propStr.Substring(0, LogEntry.MaxPropsLength);
-    }
+    // if (propStr.Length > LogEntry.MaxPropsLength) {
+    //   entry.Log.Warning("[LOG] properties {len} > {max}", propStr.Length, LogEntry.MaxPropsLength);
+    //   propStr = propStr.Substring(0, LogEntry.MaxPropsLength);
+    // }
+    var byteSize = (ulong)propStr.Length + (ulong)msgStr.Length + (ulong)(exStr?.Length ?? 0);
     return new LogEntry {
       Context = entry.Context,
       FileName = fn,
@@ -75,6 +76,7 @@ public static class SerilogExtensions {
       Exception = exStr,
       Properties = propStr,
       Level = entry.Level,
+      ByteSize = byteSize,
       LoggedAt = DateTimeOffset.Parse(entry.Timestamp).UtcDateTime
     };
   }
