@@ -1,5 +1,6 @@
 #region
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -40,10 +41,14 @@ public interface ISitePage {
   public List<string> Keywords { get; }
 
   public SeoImage? Image { get; }
+
+  public DateTime? LastModified { get; }
 }
 
 public interface ISiteSubPage : ISitePage {
   public DeepLink GetDeepLink(params string[] paths);
+
+  public List<ISiteSubPage> GetAllSubPages();
 }
 
 public class SitePage : LogicBase, ISitePage {
@@ -78,12 +83,36 @@ public class SitePage : LogicBase, ISitePage {
 
   [Observable] public string Title { get; }
 
-  public SeoImage? Image => null;
+  public virtual SeoImage? Image => null;
 
-  public XElement GenerateSitemap(string rootUrl) {
-    return new XElement("url",
-      new XElement("loc", rootUrl + "/" + CanonicalPath)
-    );
+  public virtual DateTime? LastModified => null;
+
+  protected virtual XElement GetSitePageElement(string rootUrl, ISitePage page) {
+    var url = new XElement("url", new XElement("loc", rootUrl + "/" + page.CanonicalPath));
+
+    if (page.LastModified != null) {
+      url.Add(new XElement("lastmod", page.LastModified.Value.ToUniversalTime()));
+    }
+
+    if (page.Image != null) {
+      url.Add(new XElement("image:image", new XElement("image:loc", page.Image.Url), new XElement("image:title", page.Image.Alt)));
+    }
+
+    // localization??
+    //   <xhtml:link   rel="alternate" hreflang="es" href="https://example.com/es/exercises/scales/major-octave-in-g"/>
+    return url;
+  }
+
+  public List<XElement> GenerateSitemap(string rootUrl) {
+    var ret = new List<XElement>() { GetSitePageElement(rootUrl, this) };
+    foreach (var subContent in SubContent) {
+      var subPages = subContent.GetAllSubPages();
+      ret.Add(GetSitePageElement(rootUrl, subContent));
+      foreach (var subPage in subPages) {
+        ret.Add(GetSitePageElement(rootUrl, subPage));
+      }
+    }
+    return ret;
   }
 
   public string Path { get; }
@@ -102,6 +131,8 @@ public class SitePage : LogicBase, ISitePage {
 
   public List<string> Keywords { get; }
   // public Type PageType { get; }
+
+  public virtual List<ISiteSubPage> SubContent { get; } = new List<ISiteSubPage>();
 
   public virtual ISiteSubPage? GetContent(params string[] components) => null;
 
