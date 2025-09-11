@@ -16,7 +16,7 @@ public enum EmbeddingBehaviour {
   NativeOnly = -1,
   PreferNative = 0, // WebGL opens the native screen (default)
   EmbedWebView = 1, // Not implemented in native...
-  OpenExternal = 2
+  WebGlBrowser = 2, // WebGL opens the browser URL (other apps use native)
 }
 
 public class SeoImage {
@@ -40,18 +40,18 @@ public interface ISitePage {
 
   public List<string> Keywords { get; }
 
+  public EmbeddingBehaviour EmbedBehaviour { get; }
+
   public SeoImage? Image { get; }
 
   public DateTime? LastModified { get; }
-}
 
-public interface ISiteSubPage : ISitePage {
   public DeepLink GetDeepLink(params string[] paths);
 
-  public List<ISiteSubPage> GetAllSubPages();
+  public List<ISitePage> GetAllSubPages();
 }
 
-public class SitePage : LogicBase, ISitePage {
+public abstract class SitePage : LogicBase, ISitePage {
 
   protected SitePage(
     IZContext context, string path, string title, string? desc = null, string? author = null, params string[] keywords
@@ -86,6 +86,8 @@ public class SitePage : LogicBase, ISitePage {
   public virtual SeoImage? Image => null;
 
   public virtual DateTime? LastModified => null;
+
+  public abstract DeepLink GetDeepLink(params string[] paths);
 
   protected virtual XElement GetSitePageElement(string rootUrl, ISitePage page) {
     var url = new XElement("url", new XElement("loc", rootUrl + "/" + page.CanonicalPath));
@@ -132,9 +134,9 @@ public class SitePage : LogicBase, ISitePage {
   public List<string> Keywords { get; }
   // public Type PageType { get; }
 
-  public virtual List<ISiteSubPage> SubContent { get; } = new List<ISiteSubPage>();
-
-  public virtual ISiteSubPage? GetContent(params string[] components) => null;
+  public List<ISitePage> GetAllSubPages() => SubContent;
+  public virtual List<ISitePage> SubContent { get; } = new List<ISitePage>();
+  public virtual ISitePage? GetContent(params string[] components) => null;
 
   public SitePage WithSubPaths(params string[] paths) {
     foreach (string path in paths) {

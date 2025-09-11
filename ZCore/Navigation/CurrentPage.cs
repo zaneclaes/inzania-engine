@@ -26,18 +26,18 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
 
   [Observable] public string Path { get; }
 
-  private ISiteSubPage? _content;
+  private ISitePage? _content;
 
   protected CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
     // Nav = nav;
-    Path = path;
+    Path = deepLink?.Path ?? path;
     Sitemap = sitemap;
     DeepLink = deepLink; // TuneDeepLink.FromPath(context, Path);
     _content = TopPage?.GetContent(new DeepLink(Context, path).SubPaths);
   }
   // public NavigationManager Nav { get; private set; }
 
-  public void SetContent(ISiteSubPage? content) {
+  public void SetContent(ISitePage? content) {
     _content = content;
   }
 
