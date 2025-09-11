@@ -30,7 +30,7 @@ public class SeoImage {
 }
 
 public interface ISitePage {
-  public string? Title { get; }
+  public string Title { get; }
 
   public string Path { get; }
 
@@ -49,6 +49,8 @@ public interface ISitePage {
   public DeepLink GetDeepLink(params string[] paths);
 
   public List<ISitePage> GetAllSubPages();
+
+  public bool IncludeInSiteMap { get; }
 }
 
 public abstract class SitePage : LogicBase, ISitePage {
@@ -109,9 +111,11 @@ public abstract class SitePage : LogicBase, ISitePage {
     var ret = new List<XElement>() { GetSitePageElement(rootUrl, this) };
     foreach (var subContent in SubContent) {
       var subPages = subContent.GetAllSubPages();
-      ret.Add(GetSitePageElement(rootUrl, subContent));
+      if (subContent.IncludeInSiteMap)
+        ret.Add(GetSitePageElement(rootUrl, subContent));
       foreach (var subPage in subPages) {
-        ret.Add(GetSitePageElement(rootUrl, subPage));
+        if (subPage.IncludeInSiteMap)
+          ret.Add(GetSitePageElement(rootUrl, subPage));
       }
     }
     return ret;
