@@ -51,6 +51,7 @@ public class ZObjectDescriptor : IAmInternal {
         string fieldName = prop.Name.ToCamelCase();
         var ignore = prop.GetCustomAttribute<ApiIgnoreAttribute>(true);
         if (ignore != null || prop.PropertyType.HasAssignableType(typeof(IAmInternal))) {
+          _properties[prop.Name].IsApiIgnored = true;
           continue;
         }
 

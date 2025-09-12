@@ -10,6 +10,10 @@ namespace IZ.Core.Json;
 
 public class ZJsonSerializationOpts {
   public bool PrettyPrint { get; set; }
+
+  public bool IgnoreDefaults { get; set; } = true;
+
+  public string? ApiFormat { get; set; }
 }
 
 public static class ZJson {

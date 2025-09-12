@@ -40,9 +40,9 @@ public class ZConvertFactory : EnumConvertFactory, IHaveContext {
 
   private readonly ZContextConverter _contextConverter;
 
-  public ZConvertFactory(IZContext context) {
+  public ZConvertFactory(IZContext context, ZJsonSerializationOpts? opts = null) {
     Context = context;
-    _contextConverter = new ZContextConverter(context);
+    _contextConverter = new ZContextConverter(context, opts);
     Log = context.Log.ForContext(GetType());
   }
   public IZContext Context { get; }

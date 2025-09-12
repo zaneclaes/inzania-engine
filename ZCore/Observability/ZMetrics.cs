@@ -20,6 +20,9 @@ public static class ZMetrics {
   public static readonly string UsersGroup = $"{Root}.users";
   public static readonly string UsersAuthGroup = $"{UsersGroup}.auth";
   public static readonly string UsersAuthTokenGroup = $"{UsersAuthGroup}.token";
+  public static readonly string UsersInstallsGroup = $"{UsersAuthGroup}.installs";
+  public static readonly string UsersInstrumentsGroup = $"{UsersAuthGroup}.instruments";
+  public static readonly string UsersWebCamsGroup = $"{UsersAuthGroup}.webcams";
 
   public static readonly string SysGroup = $"{Root}.sys";
 

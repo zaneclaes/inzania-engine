@@ -51,18 +51,21 @@ public class ZArrayConverter<TObj> : JsonConverter<TObj[]>, IHaveContext {
 
 public class ZContextConverter : JsonConverter<object>, IHaveContext {
   private JsonSerializerOptions? _deserializerOptions;
-  private JsonSerializerOptions? _serializerOptions;
+  // private JsonSerializerOptions? _serializerOptions;
+  private ZJsonSerializationOpts? _opts;
 
-  public ZContextConverter(IZContext context) {
+  public ZContextConverter(IZContext context, ZJsonSerializationOpts? opts = null) {
     Context = context;
     Log = context.Log.ForContext(GetType());
+    _opts = opts;
   }
 
   private JsonSerializerOptions DeserializerOptions =>
-    _deserializerOptions ??= SystemJson.DeserializeOptionsForContext(Context);
+    _deserializerOptions ??= SystemJson.DeserializeOptionsForContext(Context, null);
 
-  private JsonSerializerOptions SerializerOptions =>
-    _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null);
+  // private JsonSerializerOptions SerializerOptions =>
+  //   _serializerOptions ??= SystemJson.DeserializeOptionsForContext(null, null);
+
   public IZContext Context { get; }
   public IZLogger Log { get; }
 
@@ -175,7 +178,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         val = ReadArray(ref reader, prop?.FieldType ?? typeof(List<object>), AddBreadcrumb(propName, breadcrumbs));
       } else { // Scalars
         var tt = reader.TokenType;
-        if (prop != null && !prop.IsJsonIgnored) {
+        if (prop != null && !IsIgnored(prop, typeDescriptor.ObjectDescriptor)) {
           if (tt != JsonTokenType.Number && tt != JsonTokenType.String && tt != JsonTokenType.Null
               && tt != JsonTokenType.True && tt != JsonTokenType.False)
             Context.Log.Warning("[JSON] READ JSON {token}", reader.TokenType);
@@ -184,10 +187,10 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         }
         reader.Read();
 
-        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop?.IsJsonIgnored, tt);
+        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop == null || IsIgnored(prop,typeDescriptor.ObjectDescriptor), tt);
       }
       if (prop != null) {
-        if (!prop.IsJsonIgnored) {
+        if (!IsIgnored(prop, typeDescriptor.ObjectDescriptor)) {
           Context.Log.Verbose("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
           prop.SetValue(ret, val);
         } else {
@@ -223,6 +226,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       return;
     }
 
+
     if (value is IAmInternal) {
       // NO-OP
     } else if (value.GetType().IsScalar()) {
@@ -231,14 +235,30 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       var desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
       writer.WriteStartObject();
       foreach (var prop in desc.AllProperties) {
-        if (!prop.IsSettable || prop.IsJsonIgnored) continue;
+        if (!prop.IsSettable || IsIgnored(prop, desc)) continue;
         object? val = prop.GetValue(value);
         if (val is IAmInternal) continue;
-        writer.WritePropertyName(prop.Name);
+        if ((_opts?.IgnoreDefaults ?? true) && (val == prop.DefaultValue || (val?.Equals(prop.DefaultValue) ?? false))) continue;
+        writer.WritePropertyName(prop.FieldName);
         if (val == null) writer.WriteNullValue();
         else Write(writer, val, options);
       }
       writer.WriteEndObject();
     }
+  }
+
+  private bool IsIgnored(ZPropertyDescriptor prop, ZObjectDescriptor obj) {
+    var format = _opts?.ApiFormat;
+    if (format != null) { // mimic API serialization...
+      // Does it have a "Get" method?
+      if (obj.Methods.TryGetValue(prop.FieldName, out var method)) {
+        return !method.Formats.Contains(format);
+      }
+
+      if (prop.IsApiIgnored) return true;
+      if (prop.Formats.Any() && !prop.Formats.Contains(format)) return true;
+      return !prop.FieldTypeDescriptor.ObjectDescriptor.IsScalar;
+    }
+    return prop.IsJsonIgnored;
   }
 }

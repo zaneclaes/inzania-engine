@@ -25,4 +25,6 @@ public class ExecutionResult : TransientObject {
   public ExecutionPlan Plan { get; }
 
   public Dictionary<string, Tuple<ZTypeDescriptor, object?>> Args { get; }
+
+  public string? ResponseData { get; set; }
 }
