@@ -12,4 +12,6 @@ public struct ZRect {
     Width = width;
     Height = height;
   }
+
+  public override string ToString() => $"<Rect @{X}x{Y} {Width}x{Height}>";
 }
