@@ -9,4 +9,6 @@ public class ZSize {
   public float Width { get; set; }
 
   public float Height { get; set; }
+
+  public override string ToString() => $"<{Width}x{Height}>";
 }
