@@ -1,6 +1,6 @@
 namespace IZ.Core.Utils.Drawing;
 
-public struct ZPoint {
+public class ZPoint {
   public float X { get; set; }
 
   public float Y { get; set; }
