@@ -6,9 +6,9 @@ namespace IZ.Core.Utils;
 public static class MathUtils {
 
   // Helper: Greatest Common Divisor
-  private static int Gcd(int a, int b) {
+  private static long Gcd(long a, long b) {
     while (b != 0) {
-      int temp = b;
+      long temp = b;
       b = a % b;
       a = temp;
     }
@@ -16,13 +16,13 @@ public static class MathUtils {
   }
 
   // Helper: Least Common Multiple of two numbers
-  private static int Lcm(int a, int b) {
+  private static long Lcm(long a, long b) {
     if (a == 0 || b == 0) return 0;
     return Math.Abs(a / Gcd(a, b) * b);
   }
 
   // LCM of an array
-  public static int Lcm(params int[] numbers) {
+  public static long Lcm(params long[] numbers) {
     if (numbers == null || numbers.Length == 0)
       throw new ArgumentException("At least one number is required");
 
