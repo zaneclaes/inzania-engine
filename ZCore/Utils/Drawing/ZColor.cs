@@ -59,5 +59,13 @@ public readonly struct ZColor : IEquatable<ZColor> {
   public static readonly ZColor Red = new ZColor(255, 0, 0);
   public static readonly ZColor Green = new ZColor(0, 255, 0);
   public static readonly ZColor Blue = new ZColor(0, 0, 255);
+
+  public static readonly ZColor Yellow = new ZColor(255, 255, 0);
+  public static readonly ZColor Magenta = new ZColor(255, 0, 255);
+  public static readonly ZColor Cyan = new ZColor(0, 255, 255);
+
+  public static readonly ZColor Orange = new ZColor(255, 160, 16);
+  public static readonly ZColor Purple = new ZColor(160, 232, 255);
+
   public static readonly ZColor Transparent = new ZColor(0, 0, 0, 0);
 }
