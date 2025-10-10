@@ -35,6 +35,8 @@ public class ZRect {
 
   public ZRect WithY(float newY) => new ZRect(X, newY, Width, Height);
 
+  public ZRect WithScaledSize(float scale) => new ZRect(X, Y, Width * scale, Height * scale);
+
   public bool OverlapsWithWidth(ZRect other) => X < other.Right && other.X < Right;
   public bool OverlapsWithHeight(ZRect other) => Y < other.Top && other.Y < Top;
 
