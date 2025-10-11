@@ -38,15 +38,48 @@ public static class StringUtils {
     return parts.All(p => p.ToCharArray().All(char.IsDigit));
   }
 
-  public static string ToTitleCase(this string camelCase, string spaces = " ") {
-    return string.Join(spaces, camelCase
+  public static string ToTitleCase(this string camelCase) {
+    return string.Join("", camelCase
       .ToAlphaNumericChunks()
       .Select(s => s.Substring(0, 1).ToUpper() + (s.Length > 1 ? s.Substring(1) : "")));
+  }
+
+  private static readonly HashSet<string> _smallWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+    "a", "an", "and", "as", "at", "but", "by",
+    "for", "if", "in", "nor", "of", "on", "or",
+    "per", "the", "to", "vs", "via"
+  };
+
+  public static string ToTitleProper(this string input) {
+    var words = Regex.Split(input.ToLowerInvariant().Trim(), @"\s+")
+      .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+    for (int i = 0; i < words.Length; i++) {
+      string word = words[i];
+      if (word.Length == 0) continue;
+
+      // Capitalize if not a small word or if it's first/last
+      if (i == 0 || i == words.Length - 1 || !_smallWords.Contains(word)) {
+        // Preserve punctuation like “(foo)” or “foo:bar”
+        var match = Regex.Match(word, @"^(\W*)(\w)(\w*)(\W*)$");
+        if (match.Success) {
+          words[i] = match.Groups[1].Value +
+                     char.ToUpper(match.Groups[2].Value[0]) +
+                     match.Groups[3].Value +
+                     match.Groups[4].Value;
+        } else {
+          words[i] = char.ToUpper(word[0]) + (word.Length > 1 ? word.Substring(1) : "");
+        }
+      }
+    }
+
+    return string.Join(" ", words);
   }
 
   public static string ToKebabCase(this Enum camelCase, bool? lower = true) => camelCase.ToString().ToSnakeCase(lower, '-');
 
   public static string ToKebabCase(this string camelCase, bool? lower = true) => camelCase.ToSnakeCase(lower, '-');
+
+  private static readonly HashSet<char> _nonSplitChars = new HashSet<char>() {'\'', '’', '"', '.'};
 
   public static string[] ToAlphaNumericChunks(this string str, bool separateOnCase = true, bool separateNumbers = false) {
     List<string> chunks = new List<string>();
@@ -56,7 +89,7 @@ public static class StringUtils {
     for (int i = 0; i < str.Length; ++i) {
       char c = str[i];
       if (!char.IsLetter(c) && !char.IsNumber(c)) {
-        pendingSeparator = true;
+        if (!_nonSplitChars.Contains(c)) pendingSeparator = true;
         continue;
       }
       if (separateNumbers) {
