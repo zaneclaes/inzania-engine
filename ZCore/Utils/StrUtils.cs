@@ -38,11 +38,17 @@ public static class StringUtils {
     return parts.All(p => p.ToCharArray().All(char.IsDigit));
   }
 
-  public static string ToTitleCase(this string camelCase) {
-    return string.Join("", camelCase
+  public static string ToTitleCase(this string camelCase) => camelCase.ToTitleCase("");
+
+  public static string ToTitleWords(this string camelCase) => camelCase.ToTitleCase(" ");
+
+  public static string ToTitleCase<T>(this T e) where T : Enum => e.ToString().ToTitleCase();
+  public static string ToTitleWords<T>(this T e) where T : Enum => e.ToString().ToTitleWords();
+  public static string ToProperTitle<T>(this T e) where T : Enum => e.ToString().ToTitleWords().ToProperTitle();
+
+  private static string ToTitleCase(this string camelCase, string join) => string.Join(join, camelCase
       .ToAlphaNumericChunks()
       .Select(s => s.Substring(0, 1).ToUpper() + (s.Length > 1 ? s.Substring(1) : "")));
-  }
 
   private static readonly HashSet<string> _smallWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
     "a", "an", "and", "as", "at", "but", "by",
@@ -50,8 +56,8 @@ public static class StringUtils {
     "per", "the", "to", "vs", "via"
   };
 
-  public static string ToTitleProper(this string input) {
-    var words = Regex.Split(input.ToLowerInvariant().Trim(), @"\s+")
+  public static string ToProperTitle(this string input) {
+    var words = Regex.Split(input.ToLowerInvariant().Trim(), @"(\s-_)+")
       .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
     for (int i = 0; i < words.Length; i++) {
       string word = words[i];
