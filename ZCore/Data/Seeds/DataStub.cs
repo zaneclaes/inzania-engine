@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 
@@ -8,25 +9,38 @@ namespace IZ.Core.Data.Seeds;
 public abstract class DataStub { }
 
 public abstract class DataStub<TD> : DataStub, IItemizable where TD : DataObject {
-  private TD? _data;
-
-  public DataStub(TD? data = null) {
-    _data = data;
-  }
   public abstract string DataId { get; }
 
-  public TD Data => _data ??= Stub(DataSeed.DataContext);
   public string ItemId => DataId;
 
-  public TD Stub(IZContext context) => _data ??= CreateStub(context);
+  public TD StubData => _stubData ??= Stub(DataSeed.DataContext);
+  private TD? _stubData;
+
+  public TD? DbData { get; private set; }
+
+  public TD Data => DbData ?? StubData;
+
+  private ZTypeDescriptor TypeDesc => _desc ??= ZTypeDescriptor.FromType(typeof(TD));
+  private ZTypeDescriptor? _desc = null;
+
+  protected DataStub(TD? data = null) {
+    _stubData = data;
+  }
+
+  public TD Stub(IZContext context) => _stubData ??= CreateStub(context);
 
   protected virtual TD CreateStub(IZContext context) => throw new NotImplementedException($"{GetType().Name}.{nameof(Stub)}");
 
-  public virtual void Update(TD stub) {
-    var desc = ZTypeDescriptor.FromType(typeof(TD));
-    foreach (KeyValuePair<string, ZPropertyDescriptor> p in desc.ObjectDescriptor.ScalarProperties) {
-      if (!p.Value.IsSettable) continue;
-      p.Value.SetValue(Data, p.Value.GetValue(stub));
+  private void CopyStubDataValues(TD destData) {
+    var props = TypeDesc.ObjectDescriptor.ScalarProperties.Values.ToList();
+    foreach (var desc in props) {
+      if (!desc.IsSettable) continue;
+      desc.SetValue(destData, desc.GetValue(StubData));
     }
+  }
+
+  public virtual void Update(TD? dbData = null) {
+    if (dbData != null) DbData = dbData;
+    if (DbData != null) CopyStubDataValues(DbData);
   }
 }

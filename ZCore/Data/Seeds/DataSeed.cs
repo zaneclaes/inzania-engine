@@ -54,6 +54,7 @@ public abstract class DataSeed : IHaveContext {
 
 public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
 
+  // The best version of a model (db if available, else stub data)
   protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
   protected abstract List<DataStub<TD>> GetStubs();
 
@@ -69,40 +70,38 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
     }
   }
 
-  protected virtual IZQueryable<TD> GetQuery() => Context.QueryFor<TD>();
+  protected virtual IZQueryable<TD> FetchQuery() => Context.QueryFor<TD>();
 
   protected virtual void SetModel(TD model) {
     Models[model.Id] = model;
   }
 
-  public TD GetOrCreateModel(string title, Func<string, TD> creator, string? subtitle = null) {
-    string key = title + (subtitle ?? "");
-    var ret = Models.GetValueOrDefault(key);
-    if (ret == null) {
-      ret = creator(title);
-      SetModel(ret);
-    }
-    return ret;
-  }
+  // protected TD GetOrCreateModel(string title, Func<string, TD> creator, string? subtitle = null) {
+  //   string key = title + (subtitle ?? "");
+  //   var ret = Models.GetValueOrDefault(key);
+  //   if (ret == null) {
+  //     ret = creator(title);
+  //     SetModel(ret);
+  //   }
+  //   return ret;
+  // }
 
   private async Task<List<TD>> SeedModelIds(List<DataStub<TD>> stubs, List<TD>? existing = null) {
     string[] seedIds = stubs.Select(p => p.DataId).ToArray();
     // ZEnv.Log.Information("SEED LOOK FOR {ids}", seedIds.ToList());
-    existing ??= await GetQuery()
-      .Filter(p => seedIds.Contains(p.Id))
-      .LoadDataModelsAsync();
+    existing ??= await FetchQuery().Filter(p => seedIds.Contains(p.Id)).LoadDataModelsAsync();
     List<TD> models = existing.ToList();
 
     await ProcessExisting(existing);
     foreach (DataStub<TD> stub in stubs) {
       var e = existing.FirstOrDefault(e => e.Id.Equals(stub.DataId));
       if (e == null) {
-        await Context.Data.AddAsync(stub.Data);
-        models.Add(stub.Data);
+        await Context.Data.AddAsync(stub.StubData);
+        models.Add(stub.StubData);
       } else {
         stub.Update(e);
       }
-      SetModel(e ?? stub.Data);
+      SetModel(e ?? stub.StubData);
     }
     await Context.Data.SaveIfNeededAsync();
     return models;
@@ -113,7 +112,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
     HashSet<string> ids = new HashSet<string>();
     foreach (DataStub<TD> s in stubs)
       if (!ids.Add(s.DataId))
-        throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.Data.Id}");
+        throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.StubData.Id}");
     // ZEnv.Log.Information("SEED STUBS {t}", ids);
     return stubs;
   }
