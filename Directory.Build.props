@@ -5,6 +5,7 @@
     <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
     <TargetFramework>net9.0</TargetFramework>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <PropertyGroup>

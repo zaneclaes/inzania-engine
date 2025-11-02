@@ -30,9 +30,12 @@ public abstract class ValueRange<T> : IAmInternal where T : IComparable<T> {
 
   /// <summary>Determines if the provided value is inside the range.</summary>
   /// <param name="value">The value to test</param>
+  /// <param name="includeMin"></param>
+  /// <param name="includeMax"></param>
   /// <returns>True if the value is inside Range, else false</returns>
-  public bool ContainsValue(T value) => (InclusiveOfMinimum ? Minimum.CompareTo(value) <= 0 : Minimum.CompareTo(value) < 0) &&
-                                        (InclusiveOfMaximum ? value.CompareTo(Maximum) <= 0 : value.CompareTo(Maximum) < 0);
+  public bool ContainsValue(T value, bool? includeMin = null, bool? includeMax = null) =>
+    ((includeMin ?? InclusiveOfMinimum) ? Minimum.CompareTo(value) <= 0 : Minimum.CompareTo(value) < 0) &&
+    ((includeMax ?? InclusiveOfMaximum) ? value.CompareTo(Maximum) <= 0 : value.CompareTo(Maximum) < 0);
 
   public bool OverlapsWith(ValueRange<T> valueRange) => IsValid() &&
                                                         (ContainsValue(valueRange.Minimum) || ContainsValue(valueRange.Maximum) ||

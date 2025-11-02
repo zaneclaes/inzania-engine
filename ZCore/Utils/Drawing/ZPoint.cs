@@ -10,5 +10,7 @@ public class ZPoint {
     Y = y;
   }
 
+  public ZPoint Clone() => new ZPoint(X, Y);
+
   public override string ToString() => $"<x={X},y={Y}>";
 }

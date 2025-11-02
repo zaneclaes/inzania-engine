@@ -8,9 +8,7 @@ public class ZPath {
   private readonly List<List<ZPoint>> _contours = new List<List<ZPoint>>();
   private List<ZPoint>? _currentContour;
 
-  private List<ZPoint> _boundsPoints = new List<ZPoint>();
-
-  public ZRect Bounds { get; private set; }
+  public ZRect Bounds { get; private set; } = new ZRect();
 
   public void MoveTo(float x, float y) {
     _currentContour = new List<ZPoint> {
@@ -37,10 +35,6 @@ public class ZPath {
     var p1 = new ZPoint(cx1, cy1);             // control 1
     var p2 = new ZPoint(cx2, cy2);             // control 2
     var p3 = new ZPoint(x, y);                 // end
-
-    // _boundsPoints.Add(p1);
-    // _boundsPoints.Add(p2);
-    // _boundsPoints.Add(p3);
 
     for (int i = 1; i <= segments; i++) {
       float t = i / (float)segments;
@@ -72,9 +66,6 @@ public class ZPath {
     var p0 = _currentContour!.Last();
     var p1 = new ZPoint(cx, cy);
     var p2 = new ZPoint(x, y);
-
-    // _boundsPoints.Add(p1);
-    // _boundsPoints.Add(p2);
 
     for (int i = 1; i <= segments; i++) {
       float t = i / (float) segments;
@@ -108,7 +99,6 @@ public class ZPath {
 
   private void UpdateBounds() {
     List<ZPoint> allPoints = _contours.SelectMany(c => c).ToList();
-    allPoints.AddRange(_boundsPoints);
     if (!allPoints.Any()) {
       Bounds = new ZRect(0, 0, 0, 0);
       return;
