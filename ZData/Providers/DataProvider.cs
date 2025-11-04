@@ -22,7 +22,7 @@ public static class DataProvider {
   }
 
   public static async Task SeedDatabaseAsync(
-    this IServiceProvider services, params DataSeed[] seeds
+    this IServiceProvider services, params IDataSeed[] seeds
   ) {
     using var op = services.ScopeOperation();
     await op.ExecuteVoidTask(async () => {

@@ -13,7 +13,13 @@ using IZ.Core.Observability.Logging;
 
 namespace IZ.Core.Data.Seeds;
 
-public abstract class DataSeed : IHaveContext {
+public interface IDataSeed : IHaveContext {
+  public Task SeedDatabase(IZContext context);
+
+  public void StubLibrary(IZContext context);
+}
+
+public abstract class DataSeed : IDataSeed {
   private static IZContext? _dataContext;
   public static IZContext DataContext => _dataContext ??= ZEnv.SpawnRootContext();
 

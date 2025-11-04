@@ -65,7 +65,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   }
   protected WebApplication? WebApp { get; private set; }
 
-  protected abstract DataSeed[] DataSeeds { get; }
+  protected abstract IDataSeed[] DataSeeds { get; }
 
   private static ZLogBuilder CreateLogger(IConfiguration config) => SerilogZLogBuilder.GetDefault()
     .ReadFrom(c => c.Configuration(config, new ConfigurationReaderOptions(
