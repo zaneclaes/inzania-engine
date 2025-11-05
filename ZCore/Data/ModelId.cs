@@ -24,7 +24,7 @@ public interface IStringKeyData : IModelId<string> { }
 public abstract class ModelKey : DataObject {
   protected ModelKey(IZContext? context = null) : base(context) { }
 
-  [JsonIgnore] [ApiIgnore]
+  [JsonIgnore] [OutputIgnore]
   public abstract string? KeyId { get; }
 
   protected override string UuidId => KeyId ?? base.UuidId;
@@ -34,7 +34,7 @@ public abstract class ModelKey<TKey> : ModelKey, IModelId<TKey>, IItemizable<TKe
 
   protected ModelKey(IZContext? context = null) : base(context) { }
 
-  [JsonIgnore] [ApiIgnore]
+  [JsonIgnore] [OutputIgnore]
   public override string? KeyId => Id?.ToString();
 
   public virtual TKey ItemId => Id;

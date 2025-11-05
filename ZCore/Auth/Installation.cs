@@ -60,7 +60,7 @@ public class Installation : TransientObject {
 
   public string Version { get; set; } = null!;
 
-  [JsonIgnore] [ApiIgnore] public SemVersion SemVer {
+  [JsonIgnore] [OutputIgnore] public SemVersion SemVer {
     get => _semVersion ??= SemVersion.Parse(Version);
     set {
       _semVersion = value;

@@ -5,7 +5,7 @@ using IZ.Core.Data.Attributes;
 namespace IZ.Core.Observability.Logging;
 
 public interface IEventEnricher : IHaveContext {
-  [ApiIgnore]
+  [OutputIgnore]
   public Dictionary<string, object> EventProperties { get; }
 
   public Dictionary<string, object> EventTags { get; }

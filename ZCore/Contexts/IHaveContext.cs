@@ -9,11 +9,11 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Contexts;
 
 public interface IHaveLogger : IGetLogged {
-  [ApiIgnore]
+  [OutputIgnore]
   public IZLogger Log { get; }
 }
 
 public interface IHaveContext : IHaveLogger {
-  [ApiIgnore]
+  [OutputIgnore]
   public IZContext Context { get; }
 }

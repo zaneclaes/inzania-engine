@@ -32,7 +32,7 @@ public class ZVisitorIdentity : TransientObject, IZIdentity {
 
   public IZSession? UserSession => null;
 
-  [ApiIgnore]
+  [OutputIgnore]
   public IZUser? IZUser => null;
 
   public ClaimsPrincipal Principal { get; }

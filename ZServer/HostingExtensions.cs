@@ -144,7 +144,7 @@ public static class HostingExtensions {
     var obj = (Activator.CreateInstance(t) as ApiObject)!;
     obj.Context = context;
     foreach (var prop in desc.AllProperties) {
-      if (!prop.IsSettable || prop.IsJsonIgnored || prop.FieldType.IsAssignableTo(typeof(IAmInternal))) continue;
+      if (prop.IsOutputIgnored) continue;
       var key = prop.FieldName.ToTitleCase();
       object? val = null;
       if (prop.FieldTypeDescriptor.IsList) {

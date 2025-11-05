@@ -15,7 +15,7 @@ namespace IZ.Core.Api.Fragments;
 public interface IFragmentProvider {
   public Fragment LoadRequired(string fragmentName);
 
-  public Fragment LoadRequired(ZObjectDescriptor desc, string? format);
+  public Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format);
 
   public void LoadDirectory(string dir);
 }
@@ -25,9 +25,12 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
 
   private readonly ZApp _app;
 
+  private bool _generateContents = false;
+
   public FragmentProvider(ZApp app) {
     _app = app;
     Log = app.Log.ForContext(GetType());
+    _generateContents = _app.Target == ZTarget.PublicApp || _app.Env <= ZEnvironment.Development;
   }
 
   public Dictionary<string, Fragment> Fragments { get; } = new Dictionary<string, Fragment>();
@@ -37,8 +40,25 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     throw new SystemException($"Missing Fragment: {fragmentName}");
   }
 
-  public Fragment LoadRequired(ZObjectDescriptor desc, string? format) =>
-    LoadRequired(desc, format, new HashSet<string>());
+  public Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format) =>
+    LoadRequired(context, desc, format, new HashSet<string>());
+
+  public void WriteDirectory(IZContext context, string dir) {
+    bool wasGenerate = _generateContents;
+    _generateContents = true;
+    _graphqlDir = dir;
+    if (Directory.Exists(_graphqlDir)) Directory.Delete(_graphqlDir, true);
+    Directory.CreateDirectory(_graphqlDir);
+    ZApi.EnsureSchema();
+    var types = ZObjectDescriptor.ObjectTypes.Values.ToList();
+    foreach (var type in types) {
+      if (type.IsScalar) continue;
+      foreach (var format in type.ExpectedFormats) {
+        LoadRequired(context, type, format, new HashSet<string>());
+      }
+    }
+    _generateContents = wasGenerate;
+  }
 
   public void LoadDirectory(string dir) {
     _graphqlDir = dir;
@@ -91,13 +111,13 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
 
   public IZLogger Log { get; }
 
-  private Fragment LoadRequired(ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs) {
+  private Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs) {
     if (string.IsNullOrWhiteSpace(format)) format = null;
     string fragmentName = Fragment.GetName(desc, format);
     if (breadcrumbs.Add(fragmentName)) {
-      Log.Debug("[FRAGMENT] check {dir} {path}...", fragmentName);
+      context.Log.Debug("[FRAGMENT] check {dir} {path}...", fragmentName);
       string? contents = null;
-      bool generate = _app.Target == ZTarget.PublicApp || _app.Env <= ZEnvironment.Development || !Fragments.ContainsKey(fragmentName);
+      bool generate = _generateContents || !Fragments.ContainsKey(fragmentName);
 
       string? path = null;
       if (Directory.Exists(_graphqlDir)) {
@@ -105,51 +125,44 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
         if (!Directory.Exists(typeDir)) Directory.CreateDirectory(typeDir);
         path = Path.Join(typeDir, fragmentName + ".graphql");
       } else {
-        Log.Debug("[FRAGMENT] no persistent directory at {dir}", _graphqlDir);
+        context.Log.Debug("[FRAGMENT] no persistent directory at {dir}", _graphqlDir);
       }
 
       if (generate) {
-        Log.Debug("[FRAGMENT] creating {desc} {format} at {path}...", desc, format, path);
-        contents = GenerateFragmentContents(desc, format, breadcrumbs);
+        context.Log.Debug("[FRAGMENT] creating {desc} {format} at {path}...", desc, format, path);
+        contents = GenerateFragmentContents(context, desc, format, breadcrumbs);
         if (path != null) File.WriteAllText(path, contents);
       } else if (path != null && File.Exists(path)) {
         contents = File.ReadAllText(path);
       } else {
-        ZEnv.Log.Warning("[FRAGMENT] path does not exist for {name} in {dir}", fragmentName, _graphqlDir);
-        contents = GenerateFragmentContents(desc, format, breadcrumbs);
+        context.Log.Warning("[FRAGMENT] path does not exist for {name} in {dir}", fragmentName, _graphqlDir);
+        contents = GenerateFragmentContents(context, desc, format, breadcrumbs);
       }
       Fragments[fragmentName] = new Fragment(desc, format, contents);
     }
     return Fragments[fragmentName];
   }
 
-  private string GenerateFragmentContents(ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs, string? name = null) {
+  private string GenerateFragmentContents(IZContext context, ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs, string? name = null) {
     if (string.IsNullOrWhiteSpace(format)) format = null;
     name ??= Fragment.GetName(desc, format);
     List<string> ret = new List<string> {
       $"fragment {name} on {desc.TypeName} {{"
     };
-    foreach (string fieldName in desc.FieldMap.Keys) {
-      var fieldType = desc.FieldMap[fieldName];
+    var props = desc.GetPropertiesForFormat(format);
+    foreach (var prop in props) {
 
-      var childDesc = fieldType.FieldTypeDescriptor.ObjectDescriptor;
+      // context.Log.Information("[FIELD] {type}.{field}={ft}", desc.TypeName, fieldName, prop.FieldType);
 
-      ZEnv.Log.Verbose("[FIELD] {type} {fieldName} {format}", desc.TypeName, fieldName, fieldType.Formats);
+      var childDesc = prop.FieldTypeDescriptor.ObjectDescriptor;
+      // context.Log.Information("[FIELD] {type}.{field}", desc.TypeName, prop);
 
-      if (fieldType.Formats.Any()) {
-        // If the field specifies a format, we restrict inclusion
-        if (!fieldType.Formats.Contains(format)) continue;
-      } else if (!childDesc.IsScalar) {
-        // Complex objects are excluded if there's no explicit formatting field
-        continue;
-      }
-
-      string invoke = $"  {fieldName}";
+      string invoke = $"  {prop.FieldName}";
       if (!childDesc.IsScalar) invoke += $" {{ ...{Fragment.GetName(childDesc, format)} }}";
       ret.Add(invoke);
 
       // Make sure this child fragment exists!
-      if (!childDesc.IsScalar && !breadcrumbs.Contains(Fragment.GetName(childDesc, format))) LoadRequired(childDesc, format, breadcrumbs);
+      if (!childDesc.IsScalar && !breadcrumbs.Contains(Fragment.GetName(childDesc, format))) LoadRequired(context, childDesc, format, breadcrumbs);
     }
     ret.Add("}");
     return string.Join("\n", ret);

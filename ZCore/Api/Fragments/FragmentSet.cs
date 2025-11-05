@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using IZ.Core.Api.Types;
+using IZ.Core.Contexts;
 
 #endregion
 
@@ -10,8 +11,8 @@ namespace IZ.Core.Api.Fragments;
 
 public class FragmentSet {
 
-  public FragmentSet(IFragmentProvider provider, ZTypeDescriptor rootType, ResultSet resultSet) {
-    Root = provider.LoadRequired(rootType.ObjectDescriptor, resultSet.Format);
+  public FragmentSet(IZContext context, IFragmentProvider provider, ZTypeDescriptor rootType, ResultSet resultSet) {
+    Root = provider.LoadRequired(context, rootType.ObjectDescriptor, resultSet.Format);
     ResultSet = resultSet;
     LoadDependencies(provider, Root, new HashSet<string>());
   }

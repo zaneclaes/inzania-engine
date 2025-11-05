@@ -15,7 +15,7 @@ namespace IZ.Schema.Types;
 public class ZDataTypeInspector : DefaultTypeInspector, ITypeInspector {
   public override bool IsMemberIgnored(MemberInfo member) {
     ZEnv.Log.Verbose("[MEMBER] {type} {t2}", member.DeclaringType, member.ReflectedType);
-    return base.IsMemberIgnored(member) || member.IsDefined(typeof(ApiIgnoreAttribute)) ||
+    return base.IsMemberIgnored(member) || member.IsDefined(typeof(OutputIgnoreAttribute)) ||
            (member.DeclaringType?.IsAssignableTo(typeof(IAmInternal)) ?? false);
   }
   //

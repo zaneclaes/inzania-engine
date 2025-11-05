@@ -2,8 +2,10 @@
 
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
 using IZ.Core.Utils;
 
@@ -12,6 +14,21 @@ using IZ.Core.Utils;
 namespace IZ.Core.Api.Types;
 
 public class ZPropertyDescriptor : ZFieldDescriptor {
+  public bool IsIgnoredForFormat(string? format = null) {
+    if (!IsSettable) return true;
+
+    // If it has an explicit separate GetXXX accessor, use THOSE formats
+    var checkFormats = ExecutionMethod?.Formats ?? Formats;
+    if (checkFormats.Any()) {
+      if (IsOutputIgnored && ExecutionMethod == null) throw new SystemException($"{this} is both ignored and formatted");
+      return !checkFormats.Contains(format);
+    }
+
+    // Only consider the API ignore flag if it was not explicitly included
+    if (IsOutputIgnored) return true;
+
+    return !FieldTypeDescriptor.ObjectDescriptor.IsScalar;
+  }
 
   public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
     .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable) {
@@ -23,10 +40,10 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     IsSettable = propertyInfo.CanWrite;
     Order = propertyInfo.GetCustomAttribute<ApiOrderAttribute>()?.Order ?? -1;
     Observable = propertyInfo.GetCustomAttribute<ObservableAttribute>();
-    bool hasJsonIgnore = propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() != null;
-    IsJsonIgnored = !IsSettable || hasJsonIgnore;
+    var isValid = IsSettable && propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>(true) == null && !FieldType.HasAssignableType(typeof(IAmInternal));
+    IsOutputIgnored = propertyInfo.GetCustomAttribute<OutputIgnoreAttribute>(true) != null || !isValid;
     // IsLogIgnored = propertyInfo.GetCustomAttribute<LogIgnoreAttribute>() != null || hasJsonIgnore;
-    IsInputIgnored = propertyInfo.GetCustomAttribute<InputIgnoreAttribute>() != null || IsJsonIgnored;
+    IsInputIgnored = propertyInfo.GetCustomAttribute<InputIgnoreAttribute>() != null || !isValid;
 
     var defVal = propertyInfo.GetCustomAttribute<DefaultValueAttribute>();
     if (defVal != null) DefaultValue = defVal.Value;
@@ -53,11 +70,9 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
 
   // public bool IsLogIgnored { get; }
 
-  public bool IsJsonIgnored { get; }
-
   public bool IsInputIgnored { get; }
 
-  public bool IsApiIgnored { get; set; }
+  public bool IsOutputIgnored { get; private set; }
 
   public bool IsSettable { get; }
 
@@ -87,5 +102,5 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     });
   }
 
-  public override string ToString() => $"<{PropertyInfo.Name}: {FieldTypeDescriptor}>";
+  public override string ToString() => $"<{PropertyInfo.Name}: {FieldTypeDescriptor} {IsSettable}>";
 }

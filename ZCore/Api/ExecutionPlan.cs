@@ -28,7 +28,7 @@ public class ExecutionPlan {
   private readonly ZMethodDescriptor _method;
 
   private ExecutionPlan(
-    IFragmentProvider fragmentProvider, ApiExecutionType op, string operationName, ResultSet? resultSet = null
+    IZContext context, IFragmentProvider fragmentProvider, ApiExecutionType op, string operationName, ResultSet? resultSet = null
   ) {
     _method = ZApi.GetRequiredMethodByMethodName(op, operationName);
     OperationType = op;
@@ -38,7 +38,7 @@ public class ExecutionPlan {
     OperationName = _method.OperationName;
     Id = $"{OperationType}{QueryIdSplit}{FieldName}{QueryIdSplit}{Set}";
     try {
-      Fragments = new FragmentSet(fragmentProvider, ReturnType, Set);
+      Fragments = new FragmentSet(context, fragmentProvider, ReturnType, Set);
     } catch (Exception e) {
       throw new SystemException("Failed to create fragments", e);
     }
@@ -63,14 +63,14 @@ public class ExecutionPlan {
   public static ExecutionPlan Load(IZContext context, Type parent, string operationName, ResultSet resultSet) =>
     Load(context, GetClassExecutionType(parent), operationName, resultSet);
 
-  public static ExecutionPlan Load(IFragmentProvider frags, ApiExecutionType op, string operationName, ResultSet resultSet) {
+  public static ExecutionPlan Load(IZContext context, IFragmentProvider frags, ApiExecutionType op, string operationName, ResultSet resultSet) {
     string key = $"{op} {operationName} {resultSet}";
     if (_plans.TryGetValue(key, out var plan)) return plan;
-    return _plans[key] = new ExecutionPlan(frags, op, operationName, resultSet);
+    return _plans[key] = new ExecutionPlan(context, frags, op, operationName, resultSet);
   }
 
   public static ExecutionPlan Load(IZContext context, ApiExecutionType op, string operationName, ResultSet resultSet) =>
-    Load(context.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
+    Load(context, context.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
 
   public Dictionary<string, Tuple<ZTypeDescriptor, object?>> CoerceArgs(List<object?> args) {
     Dictionary<string, Tuple<ZTypeDescriptor, object?>> ret = new Dictionary<string, Tuple<ZTypeDescriptor, object?>>();

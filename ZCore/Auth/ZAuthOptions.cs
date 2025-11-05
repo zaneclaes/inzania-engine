@@ -10,13 +10,13 @@ public class ZAuthOptions {
 
   [Observable] public string PrivateUrl { get; set; } = null!;
 
-  [ApiIgnore]
+  [OutputIgnore]
   public string AdminSecret { get; set; } = null!;
 
-  [ApiIgnore]
+  [OutputIgnore]
   public ZClientOptions ApiClient { get; set; } = null!;
 
-  [ApiIgnore]
+  [OutputIgnore]
   public ZClientOptions WebClient { get; set; } = null!;
 
   public virtual List<ZClientOptions> AllClients => new List<ZClientOptions> {

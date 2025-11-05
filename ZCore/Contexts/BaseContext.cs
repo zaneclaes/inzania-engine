@@ -41,15 +41,15 @@ public abstract class BaseContext : IZContext, IEventEnricher {
 
   public Dictionary<string, object> EventTags => _eventTags ??= BuildEventTags();
 
-  [ApiIgnore] public IZContext Context => this;
-  [ApiIgnore] public IZLogger Log => _log ??= App.Log.ForContext(GetType(), this);
+  [OutputIgnore] public IZContext Context => this;
+  [OutputIgnore] public IZLogger Log => _log ??= App.Log.ForContext(GetType(), this);
 
-  [ApiIgnore] public virtual IZMetrics? Metrics => _metrics ??= Parent?.Metrics;
+  [OutputIgnore] public virtual IZMetrics? Metrics => _metrics ??= Parent?.Metrics;
 
-  [ApiIgnore] public virtual IZAnalytics? Analytics => _analytics ??=
+  [OutputIgnore] public virtual IZAnalytics? Analytics => _analytics ??=
     Parent?.Analytics ?? ServiceProvider.GetService<IZAnalytics>();
 
-  [ApiIgnore]
+  [OutputIgnore]
   public virtual IServiceProvider ServiceProvider => _services ?? Parent?.ServiceProvider ?? throw new NullReferenceException(nameof(ServiceProvider));
 
   public virtual IZIdentity? CurrentIdentity => Parent?.CurrentIdentity;

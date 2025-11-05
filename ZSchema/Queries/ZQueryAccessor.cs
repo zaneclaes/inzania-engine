@@ -18,13 +18,13 @@ using IZ.Core.Utils;
 
 namespace IZ.Schema.Queries;
 
-public class ZQueryAccessor : IOperationDocumentStorage {
+public class ZQueryAccessor : LogicBase, IOperationDocumentStorage {
 
   private static readonly ConcurrentDictionary<string, OperationDocument> Documents =
     new ConcurrentDictionary<string, OperationDocument>();
 
   private readonly IFragmentProvider _provider;
-  public ZQueryAccessor(IFragmentProvider frag) { _provider = frag; }
+  public ZQueryAccessor(ZApp app, IFragmentProvider frag) : base(new WorkContext(app, nameof(ZQueryAccessor))) { _provider = frag; }
 
   public ValueTask<IOperationDocument?> TryReadAsync(
     OperationDocumentId documentId, CancellationToken cancellationToken = new CancellationToken()
@@ -56,16 +56,16 @@ public class ZQueryAccessor : IOperationDocumentStorage {
       parts.RemoveAt(parts.Count - 1);
       // format = Enum.Parse<FragmentFormat>(parts.Last());
     }
-    if (parts.Count > 1) ZEnv.Log.Warning("[QUERY] {id} has unused parts", queryId);
+    if (parts.Count > 1) Log.Warning("[QUERY] {id} has unused parts", queryId);
     string fieldName = parts.First().ToFieldName();
-    ZEnv.Log.Debug("[QUERY] {type} {fieldName} {format}", executionType, fieldName, format);
+    Log.Debug("[QUERY] {type} {fieldName} {format}", executionType, fieldName, format);
 
     var set = new ResultSet {
       Format = format
     };
-    var exec = ExecutionPlan.Load(_provider, executionType, fieldName, set);
+    var exec = ExecutionPlan.Load(Context, _provider, executionType, fieldName, set);
     string query = exec.ToGraphQLDocument();
-    ZEnv.Log.Debug("[QUERY] {id} => {q}", queryId, query);
+    Log.Debug("[QUERY] {id} => {q}", queryId, query);
     var doc = new OperationDocument(Utf8GraphQLParser.Parse(query));
     return doc;
   }

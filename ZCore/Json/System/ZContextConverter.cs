@@ -178,7 +178,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         val = ReadArray(ref reader, prop?.FieldType ?? typeof(List<object>), AddBreadcrumb(propName, breadcrumbs));
       } else { // Scalars
         var tt = reader.TokenType;
-        if (prop != null && !IsIgnored(prop, typeDescriptor.ObjectDescriptor)) {
+        if (prop != null && !prop.IsIgnoredForFormat(_opts?.ApiFormat)) {
           if (tt != JsonTokenType.Number && tt != JsonTokenType.String && tt != JsonTokenType.Null
               && tt != JsonTokenType.True && tt != JsonTokenType.False)
             Context.Log.Warning("[JSON] READ JSON {token}", reader.TokenType);
@@ -187,10 +187,10 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         }
         reader.Read();
 
-        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop == null || IsIgnored(prop,typeDescriptor.ObjectDescriptor), tt);
+        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
       }
       if (prop != null) {
-        if (!IsIgnored(prop, typeDescriptor.ObjectDescriptor)) {
+        if (prop.IsSettable) {
           Context.Log.Verbose("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
           prop.SetValue(ret, val);
         } else {
@@ -226,18 +226,16 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       return;
     }
 
-
     if (value is IAmInternal) {
       // NO-OP
-    } else if (value.GetType().IsScalar()) {
+    } else if (value.GetType().IsScalar(false)) {
       JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
     } else {
       var desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
       writer.WriteStartObject();
-      foreach (var prop in desc.AllProperties) {
-        if (!prop.IsSettable || IsIgnored(prop, desc)) continue;
+      var props = desc.GetPropertiesForFormat(_opts?.ApiFormat);
+      foreach (var prop in props) {
         object? val = prop.GetValue(value);
-        if (val is IAmInternal) continue;
         if ((_opts?.IgnoreDefaults ?? true) && (val == prop.DefaultValue || (val?.Equals(prop.DefaultValue) ?? false))) continue;
         writer.WritePropertyName(prop.FieldName);
         if (val == null) writer.WriteNullValue();
@@ -245,20 +243,5 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       }
       writer.WriteEndObject();
     }
-  }
-
-  private bool IsIgnored(ZPropertyDescriptor prop, ZObjectDescriptor obj) {
-    var format = _opts?.ApiFormat;
-    if (format != null) { // mimic API serialization...
-      // Does it have a "Get" method?
-      if (obj.Methods.TryGetValue(prop.FieldName, out var method)) {
-        return !method.Formats.Contains(format);
-      }
-
-      if (prop.IsApiIgnored) return true;
-      if (prop.Formats.Any() && !prop.Formats.Contains(format)) return true;
-      return !prop.FieldTypeDescriptor.ObjectDescriptor.IsScalar;
-    }
-    return prop.IsJsonIgnored;
   }
 }

@@ -68,6 +68,7 @@ public static class ZSchema {
         .UsePersistedOperationPipeline()
         .ConfigureSchemaServices(s => {
           s
+            .AddSingleton<ZApp>(app)
             .AddSingleton<IFragmentProvider>(app.Fragments)
             .AddSingleton<ZQueryAccessor>()
             .AddSingleton<IOperationDocumentStorage, ZQueryAccessor>();

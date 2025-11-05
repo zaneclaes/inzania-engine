@@ -29,7 +29,18 @@ public static class TypeUtils {
 
   private static readonly ConcurrentDictionary<string, bool> _assignableTypes = new ConcurrentDictionary<string, bool>();
 
-  public static bool IsScalar(this Type type) => type.IsPrimitive || type.IsEnum || _scalarTypes.Contains(type);
+  public static bool IsScalar(this Type type, bool allowLists = true) {
+    if (allowLists) {
+      var list = type.GetListType();
+      if (list != null) return list.IsScalar();
+      var arr = type.IsArray ? type.GetElementType() : null;
+      if (arr != null) return arr.IsScalar();
+    }
+    var nullable = Nullable.GetUnderlyingType(type);
+    if (nullable != null) return nullable.IsScalar();
+    return type.IsPrimitive || type.IsEnum || _scalarTypes.Contains(type);
+  }
+
   public static Type? GetListType(this Type t) => t.IsListType() ? t.GetGenericArguments()[0] : null;
 
   public static bool IsEnumerableType(this Type t, Type? innerType = null) => t.IsGenericType && (innerType == null || t.GetGenericArguments()[0].IsAssignable(innerType));

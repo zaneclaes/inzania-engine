@@ -10,4 +10,4 @@ namespace IZ.Core.Data.Attributes;
 ///   Properties with this flag are not available via the Furballs API.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
-public class ApiIgnoreAttribute : Attribute { }
+public class OutputIgnoreAttribute : Attribute { }

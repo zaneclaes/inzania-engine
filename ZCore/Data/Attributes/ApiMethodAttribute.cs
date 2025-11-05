@@ -6,12 +6,12 @@ using IZ.Core.Api;
 #endregion
 
 namespace IZ.Core.Data.Attributes;
-
-[AttributeUsage(validOn: AttributeTargets.Method)]
-public class ApiMethodAttribute : Attribute {
-
-  public ApiMethodAttribute(ApiExecutionType executionType = ApiExecutionType.Query) {
-    ExecutionType = executionType;
-  }
-  public ApiExecutionType ExecutionType { get; }
-}
+//
+// [AttributeUsage(validOn: AttributeTargets.Method)]
+// public class ApiMethodAttribute : Attribute {
+//
+//   public ApiMethodAttribute(ApiExecutionType executionType = ApiExecutionType.Query) {
+//     ExecutionType = executionType;
+//   }
+//   public ApiExecutionType ExecutionType { get; }
+// }

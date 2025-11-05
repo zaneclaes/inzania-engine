@@ -30,7 +30,7 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
     _baseContext = context;
   }
 
-  [ApiIgnore]
+  [OutputIgnore]
   public virtual string Uuid => _uuid ??= GetUuid();
 
   internal ZTypeDescriptor ApiType => _apiType ??= ZTypeDescriptor.FromType(GetType());
@@ -39,7 +39,7 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
   // Low-cardinality grouping of objects used for metric tags & event property groups
   protected abstract string ContextualObjectGroup { get; }
 
-  [JsonIgnore] [ApiIgnore]
+  [JsonIgnore] [OutputIgnore]
   protected bool IsDisposed { get; private set; }
 
   protected virtual bool AllowRootContext => false;
@@ -49,16 +49,16 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
     IsDisposed = true;
   }
 
-  [ApiIgnore] [JsonIgnore] [NotMapped]
+  [OutputIgnore] [JsonIgnore] [NotMapped]
   public Dictionary<string, object> EventProperties => _eventProperties ??= BuildEventProperties();
 
-  [ApiIgnore] [JsonIgnore]
+  [OutputIgnore] [JsonIgnore]
   public Dictionary<string, object> EventTags => _eventTags ??= BuildEventTags();
 
-  [NotMapped] [ApiIgnore] [JsonIgnore]
+  [NotMapped] [OutputIgnore] [JsonIgnore]
   public IZLogger Log => _logger ??= Context.Log;
 
-  [NotMapped] [ApiIgnore] [JsonIgnore]
+  [NotMapped] [OutputIgnore] [JsonIgnore]
   public IZContext Context {
     get => _context ??= SpawnInContext(_baseContext);
     set {

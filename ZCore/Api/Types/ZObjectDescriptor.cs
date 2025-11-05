@@ -22,6 +22,10 @@ public class ZObjectDescriptor : IAmInternal {
 
   private readonly Dictionary<string, ZPropertyDescriptor> _properties = new Dictionary<string, ZPropertyDescriptor>();
 
+  public List<ZPropertyDescriptor> GetPropertiesForFormat(string? format = null) => AllProperties
+    .Where(p => !p.IsIgnoredForFormat(format))
+    .ToList();
+
   private ZObjectDescriptor(Type t) {
     ObjectType = t;
 
@@ -48,13 +52,8 @@ public class ZObjectDescriptor : IAmInternal {
           _methodInfos.Add(prop.GetSetMethod()!);
         }
 
-        string fieldName = prop.Name.ToCamelCase();
-        var ignore = prop.GetCustomAttribute<ApiIgnoreAttribute>(true);
-        if (ignore != null || prop.PropertyType.HasAssignableType(typeof(IAmInternal))) {
-          _properties[prop.Name].IsApiIgnored = true;
-          continue;
-        }
 
+        string fieldName = prop.Name.ToCamelCase();
         if (!_properties[prop.Name].IsInputIgnored) {
           Inputs[fieldName] = _properties[prop.Name];
         }
@@ -65,17 +64,17 @@ public class ZObjectDescriptor : IAmInternal {
           if (prop.GetCustomAttribute<ApiFormatAttribute>() != null) {
             FieldMap[fieldName] = ObjectProperties[fieldName];
           }
-        } else {
+        } else if (_properties[prop.Name].FieldType.IsScalar()) {
           ScalarProperties[fieldName] = _properties[prop.Name];
-          if (prop.CanWrite || prop.GetCustomAttribute<ApiFormatAttribute>() != null) {
-            FieldMap[fieldName] = ScalarProperties[fieldName];
+          if (!_properties[prop.Name].IsOutputIgnored || prop.GetCustomAttribute<ApiFormatAttribute>() != null) {
+            FieldMap[fieldName] = _properties[prop.Name];
           }
         }
       }
       Methods = t.GetMethods(BindingFlags.Public | BindingFlags.Instance) // BindingFlags.DeclaredOnly |
         .Where(mi =>
           !_methodInfos.Contains(mi) &&
-          mi.GetCustomAttribute<ApiMethodAttribute>(true) != null &&
+          mi.GetCustomAttribute<ApiFormatAttribute>(true) != null &&
           !mi.ReturnType.HasAssignableType(typeof(IAmInternal)))
         .Select(m => new ZMethodDescriptor(m))
         .ToDictionary(p => p.FieldName, p => p);
@@ -83,9 +82,11 @@ public class ZObjectDescriptor : IAmInternal {
       foreach (string fieldName in Methods.Keys) {
         if (FieldMap.ContainsKey(fieldName))
           throw new SystemException($"Duplicate field {fieldName} on {t.Name}");
-        if (ObjectProperties.TryGetValue(fieldName, out var property)) {
+        if (ObjectProperties.TryGetValue(fieldName, out var property) || ScalarProperties.TryGetValue(fieldName, out property)) {
           if (Methods[fieldName].Parameters.Any(p => !p.IsOptional))
             ZEnv.Log.Warning("[OBJ] {type}.{field} has an execution method, but it has parameters", t.Name, fieldName);
+          if (property.IsOutputIgnored)
+            throw new SystemException($"[OBJ] {t.Name}.{fieldName} has an execution method, but it is also ignored for output ({property})");
           property.ExecutionMethod = Methods[fieldName];
         }
         FieldMap[fieldName] = Methods[fieldName];
@@ -123,6 +124,13 @@ public class ZObjectDescriptor : IAmInternal {
 
   // Accessible on all requests (queries or mutations)
   public Dictionary<string, ZFieldDescriptor> FieldMap { get; } = new Dictionary<string, ZFieldDescriptor>();
+
+  public List<string?> ExpectedFormats => AllProperties
+    .SelectMany(p => p.Formats)
+    .Union(Methods.Values.SelectMany(p => p.Formats))
+    .Union(FieldMap.Values.SelectMany(p => p.Formats))
+    .Union(new List<string?>() { null })
+    .Distinct().ToList();
 
   public ZPropertyDescriptor? GetProperty(string name) => AllProperties.FirstOrDefault(p => p.FieldName == name);
 
