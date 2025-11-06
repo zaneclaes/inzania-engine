@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Serialization;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
@@ -34,6 +35,8 @@ public class ZObjectDescriptor : IAmInternal {
 
     IsFile = ObjectType.HasAssignableType<IFileUpload>();
     PacketDiscriminator = ObjectType.GetCustomAttribute<ApiPacketAttribute>()?.PacketDiscriminator ?? 0;
+    PolymorphicDiscriminatorName = ObjectType.GetCustomAttribute<JsonPolymorphicAttribute>(true)?.TypeDiscriminatorPropertyName;
+    PolymorphicTypes = ObjectType.GetCustomAttributes<JsonDerivedTypeAttribute>(true).Select(it => it.DerivedType).ToList();
 
     if (IsFile) {
       IsScalar = false;
@@ -108,6 +111,10 @@ public class ZObjectDescriptor : IAmInternal {
   public string TypeName { get; }
 
   public string InputTypeName { get; }
+
+  public string? PolymorphicDiscriminatorName { get; }
+
+  public List<Type> PolymorphicTypes { get; }
 
   public byte PacketDiscriminator { get; }
 

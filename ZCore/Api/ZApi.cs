@@ -80,7 +80,7 @@ public static class ZApi {
   private static bool IsTypeExplicitlyIncluded(Type t) => t is {IsAbstract: false, IsGenericType: false, IsPublic: true} &&
                                                           t.GetCustomAttribute<ApiPacketAttribute>() != null;
 
-  internal static void EnsureSchema() {
+  public static void EnsureSchema() {
     _startup.Wait();
     try {
       if (_hasSchema) return;

@@ -23,8 +23,7 @@ public class ZQueryAccessor : LogicBase, IOperationDocumentStorage {
   private static readonly ConcurrentDictionary<string, OperationDocument> Documents =
     new ConcurrentDictionary<string, OperationDocument>();
 
-  private readonly IFragmentProvider _provider;
-  public ZQueryAccessor(ZApp app, IFragmentProvider frag) : base(new WorkContext(app, nameof(ZQueryAccessor))) { _provider = frag; }
+  public ZQueryAccessor(ZApp app) : base(new WorkContext(app, nameof(ZQueryAccessor))) { }
 
   public ValueTask<IOperationDocument?> TryReadAsync(
     OperationDocumentId documentId, CancellationToken cancellationToken = new CancellationToken()
@@ -38,6 +37,14 @@ public class ZQueryAccessor : LogicBase, IOperationDocumentStorage {
     queryId.Contains(ExecutionPlan.QueryIdSplit) ? Documents.GetOrAdd(queryId, GenerateQuery) : null;
 
   private OperationDocument GenerateQuery(string queryId) {
+    var exec = GenerateExecutionPlan(Context, queryId);
+    string query = exec.ToGraphQLDocument();
+    Log.Debug("[QUERY] {id} => {q}", queryId, query);
+    var doc = new OperationDocument(Utf8GraphQLParser.Parse(query));
+    return doc;
+  }
+
+  public static ExecutionPlan GenerateExecutionPlan(IZContext context, string queryId) {
     List<string> parts = queryId.Split(ExecutionPlan.QueryIdSplit).ToList();
     string? format = null;
     var executionType = ApiExecutionType.Query;
@@ -56,17 +63,13 @@ public class ZQueryAccessor : LogicBase, IOperationDocumentStorage {
       parts.RemoveAt(parts.Count - 1);
       // format = Enum.Parse<FragmentFormat>(parts.Last());
     }
-    if (parts.Count > 1) Log.Warning("[QUERY] {id} has unused parts", queryId);
+    if (parts.Count > 1) context.Log.Warning("[QUERY] {id} has unused parts", queryId);
     string fieldName = parts.First().ToFieldName();
-    Log.Debug("[QUERY] {type} {fieldName} {format}", executionType, fieldName, format);
+    context.Log.Debug("[QUERY] {type} {fieldName} {format}", executionType, fieldName, format);
 
     var set = new ResultSet {
       Format = format
     };
-    var exec = ExecutionPlan.Load(Context, _provider, executionType, fieldName, set);
-    string query = exec.ToGraphQLDocument();
-    Log.Debug("[QUERY] {id} => {q}", queryId, query);
-    var doc = new OperationDocument(Utf8GraphQLParser.Parse(query));
-    return doc;
+    return ExecutionPlan.Load(context, executionType, fieldName, set);
   }
 }

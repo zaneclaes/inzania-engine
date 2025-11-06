@@ -136,11 +136,11 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   private object? ReadObject(ref Utf8JsonReader reader, Type type, params string[] breadcrumbs) {
     Log.Verbose("[JSON] OBJ START {idx} {type} {token}", string.Join("", breadcrumbs), type, reader.TokenType);
 
-    object ret = Activator.CreateInstance(type)!;
-    // Context.Log.Debug("OBJ {key} {type}", reader.TokenType, type);
-    // if (!(ret is ContextualObject co)) throw new ArgumentException($"Read non-object {type}");
-    if (ret is ContextualObject contextualObject) contextualObject.Context = Context;
+    // GetPolymorphicType(ref reader);
+
+    var vals = new Dictionary<ZPropertyDescriptor, object?>();
     var typeDescriptor = ZTypeDescriptor.FromType(type);
+    var polymorphicDiscriminatorName = typeDescriptor.ObjectDescriptor.PolymorphicDiscriminatorName;
 
     if (reader.TokenType == JsonTokenType.StartObject) reader.Read();
 
@@ -187,22 +187,40 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         }
         reader.Read();
 
-        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {ret}", propName, val, prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
+        if (polymorphicDiscriminatorName != null && prop?.Name == polymorphicDiscriminatorName) {
+          if (ZObjectDescriptor.ObjectTypes.TryGetValue(val?.ToString() ?? "", out var td)) {
+            if (td.ObjectType.HasAssignableType(typeDescriptor.ObjectDescriptor.ObjectType)) {
+              typeDescriptor = ZTypeDescriptor.FromType(td.ObjectType);
+            } else {
+              Context.Log.Warning("[DISCRIMINATOR] {t} is not a subclass of {parent}", td, typeDescriptor);
+            }
+          } else {
+            Context.Log.Warning("[DISCRIMINATOR] {v} could not be found among {types}", val, ZObjectDescriptor.ObjectTypes.Keys);
+          }
+        }
+
+        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {r}", propName, val, prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
       }
       if (prop != null) {
         if (prop.IsSettable) {
-          Context.Log.Verbose("{key} = {val} ({type}) on {ret}", propName, val,val?.GetType(),  ret.GetType());
-          prop.SetValue(ret, val);
+          // Context.Log.Verbose("{key} = {val} ({type}) on {r}", propName, val,val?.GetType(),  ret.GetType());
+          // prop.SetValue(ret, val);
+          vals[prop] = val;
         } else {
-          Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {ret}", propName, val, val?.GetType(), ret.GetType());
+          Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {r}", propName, val, val?.GetType(), typeDescriptor);
         }
       }
     }
     // Context.Log.Debug("OBJ END1 {idx} {key} {type}", n,reader.TokenType, type);
     reader.Read();
     // if (reader.TokenType == JsonTokenType.EndArray) reader.Read();
-    Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, type);
+    Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, typeDescriptor);
 
+    object ret = Activator.CreateInstance(typeDescriptor.OrigType)!;
+    if (ret is ContextualObject contextualObject) contextualObject.Context = Context;
+    foreach (var k in vals.Keys) {
+      k.SetValue(ret, vals[k]);
+    }
     return ret;
   }
 

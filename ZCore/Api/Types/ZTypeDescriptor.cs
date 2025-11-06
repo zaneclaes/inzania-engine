@@ -88,6 +88,9 @@ public class ZTypeDescriptor {
       ZEnv.Log.Debug("[EXPAND] TREE {type} :: {key} => {field}", this, key, ObjectDescriptor.FieldMap[key]);
       added.AddRange(ObjectDescriptor.FieldMap[key].ExpandTypes(breadcrumbs));
     }
+    foreach (var type in ObjectDescriptor.PolymorphicTypes) {
+      added.Add(FromType(type));
+    }
     return added;
   }
 

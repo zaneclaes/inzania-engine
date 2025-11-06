@@ -22,11 +22,16 @@ public class ZTestAppSettings : IZAppSettings {
 
 public class ZTestApp : ZApp {
 
+  protected IServiceCollection _serviceCollection;
+
   public ZTestApp(
-    string appName, string domainName, ZLogBuilder logBuilder, ServiceCollection services, ApplicationStorage? directories = null
+    string appName, string domainName, ZLogBuilder logBuilder, IServiceCollection services, ApplicationStorage? directories = null
   ) : base(appName + "Test", domainName, c => new ZTestAppSettings {
     Storage = directories
-  }, services.BuildServiceProvider, ZEnvironment.Testing, () => logBuilder, ZTarget.UnitTests) { }
+  }, services.BuildServiceProvider, ZEnvironment.Testing, () => logBuilder, ZTarget.UnitTests) {
+    _serviceCollection = services
+      .AddSingleton<ZApp>(this);
+  }
 
   protected virtual SerilogZLogBuilder GetLogBuilder() => SerilogZLogBuilder.GetDefault();
 
