@@ -14,6 +14,8 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Data.Seeds;
 
 public interface IDataSeed : IHaveContext {
+  public bool StubOnClient { get; }
+
   public Task SeedDatabase(IZContext context);
 
   public void StubLibrary(IZContext context);
@@ -30,15 +32,15 @@ public abstract class DataSeed : IDataSeed {
   public IZContext Context { get; set; } = null!;
   public IZLogger Log { get; set; } = null!;
 
+  public virtual bool StubOnClient => false;
+
   public async Task SeedDatabase(IZContext context) {
     _dataContext = Context = context;
     Log = context.Log.ForContext(GetType());
     try {
-      var sw = Stopwatch.StartNew();
       await Exec();
       await Context.Data.SaveIfNeededAsync();
-      context.IncrementMetric($"{ZMetrics.SysGroup}.seed");
-      Log.Information("[SEED] {type} ran in {ms}ms", GetType().Name, sw.ElapsedMilliseconds);
+      context.IncrementMetric($"{ZMetrics.SysGroup}.seed.{GetType().Name}");
     } catch (Exception e) {
       Log.Error(e, "[SEED] {type} failed", GetType().Name);
     }

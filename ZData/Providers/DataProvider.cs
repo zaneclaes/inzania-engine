@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Seeds;
@@ -27,7 +28,9 @@ public static class DataProvider {
     using var op = services.ScopeOperation();
     await op.ExecuteVoidTask(async () => {
       foreach (var seed in seeds) {
+        var sw = Stopwatch.StartNew();
         await seed.SeedDatabase(op);
+        op.Log.Information("[SEED] {type} ran in {ms}ms", seed.GetType().Name, sw.ElapsedMilliseconds);
       }
     });
   }
