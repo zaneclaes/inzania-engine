@@ -32,9 +32,10 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
         error = error.SetExtension("Reason", zEx.Reason);
       Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
     } else {
+      var path = error.Path is not null ? error.Path.ToString() : "null";
       string ext = error.Extensions?.Any() ?? false ?
-        "\n" + string.Join(", ", error.Extensions.Select(e => e.Key + ": " + e.Value)) : "";
-      Log.Error("[GQL] unknown error {code}: {msg}{ext}", error.Code, error.Message, ext);
+        " [" + string.Join(", ", error.Extensions.Select(e => e.Key + ": " + e.Value)) + "]" : "";
+      Log.Error("[GQL] unknown error {code} for {path}: {msg}{ext}", error.Code, path, error.Message, ext);
     }
     return error;
   }
