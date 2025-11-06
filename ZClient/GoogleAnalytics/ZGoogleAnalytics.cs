@@ -38,8 +38,7 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   public ZGoogleAnalytics(ZApp app) : base(new WorkContext(app, nameof(ZGoogleAnalytics))) { }
 
-  public AnalyticsOptions StreamOptions => _stream ??= Context.GetRequiredService<IZAppSettings>().GoogleAnalytics ??
-                                                       throw new NullReferenceException("Missing GA settings");
+  public AnalyticsOptions? StreamOptions => _stream ??= Context.GetRequiredService<IZAppSettings>().GoogleAnalytics;
   private AnalyticsOptions? _stream = null;
 
   private TimeSpan _lastEngagementTime = TimeSpan.Zero;
@@ -66,7 +65,11 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     }
     if (_identity?.IZUser?.Id != identity.IZUser?.Id) _userProps.Clear();
     _identity = identity;
-    await (_sink = sink).Config(StreamOptions, install, identity, MergeUserProps(userProps));
+    _sink = sink;
+    if (StreamOptions != null)
+      await sink.Config(StreamOptions, install, identity, MergeUserProps(userProps));
+    else
+      Log.Warning("[ANALYTICS] missing GA settings");
     // await ((IZAnalytics) this).SetIdentity(identity, MergeUserProps(userProps));
     ProcessQueue();
   }
