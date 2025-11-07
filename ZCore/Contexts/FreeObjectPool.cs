@@ -40,7 +40,7 @@ public abstract class FreeObjectPool : LogicBase, IPool {
   public List<object> GetBusyObjects() => _busy;
 
   public virtual object ClaimObject() {
-    object claimed = _free.Any() ? ClaimFreeObject() : CreateObject();
+    object claimed = ClaimFreeObject() ?? CreateObject();
     _busy.Add(claimed);
     // Log.Information("[POOL] busy {name}", claimed);
     return claimed;
@@ -55,8 +55,9 @@ public abstract class FreeObjectPool : LogicBase, IPool {
 
   protected abstract object CreateObject();
 
-  protected virtual object ClaimFreeObject() {
-    object? ret = _free.First();
+  protected virtual object? ClaimFreeObject() {
+    object? ret = _free.FirstOrDefault();
+    if (ret == null) return null;
     _free.RemoveAt(0);
     return ret;
   }
