@@ -3,6 +3,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
 
@@ -65,6 +66,11 @@ public abstract class ModelNumber : ModelKey<long>, IModelChildren<long> {
 
 public abstract class ModelId : ModelKey<string>, IStringKeyData, IItemizable, IModelChildren<string> {
   public const int MaxIdLength = 128; // Guid length (32), plus lots of space for children expansion
+
+  protected Resolution<TData> ResolveForeignId<TData>(
+    string localPropName, string foreignKeyPropName,
+    Func<IZQueryable<TData>, IZQueryable<TData>>? beforeFilter = null, Func<IZQueryable<TData>, IZQueryable<TData>>? afterFilter = null
+  ) where TData : ModelKey<string> => new Resolution<TData>(ResolveKey(Id, localPropName, foreignKeyPropName, beforeFilter, afterFilter));
 
   protected ModelId(IZContext? context = null, string? id = null) : base(context) {
     // ReSharper disable once VirtualMemberCallInConstructor
