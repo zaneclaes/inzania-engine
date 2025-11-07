@@ -1,7 +1,10 @@
 #region
 
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using IZ.Core.Contexts;
 
@@ -12,11 +15,76 @@ namespace IZ.Core.Navigation;
 public abstract class Sitemap : LogicBase {
 
   public Sitemap(IZContext context) : base(context) { }
-  public XElement Xml { get; protected set; } = null!;
 
   public abstract T GetPage<T>() where T : SitePage;
 
   public abstract T? GetPagePath<T>(string path) where T : SitePage;
+
+  public async Task<string> EnsureSitemapFile(IZContext context, int page = 0) {
+    var fn = page > 0 ? $"sitemap-{page}.xml" : "sitemap.xml";
+    var dir = await EnsureSitemaps(context);
+    var fp = Path.Combine(dir, fn);
+    return fp;
+  }
+
+  public const int MaxSitemapsPerPage = 50000;
+  private static readonly XNamespace _xmlNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
+
+  private async Task<string> EnsureSitemaps(IZContext context) {
+    var dir = Path.Combine(context.App.Storage.UserDir, "sitemaps");
+    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+    await GenerateSitemaps(context, dir);
+    return dir;
+  }
+
+  private async Task GenerateSitemaps(IZContext context, string dir) {
+    string fp = "";
+    var index = new XElement(_xmlNamespace + "sitemapindex");
+    var curSitemapNum = 1;
+    var curSitemapCnt = 0;
+    DateTime? curSitemapLastModified = null;
+    var curSitemapEntry = new XElement("sitemap");
+    curSitemapEntry.Add(new XElement("loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
+    index.Add(curSitemapEntry);
+
+    var curSitemapPage = new XElement(_xmlNamespace + "urlset");
+    var pages = await GetSitemapPages(context);
+    foreach (var page in pages) {
+      if (curSitemapCnt >= MaxSitemapsPerPage) {
+        fp = Path.Combine(dir, $"sitemap-{curSitemapNum}.xml");
+        await File.WriteAllTextAsync(fp, curSitemapPage.ToString());
+        if (curSitemapLastModified != null) {
+          curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value + "Z"));
+          File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
+        }
+
+        curSitemapNum++;
+        curSitemapCnt = 0;
+        curSitemapLastModified = null;
+        curSitemapEntry = new XElement("sitemap");
+        curSitemapEntry.Add(new XElement("loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
+        index.Add(curSitemapEntry);
+        curSitemapPage = new XElement(_xmlNamespace + "urlset");
+      }
+      curSitemapPage.Add(page.ToSitemapXml());
+      if (page.LastModified != null) {
+        if (curSitemapLastModified == null == curSitemapLastModified < page.LastModified)
+          curSitemapLastModified = page.LastModified.Value;
+      }
+      curSitemapCnt++;
+    }
+
+    fp = Path.Combine(dir, $"sitemap-{curSitemapNum}.xml");
+    await File.WriteAllTextAsync(fp, curSitemapPage.ToString());
+    if (curSitemapLastModified != null) {
+      curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value + "Z"));
+      File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
+    }
+
+    await File.WriteAllTextAsync(Path.Combine(dir, "sitemap.xml"), index.ToString());
+  }
+
+  public abstract Task<List<ISitemapPage>> GetSitemapPages(IZContext context);
 }
 
 public abstract class Sitemap<TPage, TLink> : Sitemap where TPage : SitePage where TLink : DeepLink<TPage> {
@@ -36,7 +104,7 @@ public abstract class Sitemap<TPage, TLink> : Sitemap where TPage : SitePage whe
   protected void AddPages(params TPage[] pages) {
     Pages.AddRange(pages);
     Map = GetRouteTypeMap(Pages);
-    Xml = Generate(Context.App.Url, Map);
+    // Xml = Generate(Context.App.Url, Map);
   }
 
   // public SitePage? GetPage(SiteCategory category) => Pages.FirstOrDefault(p => p.Category == category);
@@ -59,14 +127,23 @@ public abstract class Sitemap<TPage, TLink> : Sitemap where TPage : SitePage whe
     // .SelectMany(d => d.GetSitePages())
     .ToDictionary(d => d.Path, d => d);
 
-  private static XElement Generate(string rootUrl, Dictionary<string, TPage> map) {
-    XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-    var urlset = new XElement(ns + "urlset");
-    foreach (var page in map.Values) {
+  // private static XElement Generate(string rootUrl, Dictionary<string, TPage> map) {
+  //   XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+  //   var urlset = new XElement(ns + "urlset");
+  //   foreach (var page in map.Values) {
+  //     if (!page.IncludeInSiteMap) continue;
+  //     // var page = map[path];
+  //     urlset.Add(page.GenerateSitemap(rootUrl));
+  //   }
+  //   return urlset;
+  // }
+
+  public override async Task<List<ISitemapPage>> GetSitemapPages(IZContext context) {
+    List<ISitemapPage> pages = new List<ISitemapPage>();
+    foreach (var page in Map.Values) {
       if (!page.IncludeInSiteMap) continue;
-      // var page = map[path];
-      urlset.Add(page.GenerateSitemap(rootUrl));
+      pages.AddRange(await page.GetSitemapPages(context));
     }
-    return urlset;
+    return pages;
   }
 }

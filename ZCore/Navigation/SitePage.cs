@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -17,40 +18,6 @@ public enum EmbeddingBehaviour {
   PreferNative = 0, // WebGL opens the native screen (default)
   EmbedWebView = 1, // Not implemented in native...
   WebGlBrowser = 2, // WebGL opens the browser URL (other apps use native)
-}
-
-public class SeoImage {
-  public string Url { get; set; } = null!;
-
-  public string? Alt { get; set; }
-
-  public int Width { get; set; } = 1280;
-
-  public int Height { get; set; } = 630;
-}
-
-public interface ISitePage {
-  public string Title { get; }
-
-  public string Path { get; }
-
-  public string CanonicalPath { get; }
-
-  public string? Description { get; }
-
-  public List<string> Keywords { get; }
-
-  public EmbeddingBehaviour EmbedBehaviour { get; }
-
-  public SeoImage? Image { get; }
-
-  public DateTime? LastModified { get; }
-
-  public DeepLink GetDeepLink(params string[] paths);
-
-  public List<ISitePage> GetAllSubPages();
-
-  public bool IncludeInSiteMap { get; }
 }
 
 public abstract class SitePage : LogicBase, ISitePage {
@@ -85,37 +52,48 @@ public abstract class SitePage : LogicBase, ISitePage {
 
   [Observable] public string Title { get; }
 
-  public virtual SeoImage? Image => null;
+  public virtual ISitemapImage? SitemapImage => null;
 
   public virtual DateTime? LastModified => null;
 
   public abstract DeepLink GetDeepLink(params string[] paths);
 
-  protected virtual XElement GetSitePageElement(string rootUrl, ISitePage page) {
-    var url = new XElement("url", new XElement("loc", rootUrl + "/" + page.CanonicalPath));
+  // protected virtual XElement GetSitePageElement(string rootUrl, ISitePage page) {
+  //   var url = new XElement("url", new XElement("loc", rootUrl + "/" + page.CanonicalPath));
+  //
+  //   if (page.LastModified != null) {
+  //     url.Add(new XElement("lastmod", page.LastModified.Value.ToUniversalTime()));
+  //   }
+  //
+  //   if (page.Image != null) {
+  //     url.Add(new XElement("image:image", new XElement("image:loc", page.Image.Url), new XElement("image:title", page.Image.Caption)));
+  //   }
+  //
+  //   // localization??
+  //   //   <xhtml:link   rel="alternate" hreflang="es" href="https://example.com/es/exercises/scales/major-octave-in-g"/>
+  //   return url;
+  // }
+  //
+  // public List<XElement> GenerateSitemap(string rootUrl) {
+  //   var ret = new List<XElement>() { GetSitePageElement(rootUrl, this) };
+  //   foreach (var subContent in SubContent) {
+  //     var subPages = subContent.GetAllSubPages();
+  //     if (subContent.IncludeInSiteMap)
+  //       ret.Add(GetSitePageElement(rootUrl, subContent));
+  //     foreach (var subPage in subPages) {
+  //       if (subPage.IncludeInSiteMap)
+  //         ret.Add(GetSitePageElement(rootUrl, subPage));
+  //     }
+  //   }
+  //   return ret;
+  // }
 
-    if (page.LastModified != null) {
-      url.Add(new XElement("lastmod", page.LastModified.Value.ToUniversalTime()));
-    }
-
-    if (page.Image != null) {
-      url.Add(new XElement("image:image", new XElement("image:loc", page.Image.Url), new XElement("image:title", page.Image.Alt)));
-    }
-
-    // localization??
-    //   <xhtml:link   rel="alternate" hreflang="es" href="https://example.com/es/exercises/scales/major-octave-in-g"/>
-    return url;
-  }
-
-  public List<XElement> GenerateSitemap(string rootUrl) {
-    var ret = new List<XElement>() { GetSitePageElement(rootUrl, this) };
+  public virtual async Task<List<ISitemapPage>> GetSitemapPages(IZContext context) {
+    var ret = new List<ISitemapPage>() { this };
     foreach (var subContent in SubContent) {
-      var subPages = subContent.GetAllSubPages();
-      if (subContent.IncludeInSiteMap)
-        ret.Add(GetSitePageElement(rootUrl, subContent));
+      var subPages = await subContent.GetSitemapPages(context);
       foreach (var subPage in subPages) {
-        if (subPage.IncludeInSiteMap)
-          ret.Add(GetSitePageElement(rootUrl, subPage));
+        ret.Add(subPage);
       }
     }
     return ret;
