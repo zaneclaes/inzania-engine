@@ -41,13 +41,6 @@ public static class ZContexts {
     Context = context
   };
 
-  private static string? CheckUserRole(IZUser? user, ZUserRole minRole, params string[] bypassIds) {
-    if (user == null) return nameof(user);
-    if (user.Role >= minRole) return null;
-    if (!bypassIds.Contains(user.Id)) return user.Role.ToString() + " User";
-    return null;
-  }
-
   public static Dictionary<string, object> GetEventProperties(this IZContext context) {
     Dictionary<string, object>? ret = new Dictionary<string, object> {
       ["Context.Type"] = context.GetType().Name,
@@ -70,28 +63,6 @@ public static class ZContexts {
       throw new AccessViolationException("UserId mismatch");
     }
     return curUser.Id;
-  }
-
-  public static string? GetOwnerId(this IOwned owned) {
-    if (owned is IAmOwned own) return own.UserId;
-    if (owned is IMightBeOwned o) return o.UserId;
-    throw new SystemException($"{owned.GetType()} is IOwned, but not IAmOwned or IMightBeOwned");
-  }
-
-  public static string? CheckOwnershipException(this IOwned owned, IZIdentity? id, ZUserRole bypassRole = ZUserRole.Admin) =>
-    owned.CheckOwnershipException(id?.IZUser, bypassRole);
-
-  public static string? CheckOwnershipException(this IOwned owned, IZUser? user, ZUserRole bypassRole = ZUserRole.Admin) {
-    string? ownerId = owned.GetOwnerId();
-    return ownerId == null ? CheckUserRole(user, bypassRole) : CheckUserRole(user, bypassRole, ownerId);
-  }
-
-  public static void EnsureOwnership(this IOwned owned, IZIdentity? id, ZUserRole bypassRole = ZUserRole.Admin) =>
-    owned.EnsureOwnership(id?.IZUser, bypassRole);
-
-  public static void EnsureOwnership(this IOwned owned, IZUser? user, ZUserRole bypassRole = ZUserRole.Admin) {
-    string? exception = owned.CheckOwnershipException(user, bypassRole);
-    if (exception != null) throw new UnauthorizedAccessException(exception);
   }
 
   public static void EnsureRole(this IZUser? user, ZUserRole bypassRole) {
