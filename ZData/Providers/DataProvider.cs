@@ -30,6 +30,7 @@ public static class DataProvider {
       foreach (var seed in seeds) {
         var sw = Stopwatch.StartNew();
         await seed.SeedDatabase(op);
+        await op.Data.SaveAsync();
         op.Log.Information("[SEED] {type} ran in {ms}ms", seed.GetType().Name, sw.ElapsedMilliseconds);
       }
     });
