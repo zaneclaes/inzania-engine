@@ -7,11 +7,30 @@ using System;
 namespace IZ.Core.Utils;
 
 public static class DateTimeUtils {
-  public static uint GetDayNumber(this DateTime currentDate, string? timeZone) {
-    if (timeZone != null) {
-      // TODO: convert date to timezone
+  public static TimeSpan GetTimeZoneOffset(string? timeZone) {
+    int hrOffset = 0;
+    if (timeZone != null && timeZone.StartsWith("(UTC")) {
+      var hrStr = timeZone.Substring("(UTC".Length).Split(':')[0];
+      int.TryParse(hrStr, out hrOffset);
     }
-    return (uint) Math.Floor((currentDate - DateTime.UnixEpoch).TotalDays);
+    return TimeSpan.FromHours(hrOffset);
+  }
+
+  public static DateTime LocalizeForTimeZone(this DateTime utcInstant, string? timeZone) {
+    if (utcInstant.Kind != DateTimeKind.Utc)
+      utcInstant = DateTime.SpecifyKind(utcInstant, DateTimeKind.Utc);
+
+    return utcInstant + GetTimeZoneOffset(timeZone);
+  }
+
+  public static uint GetDayNumber(this DateTime utcInstant, string? timeZone) {
+    if (utcInstant.Kind != DateTimeKind.Utc)
+      utcInstant = DateTime.SpecifyKind(utcInstant, DateTimeKind.Utc);
+
+    var local = utcInstant.LocalizeForTimeZone(timeZone);
+    var localMidnightUtc = local.Date.LocalizeForTimeZone(timeZone);
+
+    return (uint) Math.Floor((localMidnightUtc - DateTime.UnixEpoch).TotalDays);
   }
 
   public static string ToSortableString(this DateTime date, string joiner = "") => string.Join(joiner, date.Year.ToString("D4"), date.Month.ToString("D2"), date.Day.ToString("D2"));

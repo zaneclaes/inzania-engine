@@ -20,6 +20,8 @@ public class Installation : TransientObject {
 
   [MaxLength(ClientIdLength)] public string ClientId { get; set; } = null!;
 
+  [MaxLength(32)] public string? TimeZone { get; set; }
+
   [MaxLength(128)] public string? Language { get; set; }
 
   [MaxLength(128)] public string Name { get; set; } = null!;
