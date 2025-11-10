@@ -24,7 +24,7 @@ public class DeepLink : TransientObject {
 
   public string[] SubPaths => Parts.Length > 1 ? Parts.Skip(1).ToArray() : new string[] { };
 
-  public string Path => string.Join("/", Parts);
+  public string Path => string.Join("/", Parts) + (string.IsNullOrWhiteSpace(Hash) ? "" : $"#{Hash}");
 
   public DeepLink(IZContext context, string path) : base(context) {
     var schemes = path.Split("://");
