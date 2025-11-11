@@ -16,11 +16,12 @@ public enum DeviceType {
 
 public class Installation : TransientObject {
   public const int ClientIdLength = 128;
+  public const int TimeZoneLength = 128;
   private SemVersion? _semVersion;
 
   [MaxLength(ClientIdLength)] public string ClientId { get; set; } = null!;
 
-  [MaxLength(32)] public string? TimeZone { get; set; }
+  [MaxLength(TimeZoneLength)] public string? TimeZone { get; set; }
 
   [MaxLength(128)] public string? Language { get; set; }
 
