@@ -7,6 +7,12 @@ using System;
 namespace IZ.Core.Utils;
 
 public static class DateTimeUtils {
+  public static string GetTimeZoneString(this TimeZoneInfo tz) {
+    var desc = tz.DisplayName;
+    if (desc.StartsWith("(UTC") && desc.EndsWith(")")) return desc;
+    return $"(UTC{tz.BaseUtcOffset}) {tz.StandardName.Replace("Standard ", "")} ({tz.Id})";
+  }
+
   public static TimeSpan GetTimeZoneOffset(string? timeZone) {
     int hrOffset = 0;
     if (timeZone != null && timeZone.StartsWith("(UTC")) {

@@ -51,7 +51,10 @@ public abstract class ClientCache : LogicBase, IClientCache {
     t = t.IsListType() ? t.GetListType()! : t;
     var folder = Path.Combine(DiskPath, t.Name);
     if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-    return Path.Combine(folder, fn);
+    var fp = Path.Combine(folder, fn);
+    var dir = Path.GetDirectoryName(fp)!;
+    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+    return fp;
   }
 
   protected virtual string? GetFile(Type t, string fn) {
