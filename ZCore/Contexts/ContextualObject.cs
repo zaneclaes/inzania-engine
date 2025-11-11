@@ -74,6 +74,10 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
 
   private string GetUuid() => GetType().Name + "#" + UuidId;
 
+  public virtual void OnDeserialized(IZContext context) {
+    Context = context;
+  }
+
   public override string ToString() => Uuid;
   private Dictionary<string, object> BuildEventProperties() => Context.EventProperties
     .Union(GetObservableProperties())

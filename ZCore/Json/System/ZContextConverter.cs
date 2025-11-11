@@ -217,10 +217,10 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     Context.Log.Debug("[JSON] OBJ END2 {idx} {key} {type}", string.Join("", breadcrumbs), reader.TokenType, typeDescriptor);
 
     object ret = Activator.CreateInstance(typeDescriptor.OrigType)!;
-    if (ret is ContextualObject contextualObject) contextualObject.Context = Context;
     foreach (var k in vals.Keys) {
       k.SetValue(ret, vals[k]);
     }
+    if (ret is ContextualObject contextualObject) contextualObject.OnDeserialized(Context);
     return ret;
   }
 
