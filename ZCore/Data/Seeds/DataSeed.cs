@@ -64,7 +64,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
 
   // The best version of a model (db if available, else stub data)
   protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
-  protected abstract List<DataStub<TD>> GetStubs();
+  protected abstract Task<List<DataStub<TD>>> GetStubs();
 
   // protected List<TD> Models { get; set; } = new List<TD>();
 
@@ -95,31 +95,32 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
   // }
 
   private async Task<List<TD>> SeedModelIds(List<DataStub<TD>> stubs, List<TD>? existing = null) {
-    string[] seedIds = stubs.Select(p => p.DataId).ToArray();
+    string[] seedIds = stubs.Select(p => p.ItemId).ToArray();
     // ZEnv.Log.Information("SEED LOOK FOR {ids}", seedIds.ToList());
     existing ??= await FetchQuery().Filter(p => seedIds.Contains(p.Id)).LoadDataModelsAsync();
     List<TD> models = existing.ToList();
 
     await ProcessExisting(existing);
     foreach (DataStub<TD> stub in stubs) {
-      var e = existing.FirstOrDefault(e => e.Id.Equals(stub.DataId));
+      var e = existing.FirstOrDefault(e => e.Id.Equals(stub.ItemId));
       if (e == null) {
-        await Context.Data.AddAsync(stub.StubData);
-        models.Add(stub.StubData);
+        e = stub.GetInsert();
+        await Context.Data.AddAsync(e);
+        models.Add(e);
       } else {
-        stub.Update(e);
+        await stub.UpdateDataModel(Context, e);
       }
-      SetModel(e ?? stub.StubData);
+      SetModel(e);
     }
     await Context.Data.SaveIfNeededAsync();
     return models;
   }
 
-  private List<DataStub<TD>> PrepareStubs() {
-    List<DataStub<TD>> stubs = GetStubs();
+  private async Task<List<DataStub<TD>>> PrepareStubs() {
+    List<DataStub<TD>> stubs = await GetStubs();
     HashSet<string> ids = new HashSet<string>();
     foreach (DataStub<TD> s in stubs)
-      if (!ids.Add(s.DataId))
+      if (!ids.Add(s.ItemId))
         throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.StubData.Id}");
     // ZEnv.Log.Information("SEED STUBS {t}", ids);
     return stubs;
@@ -127,7 +128,7 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
 
   protected override async Task Exec() {
     // ZEnv.Log.Information("SEED START {t}", GetType().Name);
-    await SeedModelIds(PrepareStubs());
+    await SeedModelIds(await PrepareStubs());
   }
 
   protected override void Stub() {

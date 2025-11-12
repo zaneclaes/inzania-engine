@@ -143,6 +143,9 @@ public static class Tasks {
       if (lvl >= ZEventLevel.Error) scope.Span.SetException(ex);
     }
 
+    // Down-scope error levels for noisy things
+    if (ex is OperationCanceledException) lvl = ZEventLevel.Information;
+
     scope.Log.Write(lvl,
       ex, "[{tag}]: {reason} {type}: {@error}", tag, reason, errorType, ZError.Guard(ex));
     return ex;
