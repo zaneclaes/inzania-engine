@@ -65,6 +65,8 @@ public abstract class ModelNumber : ModelKey<long>, IModelChildren<long> {
 }
 
 public abstract class ModelId : ModelKey<string>, IStringKeyData, IItemizable, IModelChildren<string> {
+  public const int MaxIndexableStringLength = 3072 / 4;
+
   public const int MaxIdLength = 128; // Guid length (32), plus lots of space for children expansion
 
   protected Resolution<TData> ResolveForeignId<TData>(

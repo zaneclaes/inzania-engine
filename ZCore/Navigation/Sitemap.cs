@@ -66,7 +66,7 @@ public abstract class Sitemap : LogicBase {
         index.Add(curSitemapEntry);
         curSitemapPage = new XElement(_xmlNamespace + "urlset");
       }
-      curSitemapPage.Add(page.ToSitemapXml());
+      curSitemapPage.Add(page.ToSitemapXml(context));
       if (page.LastModified != null) {
         if (curSitemapLastModified == null == curSitemapLastModified < page.LastModified)
           curSitemapLastModified = page.LastModified.Value;

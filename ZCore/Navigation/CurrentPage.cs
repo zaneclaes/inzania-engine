@@ -20,13 +20,13 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
 
   public TPage? TopPage => DeepLink?.Page;
 
-  public ISitePage? Content => (_content as ISitePage) ?? TopPage;
+  public ISiteContent? Content => _content ?? TopPage;
 
   [Observable] public string Title => Content?.Title ?? $"{Path.Split("/").First()}";
 
   [Observable] public string Path { get; }
 
-  private ISitePage? _content;
+  private ISiteContent? _content;
 
   protected CurrentPage(IZContext context, string path, TMap sitemap, TLink? deepLink) : base(context) {
     // Nav = nav;
@@ -37,13 +37,18 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
   }
   // public NavigationManager Nav { get; private set; }
 
-  public void SetContent(ISitePage? content) {
+  public void SetContent(ISiteContent? content, bool forcePageView = false) {
+    // var oldPath = AnalyticsPath;
+    var oldTitle = Title;
     _content = content;
+    if (forcePageView || oldTitle != Title) {
+      SendPageView();
+    }
   }
 
   public void SendPageView() {
     // Context.Log.Information("[GA] {path} => {page}", Path, Title);
-    Context.Analytics?.PageView(TopPage?.Path ?? Path, Title);
+    Context.Analytics?.PageView(Path, Title);
   }
 
   public override string ToString() => $"<{Title} {Path} />";

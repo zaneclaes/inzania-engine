@@ -5,12 +5,20 @@ using IZ.Core.Contexts;
 
 namespace IZ.Core.Navigation;
 
-public interface ISitemapPage : IHaveContext {
+public interface ISitemapPage {
   public string CanonicalPath { get; }
 
   public ISitemapImage? SitemapImage { get; }
 
   public DateTime? LastModified { get; }
+}
+
+public class SiteImage : ISitemapImage {
+  public string Url { get; set; } = null!;
+  public string? Title { get; set; }
+  public string? Caption { get; set; }
+  public int Width { get; set; }
+  public int Height { get; set; }
 }
 
 public interface ISitemapImage {
@@ -23,12 +31,20 @@ public interface ISitemapImage {
   public int Width { get; }
 
   public int Height { get; }
+
+  public SiteImage AsDto() => new SiteImage() {
+    Url = Url,
+    Title = Title,
+    Caption = Caption,
+    Width = Width,
+    Height = Height
+  };
 }
 
 public static class SitemapPageExtensions {
 
-  public static XElement ToSitemapXml(this ISitemapPage page) {
-    var url = new XElement("url", new XElement("loc", page.Context.App.Url + "/" + page.CanonicalPath));
+  public static XElement ToSitemapXml(this ISitemapPage page, IZContext context) {
+    var url = new XElement("url", new XElement("loc", context.App.Url + "/" + page.CanonicalPath));
 
     // if (ChangeFrequency != null) url.Add(new XElement("changefreq", ChangeFrequency));
     // if (Priority != null) url.Add(new XElement("priority", Priority.Value.ToString("0.0")));
