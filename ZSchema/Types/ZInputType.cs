@@ -64,7 +64,7 @@ public static class ZInputTypes {
           object? paramVal = ResolveInputVariable(context, a.FieldTypeDescriptor, of.Value);
           paramType.ObjectDescriptor.Inputs[of.Name.Value].SetValue(ret, paramVal);
         } else {
-          throw new ArgumentException($"{of.Name.Value} {of.Value.Kind} missing on {paramType.ObjectDescriptor.TypeName}");
+          throw new ArgumentException($"{of.Name.Value} {of.Value.Kind} is not settable on {paramType.ObjectDescriptor.TypeName}");
         }
       } else {
         ZEnv.Log.Error("[PARAM] {type}: {str}", n.Kind, n.GetType().Name);

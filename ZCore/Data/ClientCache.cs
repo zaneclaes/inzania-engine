@@ -3,6 +3,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
+using IZ.Core.Api;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
 using IZ.Core.Utils;
@@ -12,7 +14,7 @@ using IZ.Core.Utils;
 namespace IZ.Core.Data;
 
 public interface IClientCache {
-  public T? Get<T>(string id) where T : class, IStringKeyData;
+  public T? Get<T>(string id) where T : class;
 
   public void Set<T>(T value) where T : class, IStringKeyData;
 }
@@ -24,12 +26,32 @@ public abstract class ClientCache : LogicBase, IClientCache {
 
   public ClientCache(IZContext context) : base(context) { }
 
+  protected virtual TimeSpan DefaultCacheAge =>
+    Context.App.Env <= ZEnvironment.Development ?
+      TimeSpan.FromSeconds(1) : TimeSpan.FromDays(7);
+
+  protected async Task<T> Load<T>(string id, IZResult<T> func, string? format = null, TimeSpan? maxAge = null) where T : class {
+    if (!string.IsNullOrEmpty(format)) id += "_" + format;
+    var data = Get<T>(id);
+    maxAge ??= DefaultCacheAge;
+    if (data == null || GetJsonFileAge<T>(id) > maxAge) {
+      try {
+        data = await func.Execute(format);
+        SetJson(id, data, format);
+      } catch (Exception e) {
+        if (data == null) throw;
+        Log.Warning(e, "[CACHE] failed to download", id, format);
+      }
+    }
+    return data;
+  }
+
   public virtual void Delete<T>(string id) {
     if (_memory.ContainsKey(typeof(T))) _memory[typeof(T)].Remove(id);
     SetFile(typeof(T), $"{id}.json", null);
   }
 
-  public virtual T? Get<T>(string id) where T : class, IStringKeyData {
+  public virtual T? Get<T>(string id) where T : class {
     var ret = _memory.GetValueOrDefault(typeof(T))?.GetValueOrDefault(id) as T ?? null;
     if (ret != null) return ret;
     ret = GetJson<T>(id);
@@ -67,6 +89,15 @@ public abstract class ClientCache : LogicBase, IClientCache {
     if (fp == null) return;
     if (value == null) File.Delete(fp);
     else File.WriteAllText(fp, value);
+  }
+
+  protected TimeSpan? GetJsonFileAge<T>(string key) where T : class =>
+    GetFileAge<T>($"{key}.json");
+
+  protected TimeSpan? GetFileAge<T>(string fn) where T : class {
+    var fp = GetFilePath(typeof(T), fn);
+    if (File.Exists(fp)) return DateTime.UtcNow - File.GetLastWriteTimeUtc(fp);
+    return null;
   }
 
   protected T? GetJson<T>(string key) where T : class {

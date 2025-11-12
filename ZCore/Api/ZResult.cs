@@ -23,6 +23,22 @@ public interface IZResult<TData> : IZResult where TData : class {
   public Task<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null);
 }
 
+public static class ZResultExtensions {
+  public static Task<TData> Execute<TData>(
+    this IZResult<TData> result, string? format = null
+  ) where TData : class =>
+    result.ExecuteData(new ResultSet {
+      Format = format
+    });
+
+  public static Task Subscribe<TData>(
+    this IZResult<TData> result, IGraphQLWebSocketDelegate<TData> del, string? format = null
+  ) where TData : class =>
+    result.Subscribe(del, new ResultSet {
+      Format = format
+    });
+}
+
 public class ZResult<TData> : TransientObject, IZResult<TData> where TData : class {
   private readonly Func<ExecutionPlan, TData>? _data;
 
