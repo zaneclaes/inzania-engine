@@ -27,6 +27,7 @@ public abstract class DataSeed : IDataSeed {
 
   public virtual bool ReSeed => false;
 
+  public bool IsSeeded { get; protected set; }
   public bool IsStubbed { get; private set; }
 
   public IZContext Context { get; set; } = null!;
@@ -60,11 +61,13 @@ public abstract class DataSeed : IDataSeed {
   protected abstract void Stub();
 }
 
-public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
+public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : DataStub<TD> {
+  // Only valid once IsStubbed/IsSeeded
+  public List<TS> Stubs { get; } = new List<TS>();
 
   // The best version of a model (db if available, else stub data)
   protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
-  protected abstract Task<List<DataStub<TD>>> GetStubs();
+  protected abstract Task<List<TS>> GetStubs();
 
   // protected List<TD> Models { get; set; } = new List<TD>();
 
@@ -94,36 +97,31 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
   //   return ret;
   // }
 
-  private async Task<List<TD>> SeedModelIds(List<DataStub<TD>> stubs, List<TD>? existing = null) {
+  private async Task SeedModelIds(List<TS> stubs, List<TD>? existing = null) {
     string[] seedIds = stubs.Select(p => p.ItemId).ToArray();
     // ZEnv.Log.Information("SEED LOOK FOR {ids}", seedIds.ToList());
     existing ??= await FetchQuery().Filter(p => seedIds.Contains(p.Id)).LoadDataModelsAsync();
-    List<TD> models = existing.ToList();
 
     await ProcessExisting(existing);
-    foreach (DataStub<TD> stub in stubs) {
-      var e = existing.FirstOrDefault(e => e.Id.Equals(stub.ItemId));
-      if (e == null) {
-        e = stub.GetInsert();
-        await Context.Data.AddAsync(e);
-        models.Add(e);
-      } else {
-        await stub.UpdateDataModel(Context, e);
-      }
-      SetModel(e);
+    foreach (TS stub in stubs) {
+      var dbModel = existing.FirstOrDefault(e => e.Id.Equals(stub.ItemId));
+      dbModel = await stub.Upsert(Context, dbModel);
+      SetModel(dbModel);
     }
     await Context.Data.SaveIfNeededAsync();
-    return models;
+    IsSeeded = true;
   }
 
-  private async Task<List<DataStub<TD>>> PrepareStubs() {
-    List<DataStub<TD>> stubs = await GetStubs();
-    HashSet<string> ids = new HashSet<string>();
-    foreach (DataStub<TD> s in stubs)
-      if (!ids.Add(s.ItemId))
-        throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.StubData.Id}");
-    // ZEnv.Log.Information("SEED STUBS {t}", ids);
-    return stubs;
+  private async Task<List<TS>> PrepareStubs() {
+    if (!Stubs.Any()) {
+      Stubs.AddRange(await GetStubs());
+      HashSet<string> ids = new HashSet<string>();
+      foreach (TS s in Stubs)
+        if (!ids.Add(s.ItemId))
+          throw new ArgumentException($"Duplicate Seed<{typeof(TD)}>: {s.StubData.Id}");
+      // ZEnv.Log.Information("SEED STUBS {t}", ids);
+    }
+    return Stubs;
   }
 
   protected override async Task Exec() {
@@ -135,5 +133,6 @@ public abstract class DataSeed<TD> : DataSeed where TD : ModelId {
     // Models = PrepareStubs();
   }
 }
+
 
 // public abstract class DataSeed<TData> : DataSeed where TData : DataObject { }

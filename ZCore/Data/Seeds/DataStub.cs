@@ -38,20 +38,38 @@ public abstract class DataStub<TD> : DataStub, IItemizable where TD : DataObject
     }
   }
 
-  public TD GetInsert() => StubData;
+  public virtual TD GetInsert(IZContext context) => StubData;
 
-  public virtual Task UpdateDataModel(IZContext context, TD? dbData = null) {
-    if (dbData != null) DbData = dbData;
-    if (DbData != null) CopyStubDataValues(DbData);
+  // Called for both Insert and Update
+  protected virtual Task UpdateDataModel(IZContext context, TD dbData, bool isInsert) {
+    CopyStubDataValues(dbData);
     return Task.CompletedTask;
+  }
+
+  public async Task<TD> Upsert(IZContext context, TD? dbData = null, Action<TD>? onInsert = null) {
+    if (dbData != null) DbData = dbData;
+    bool isInsert = false;
+    if (DbData == null) {
+      DbData = GetInsert(context);
+      await context.Data.AddAsync(DbData);
+      isInsert = true;
+      onInsert?.Invoke(DbData);
+    }
+    await UpdateDataModel(context, DbData, isInsert);
+    return DbData;
   }
 }
 
-public abstract class DataStubId<TD> : DataStub<TD> where TD : DataObject, IStringKeyData {
+public abstract class DataStubId<TD> : DataStub<TD> where TD : DataObject, IStringKeyData, new() {
   public override string ItemId => _id ?? StubData.Id;
   protected string? _id;
 
   protected DataStubId(TD? data = null) : base(data) { }
+
+  protected override TD CreateStub(IZContext context) => new TD {
+    Context = context,
+    Id = ItemId,
+  };
 
   protected DataStubId(string id, TD? data = null) : base(data) {
     _id = id;
