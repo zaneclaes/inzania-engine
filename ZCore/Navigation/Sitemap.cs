@@ -29,6 +29,7 @@ public abstract class Sitemap : LogicBase {
 
   public const int MaxSitemapsPerPage = 50000;
   private static readonly XNamespace _xmlNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
+  public const string LastModFormat = "yyyy-MM-ddTHH:mm:ssZ";
 
   private async Task<string> EnsureSitemaps(IZContext context) {
     var dir = Path.Combine(context.App.Storage.UserDir, "sitemaps");
@@ -54,7 +55,7 @@ public abstract class Sitemap : LogicBase {
         fp = Path.Combine(dir, $"sitemap-{curSitemapNum}.xml");
         await File.WriteAllTextAsync(fp, curSitemapPage.ToString());
         if (curSitemapLastModified != null) {
-          curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value + "Z"));
+          curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value.ToString(LastModFormat)));
           File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
         }
 
@@ -77,7 +78,7 @@ public abstract class Sitemap : LogicBase {
     fp = Path.Combine(dir, $"sitemap-{curSitemapNum}.xml");
     await File.WriteAllTextAsync(fp, curSitemapPage.ToString());
     if (curSitemapLastModified != null) {
-      curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value + "Z"));
+      curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value.ToString(LastModFormat)));
       File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
     }
 

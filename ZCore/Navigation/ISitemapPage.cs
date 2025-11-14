@@ -42,18 +42,19 @@ public interface ISitemapImage {
 }
 
 public static class SitemapPageExtensions {
+  private static XNamespace _nsImg = "http://www.google.com/schemas/sitemap-image/1.1";
 
   public static XElement ToSitemapXml(this ISitemapPage page, IZContext context) {
     var url = new XElement("url", new XElement("loc", context.App.Url + "/" + page.CanonicalPath));
 
     // if (ChangeFrequency != null) url.Add(new XElement("changefreq", ChangeFrequency));
     // if (Priority != null) url.Add(new XElement("priority", Priority.Value.ToString("0.0")));
-    if (page.LastModified != null) url.Add(new XElement("lastmod", page.LastModified.Value + "Z"));
+    if (page.LastModified != null) url.Add(new XElement("lastmod", page.LastModified.Value.ToString(Sitemap.LastModFormat)));
 
     if (page.SitemapImage != null) {
-      var img = new XElement("image:image", new XElement("image:loc", page.SitemapImage.Url));
-      if (page.SitemapImage.Title != null) img.Add(new XElement("image:title", page.SitemapImage.Title));
-      if (page.SitemapImage.Caption != null) img.Add(new XElement("image:caption", page.SitemapImage.Caption));
+      var img = new XElement(_nsImg + "image", new XElement(_nsImg + "loc", page.SitemapImage.Url));
+      if (page.SitemapImage.Title != null) img.Add(new XElement(_nsImg + "title", page.SitemapImage.Title));
+      if (page.SitemapImage.Caption != null) img.Add(new XElement(_nsImg + "caption", page.SitemapImage.Caption));
       url.Add(img);
     }
 
