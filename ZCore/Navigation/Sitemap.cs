@@ -28,7 +28,8 @@ public abstract class Sitemap : LogicBase {
   }
 
   public const int MaxSitemapsPerPage = 50000;
-  private static readonly XNamespace _xmlNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
+  public static readonly XNamespace XmlNs = "http://www.sitemaps.org/schemas/sitemap/0.9";
+  public static XNamespace XmlNsImg = "http://www.google.com/schemas/sitemap-image/1.1";
   public const string LastModFormat = "yyyy-MM-ddTHH:mm:ssZ";
 
   private async Task<string> EnsureSitemaps(IZContext context) {
@@ -40,32 +41,32 @@ public abstract class Sitemap : LogicBase {
 
   private async Task GenerateSitemaps(IZContext context, string dir) {
     string fp = "";
-    var index = new XElement(_xmlNamespace + "sitemapindex");
+    var index = new XElement(XmlNs + "sitemapindex");
     var curSitemapNum = 1;
     var curSitemapCnt = 0;
     DateTime? curSitemapLastModified = null;
-    var curSitemapEntry = new XElement("sitemap");
-    curSitemapEntry.Add(new XElement("loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
+    var curSitemapEntry = new XElement(XmlNs + "sitemap");
+    curSitemapEntry.Add(new XElement(XmlNs + "loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
     index.Add(curSitemapEntry);
 
-    var curSitemapPage = new XElement(_xmlNamespace + "urlset");
+    var curSitemapPage = new XElement(XmlNs + "urlset", new XAttribute(XNamespace.Xmlns + "image", XmlNsImg));
     var pages = await GetSitemapPages(context);
     foreach (var page in pages) {
       if (curSitemapCnt >= MaxSitemapsPerPage) {
         fp = Path.Combine(dir, $"sitemap-{curSitemapNum}.xml");
         await File.WriteAllTextAsync(fp, curSitemapPage.ToString());
         if (curSitemapLastModified != null) {
-          curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value.ToString(LastModFormat)));
+          curSitemapEntry.Add(new XElement(XmlNs + "lastmod", curSitemapLastModified.Value.ToString(LastModFormat)));
           File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
         }
 
         curSitemapNum++;
         curSitemapCnt = 0;
         curSitemapLastModified = null;
-        curSitemapEntry = new XElement("sitemap");
-        curSitemapEntry.Add(new XElement("loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
+        curSitemapEntry = new XElement(XmlNs + "sitemap");
+        curSitemapEntry.Add(new XElement(XmlNs + "loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
         index.Add(curSitemapEntry);
-        curSitemapPage = new XElement(_xmlNamespace + "urlset");
+        curSitemapPage = new XElement(XmlNs + "urlset");
       }
       curSitemapPage.Add(page.ToSitemapXml(context));
       if (page.LastModified != null) {
@@ -78,7 +79,7 @@ public abstract class Sitemap : LogicBase {
     fp = Path.Combine(dir, $"sitemap-{curSitemapNum}.xml");
     await File.WriteAllTextAsync(fp, curSitemapPage.ToString());
     if (curSitemapLastModified != null) {
-      curSitemapEntry.Add(new XElement("lastmod", curSitemapLastModified.Value.ToString(LastModFormat)));
+      curSitemapEntry.Add(new XElement(XmlNs + "lastmod", curSitemapLastModified.Value.ToString(LastModFormat)));
       File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
     }
 
