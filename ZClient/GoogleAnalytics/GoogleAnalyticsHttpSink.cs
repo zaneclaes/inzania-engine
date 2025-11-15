@@ -15,6 +15,7 @@ using IZ.Core.Utils;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
 using System;
+using System.Runtime.InteropServices;
 #endif
 
 #endregion
