@@ -22,6 +22,10 @@ public static class SerilogExtensions {
     var messageTemplate = parser.Parse(entry.MessageTemplate);
 
     Dictionary<string, object>? props = ZJson.DeserializeObject<Dictionary<string, object>>(entry.Context, entry.Properties)!;
+    if (props == null) {
+      if (entry.Properties != "null") entry.Log.Warning("[LOG] failed to deserialize properties from '{props}'", entry.Properties);
+      props = new Dictionary<string, object>();
+    }
 
     // Convert dictionary to LogEventProperty list
     List<LogEventProperty> logProperties = props
