@@ -28,7 +28,7 @@ public abstract class ClientCache : LogicBase, IClientCache {
 
   protected virtual TimeSpan DefaultCacheAge =>
     Context.App.Env <= ZEnvironment.Development ?
-      TimeSpan.FromSeconds(1) : TimeSpan.FromDays(7);
+      TimeSpan.FromSeconds(1) : TimeSpan.FromMinutes(60); // cache intentionally short; just prevents high noise
 
   protected async Task<T> Load<T>(string id, IZResult<T> func, string? format = null, TimeSpan? maxAge = null) where T : class {
     if (!string.IsNullOrEmpty(format)) id += "_" + format;

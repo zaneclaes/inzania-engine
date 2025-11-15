@@ -1,13 +1,9 @@
 using System.IO;
 using System.Threading;
-
 #if Z_UNITY
 using Cysharp.Threading.Tasks;
-using ZTask = Cysharp.Threading.Tasks.UniTask;
-using Tasks = Cysharp.Threading.Tasks.UniTask;
 #else
 using System.Threading.Tasks;
-using ZTask = System.Threading.Tasks.Task;
 #endif
 
 namespace IZ.Core.Utils;

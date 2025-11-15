@@ -13,15 +13,6 @@ using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
 #region
 
-#if Z_UNITY
-using System.Runtime.InteropServices;
-using Cysharp.Threading.Tasks;
-using ZTask = Cysharp.Threading.Tasks.UniTask;
-using Tasks = Cysharp.Threading.Tasks.UniTask;
-#else
-using ZTask = System.Threading.Tasks.Task;
-#endif
-
 #if UNITY_WEBGL && !UNITY_EDITOR
 using System;
 #endif

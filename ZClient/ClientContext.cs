@@ -12,14 +12,6 @@ using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 #region
 
-#if Z_UNITY
-using Cysharp.Threading.Tasks;
-using ZTask = Cysharp.Threading.Tasks.UniTask;
-using Tasks = Cysharp.Threading.Tasks.UniTask;
-#else
-using ZTask = System.Threading.Tasks.Task;
-#endif
-
 #endregion
 
 namespace IZ.Client;
@@ -75,7 +67,7 @@ public class ClientContext : RootContext {
     Context.Analytics!.Configure(_analyticsSink, Install, Context.CurrentIdentity, GetUserAnalyticsProperties())
   };
 
-  public ZTask AwaitStart() => Tasks.WaitUntil(() => IsStarted || StartupException != null);
+  public ZTask AwaitStart() => ZTask.WaitUntil(() => IsStarted || StartupException != null);
 
   public void StartTaskTimer(string taskName, string? functionName = null) {
     if (!string.IsNullOrWhiteSpace(functionName)) taskName = $"{taskName}.{functionName}";
