@@ -71,10 +71,10 @@ public class ZHttpClient : HttpClient, IHaveContext {
     string fn = GetCacheFn(href, method, body);
     cacheDuration ??= TimeSpan.FromDays(1);
     if (File.Exists(fn) && DateTime.UtcNow - File.GetLastWriteTimeUtc(fn) < cacheDuration) {
-      return await File.ReadAllTextAsync(fn);
+      return await ZFile.ReadAllTextAsync(fn);
     }
     string str = await LoadString(href, method, body, mediaType);
-    await File.WriteAllTextAsync(fn, str);
+    await ZFile.WriteAllTextAsync(fn, str);
     return str;
   }
 

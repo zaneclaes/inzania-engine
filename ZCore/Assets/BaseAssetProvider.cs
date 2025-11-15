@@ -24,11 +24,11 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
     bool exists = File.Exists(fp);
     if (!exists && downloadUrl != null && Context.App.Target != ZTarget.Server) {
       byte[] data = await GetUrl(downloadUrl);
-      await File.WriteAllBytesAsync(fp, data, ct);
+      await ZFile.WriteAllBytesAsync(fp, data, ct);
       return data;
     }
 
-    return exists ? await File.ReadAllBytesAsync(fp, ct) : null;
+    return exists ? await ZFile.ReadAllBytesAsync(fp, ct) : null;
   }
 
   public virtual byte[]? GetResourceContents(string relativePath) {
@@ -69,7 +69,7 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
       Log.Information("[ASSET] download {url} to {fp}", url, fp);
       byte[] data = await GetAssetContents(relativePath, url, ct) ??
                     throw new NullReferenceException($"Failed to get contents from {url}");
-      await File.WriteAllBytesAsync(fp, data, ct);
+      await ZFile.WriteAllBytesAsync(fp, data, ct);
     } finally {
       _activeDownloads.Remove(relativePath);
     }

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Json;
+using IZ.Core.Utils;
 
 namespace IZ.Core.Observability.Logging;
 
@@ -53,7 +54,7 @@ public class LogFileEntry : TransientObject {
   }
 
   public static async Task<List<LogFileEntry>> LoadFromFile(IZContext context, string fp) {
-    string txt = await File.ReadAllTextAsync(fp);
+    string txt = await ZFile.ReadAllTextAsync(fp);
     if (string.IsNullOrWhiteSpace(txt)) return new List<LogFileEntry>();
     string[] lines = txt.Split("}\n{");
     return lines.Select((l, i) => FromLine(context, (i > 0 ? "{" : "") + l + (i == lines.Length - 1 ? "" : "}")))
