@@ -41,8 +41,14 @@ namespace IZ.Core.Utils
 
         // ---- common helpers ----
 
-        public void Forget() {
-          _inner.Forget();
+        public void Forget()
+        {
+#if Z_UNITY
+            _inner.Forget();
+#else
+            // Fire-and-forget: just ignore the task. Optionally hook your own extension here.
+            _ = _inner;
+#endif
         }
 
         public static ZTask FromResult()
@@ -83,72 +89,76 @@ namespace IZ.Core.Utils
 
         public static ZTask CompletedTask
         {
-          get
-          {
+            get
+            {
 #if Z_UNITY
-            return new ZTask(UniTask.CompletedTask);
+                return new ZTask(UniTask.CompletedTask);
 #else
-        return new ZTask(Task.CompletedTask);
+                return new ZTask(Task.CompletedTask);
 #endif
-          }
+            }
         }
 
         public static ZTask FromException(Exception ex)
         {
 #if Z_UNITY
-          return new ZTask(UniTask.FromException(ex));
+            return new ZTask(UniTask.FromException(ex));
 #else
-    var tcs = new TaskCompletionSource<object?>();
-    tcs.SetException(ex);
-    return new ZTask(tcs.Task);
+            var tcs = new TaskCompletionSource<object?>();
+            tcs.SetException(ex);
+            return new ZTask(tcs.Task);
 #endif
         }
 
         public static ZTask FromCanceled(CancellationToken token)
         {
 #if Z_UNITY
-          return new ZTask(UniTask.FromCanceled(token));
+            return new ZTask(UniTask.FromCanceled(token));
 #else
-    return new ZTask(Task.FromCanceled(token));
-#endif
-        }
-        public static ZTask WaitUntil(Func<bool> predicate)
-        {
-#if Z_UNITY
-          return new ZTask(UniTask.WaitUntil(predicate));
-#else
-    return new ZTask(Task.Run(async () =>
-    {
-        // Poll every frame-like interval (you can tune it)
-        while (!predicate())
-            await Task.Yield();
-    }));
-#endif
-        }
-        public static ZTask WaitWhile(Func<bool> predicate)
-        {
-#if Z_UNITY
-          return new ZTask(UniTask.WaitWhile(predicate));
-#else
-    return new ZTask(Task.Run(async () =>
-    {
-        while (predicate())
-            await Task.Yield();
-    }));
-#endif
-        }
-        public static ZTask Yield()
-        {
-#if Z_UNITY
-          return new ZTask(UniTask.NextFrame());
-#else
-    return new ZTask(Task.Delay(1));
+            return new ZTask(Task.FromCanceled(token));
 #endif
         }
 
-        #if Z_UNITY
+        public static ZTask WaitUntil(Func<bool> predicate)
+        {
+#if Z_UNITY
+            return new ZTask(UniTask.WaitUntil(predicate));
+#else
+            // Non-blocking loop: yields back to the scheduler each iteration.
+            return new ZTask(Task.Run(async () =>
+            {
+                while (!predicate())
+                    await Task.Yield();
+            }));
+#endif
+        }
+
+        public static ZTask WaitWhile(Func<bool> predicate)
+        {
+#if Z_UNITY
+            return new ZTask(UniTask.WaitWhile(predicate));
+#else
+            return new ZTask(Task.Run(async () =>
+            {
+                while (predicate())
+                    await Task.Yield();
+            }));
+#endif
+        }
+
+        public static ZTask Yield()
+        {
+#if Z_UNITY
+            return new ZTask(UniTask.NextFrame());
+#else
+            // Tiny async delay to yield; does not block the thread.
+            return new ZTask(Task.Delay(1));
+#endif
+        }
+
+#if Z_UNITY
         public UniTask ToUniTask() => _inner;
-      #endif
+#endif
     }
 
     // ============================================
@@ -167,7 +177,6 @@ namespace IZ.Core.Utils
 
         public static implicit operator ZTask<T>(UniTask<T> task) => new ZTask<T>(task);
         public static implicit operator UniTask<T>(ZTask<T> ztask) => ztask._inner;
-
 #else
         internal readonly Task<T> _inner;
 
@@ -178,25 +187,41 @@ namespace IZ.Core.Utils
         public static implicit operator ZTask<T>(Task<T> task) => new ZTask<T>(task);
         public static implicit operator Task<T>(ZTask<T> ztask) => ztask._inner;
 
-        public T? Result => _inner.Result;
+        // NOTE: Result is potentially blocking; we guard it in browser.
+        public T? Result
+        {
+            get
+            {
+                if (OperatingSystem.IsBrowser())
+                    throw new InvalidOperationException(
+                        "ZTask<T>.Result cannot be used in Blazor WebAssembly. Use 'await' instead.");
+                return _inner.Result;
+            }
+        }
 #endif
 
         // ---- helpers ----
+
         public T GetResult()
         {
 #if Z_UNITY
-          // UniTask<T>.GetAwaiter().GetResult() is safe and does NOT block the main thread
-          return _inner.GetAwaiter().GetResult();
+            // UniTask<T>.GetResult() does not block the main Unity loop.
+            return _inner.GetAwaiter().GetResult();
 #else
-    // Task<T>.GetAwaiter().GetResult() unwraps exceptions and avoids AggregateException
-    return _inner.GetAwaiter().GetResult();
+            // On Blazor WASM, blocking on async will deadlock the single thread.
+            if (OperatingSystem.IsBrowser())
+                throw new InvalidOperationException(
+                    "ZTask<T>.GetResult() cannot be used in Blazor WebAssembly. " +
+                    "Use 'await' instead of blocking on the task.");
+
+            // Still allowed on server/desktop.
+            return _inner.GetAwaiter().GetResult();
 #endif
         }
 
-
-        #if Z_UNITY
-      public UniTask<T> ToUniTask<TTask>() where TTask : T => _inner;
-      #endif
+#if Z_UNITY
+        public UniTask<T> ToUniTask<TTask>() where TTask : T => _inner;
+#endif
 
         public static ZTask<T> FromResult(T value)
         {
@@ -225,20 +250,20 @@ namespace IZ.Core.Utils
         public static ZTask<T> FromException(Exception ex)
         {
 #if Z_UNITY
-          return new ZTask<T>(UniTask.FromException<T>(ex));
+            return new ZTask<T>(UniTask.FromException<T>(ex));
 #else
-    var tcs = new TaskCompletionSource<T>();
-    tcs.SetException(ex);
-    return new ZTask<T>(tcs.Task);
+            var tcs = new TaskCompletionSource<T>();
+            tcs.SetException(ex);
+            return new ZTask<T>(tcs.Task);
 #endif
         }
 
         public static ZTask<T> FromCanceled(CancellationToken token)
         {
 #if Z_UNITY
-          return new ZTask<T>(UniTask.FromCanceled<T>(token));
+            return new ZTask<T>(UniTask.FromCanceled<T>(token));
 #else
-    return new ZTask<T>(Task.FromCanceled<T>(token));
+            return new ZTask<T>(Task.FromCanceled<T>(token));
 #endif
         }
     }
@@ -326,7 +351,6 @@ namespace IZ.Core.Utils
             }
         }
 
-
         public void SetException(Exception exception) => _builder.SetException(exception);
         public void SetResult(T result) => _builder.SetResult(result);
         public void SetStateMachine(IAsyncStateMachine stateMachine) => _builder.SetStateMachine(stateMachine);
@@ -350,25 +374,24 @@ namespace IZ.Core.Utils
 
     public static class ZTaskExtensions
     {
-      public static ZTask AsVoid<T>(this ZTask<T> source)
-      {
+        public static ZTask AsVoid<T>(this ZTask<T> source)
+        {
 #if Z_UNITY
-        // Discard the TResult of UniTask<T>
-        async UniTask Awaiter()
-        {
-          await source;   // await underlying UniTask<T>
-        }
+            // Discard the TResult of UniTask<T>
+            async UniTask Awaiter()
+            {
+                await source;   // await underlying UniTask<T>
+            }
 
-        return new ZTask(Awaiter());
+            return new ZTask(Awaiter());
 #else
-        async Task Awaiter()
-        {
-            await source;   // await underlying Task<T>
-        }
+            async Task Awaiter()
+            {
+                await source;   // await underlying Task<T>
+            }
 
-        return new ZTask(Awaiter());
+            return new ZTask(Awaiter());
 #endif
-      }
+        }
     }
-
 }
