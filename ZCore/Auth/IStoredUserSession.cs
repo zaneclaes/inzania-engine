@@ -14,5 +14,5 @@ public interface IStoredUserSession {
 
   public IZIdentity? UpdateUserSession(Installation install, IZSession? session);
 
-  public Task<IZIdentity> RestoreUserSession(Installation install);
+  public Task<IZIdentity> RestoreUserSession(Installation install, StoredSession? session = null);
 }
