@@ -50,12 +50,11 @@ public abstract class ZApp : IGetLogged, IDisposable {
       SecureProtocol = false;
     } else {
       DomainName = domainName;
-      SubDomain = env == ZEnvironment.Production ? "www" : env.ToString().ToLower();
+      SubDomain = env == ZEnvironment.Production ? null : env.ToString().ToLower();
       SecureProtocol = true;
     }
     ProductDomainName = domainName;
     ZEnv.App = this;
-    // Sitemap = new Sitemap($"https://www.{ZEnv.DomainName}");
     ZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
 
     // Actually build the app settings, including storage and auth
