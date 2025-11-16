@@ -33,7 +33,7 @@ public abstract class SitePage : LogicBase, ISitePage {
     args.RemoveAt(0);
     Args = args.Select(a => a.Trim('/')).ToArray();
     Title = title;
-    Description = desc;
+    Preview = desc;
     Author = author;
     Keywords = keywords.ToList();
     Paths.Add(Path);
@@ -111,7 +111,7 @@ public abstract class SitePage : LogicBase, ISitePage {
 
   public string? Author { get; }
 
-  public string? Description { get; }
+  public string? Preview { get; }
 
   public List<string> Keywords { get; }
   // public Type PageType { get; }

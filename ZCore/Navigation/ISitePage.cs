@@ -8,17 +8,22 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Navigation;
 
 public interface ISiteContent : ISitemapPage {
+  public const int MaxPreviewLength = 120; // For search engines.
+
   public string Title { get; }
 
-  public string? Description { get; }
+  public string? Preview { get; }
 
   public List<string> Keywords { get; }
+
+  public string? GetSeoPreview() => Preview == null || Preview.Length < MaxPreviewLength ?
+    Preview : Preview.Substring(0, MaxPreviewLength);
 
   public SiteContent AsDto() => new SiteContent() {
     CanonicalPath = CanonicalPath,
     Image = SitemapImage?.AsDto(),
     Title = Title,
-    Description = Description,
+    Preview = Preview,
     LastModified = LastModified,
     Keywords = Keywords.ToList(),
   };
@@ -29,7 +34,7 @@ public class SiteContent : ISiteContent {
   public ISitemapImage? SitemapImage => Image;
   public DateTime? LastModified { get; set; }
   public string Title { get; set; } = null!;
-  public string? Description { get; set; }
+  public string? Preview { get; set; }
   public List<string> Keywords { get; set; } = new List<string>();
   public SiteImage? Image { get; set; }
 }

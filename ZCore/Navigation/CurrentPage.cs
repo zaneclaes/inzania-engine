@@ -24,6 +24,9 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
 
   [Observable] public string Title => Content?.Title ?? $"{Path.Split("/").First()}";
 
+  // Fix warning of titles too short
+  public string GetSeoTitle() => Title.Length < 30 ? $"{Title} | {Context.App.ProductName}" : Title;
+
   [Observable] public string Path { get; }
 
   private ISiteContent? _content;

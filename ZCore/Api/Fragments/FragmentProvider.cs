@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -33,7 +34,8 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     _generateContents = _app.Target == ZTarget.PublicApp || _app.Env <= ZEnvironment.Development;
   }
 
-  public Dictionary<string, Fragment> Fragments { get; } = new Dictionary<string, Fragment>();
+  public ConcurrentDictionary<string, Fragment> Fragments { get; }
+    = new ConcurrentDictionary<string, Fragment>();
 
   public Fragment LoadRequired(string fragmentName) {
     if (Fragments.TryGetValue(fragmentName, out var ret)) return ret;
