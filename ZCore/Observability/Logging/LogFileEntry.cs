@@ -57,8 +57,10 @@ public class LogFileEntry : TransientObject {
     }
   }
 
-  public static async Task<List<LogFileEntry>> LoadFromFile(IZContext context, string fp) {
-    string txt = await ZFile.ReadAllTextAsync(fp);
+  public static async Task<List<LogFileEntry>> LoadFromFile(IZContext context, string fp) =>
+    LoadFromFileContents(context, await ZFile.ReadAllTextAsync(fp));
+
+  public static List<LogFileEntry> LoadFromFileContents(IZContext context, string txt) {
     if (string.IsNullOrWhiteSpace(txt)) return new List<LogFileEntry>();
     string[] lines = txt.Split("}\n{");
     return lines.Select((l, i) => FromLine(context, (i > 0 ? "{" : "") + l + (i == lines.Length - 1 ? "" : "}")))
