@@ -46,7 +46,7 @@ public abstract class Sitemap : LogicBase {
     var curSitemapCnt = 0;
     DateTime? curSitemapLastModified = null;
     var curSitemapEntry = new XElement(XmlNs + "sitemap");
-    curSitemapEntry.Add(new XElement(XmlNs + "loc", $"/{context.App.Url}/sitemap-{curSitemapNum}.xml"));
+    curSitemapEntry.Add(new XElement(XmlNs + "loc", $"{context.App.Url}/sitemap-{curSitemapNum}.xml"));
     index.Add(curSitemapEntry);
 
     var curSitemapPage = new XElement(XmlNs + "urlset", new XAttribute(XNamespace.Xmlns + "image", XmlNsImg));
