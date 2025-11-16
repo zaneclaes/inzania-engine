@@ -57,6 +57,12 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     return httpClient;
   }
 
+  private string? GetAnalyticsUserId(IZUser? user) {
+    if (user == null) return null;
+    if (user.Role < ZUserRole.Unconfirmed) return null;
+    return user.Id;
+  }
+
 #if UNITY_WEBGL && !UNITY_EDITOR
   [DllImport("__Internal")]
   private static extern void GAEvent(string name, string json);
@@ -72,7 +78,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
         return ZTask.CompletedTask;
       }
 #else
-    var req = new GaParams(_clientId, _userIdentity?.IZUser?.Id, _userProps);
+    var req = new GaParams(_clientId, GetAnalyticsUserId(_userIdentity?.IZUser), _userProps);
     e.EventParams ??= new BaseParams();
     if (_installation != null) e.EventParams.LoadInstallation(_installation);
     e.EventParams.SessionId = SessionId;
