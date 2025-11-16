@@ -35,6 +35,10 @@ public class LogFileEntry : TransientObject {
 
   public string Properties { get; set; } = null!;
 
+  internal DateTime TimestampUtc => _timestampUtc ??= GetLoggedAtTimeUtc();
+  private DateTime? _timestampUtc;
+  public DateTime GetLoggedAtTimeUtc() => (_timestampUtc = DateTimeOffset.Parse(Timestamp).UtcDateTime).Value;
+
   private static LogFileEntry? FromLine(IZContext context, string line) {
     try {
       var json = ZJson.DeserializeObject<LogFileEntryJson>(context, line) ??

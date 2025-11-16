@@ -81,7 +81,7 @@ public static class SerilogExtensions {
       Properties = propStr,
       Level = entry.Level,
       ByteSize = byteSize,
-      LoggedAt = DateTimeOffset.Parse(entry.Timestamp).UtcDateTime
+      LoggedAt = entry.GetLoggedAtTimeUtc()
     };
   }
 }

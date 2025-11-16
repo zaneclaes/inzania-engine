@@ -46,9 +46,6 @@ public static class TuneQueries {
 
     var at = context.GetService<IStoredUserSession>()?.StoredSession;
     if (at?.AccessToken != null) ret[ZHeaders.Authorization] = "bearer " + at.AccessToken;
-    else {
-      context.Log.Information("No token in {at}", at?.GetType()?.Name);
-    }
 
     if (extra != null) {
       foreach (string key in extra.Keys) {
