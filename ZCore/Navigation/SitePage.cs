@@ -50,6 +50,8 @@ public abstract class SitePage : LogicBase, ISitePage {
 
   [Observable] public List<string> Paths { get; } = new List<string>();
 
+  public string GetSeoTitle() => Title;
+
   [Observable] public string Title { get; }
 
   public virtual ISitemapImage? SitemapImage => null;

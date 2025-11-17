@@ -16,6 +16,8 @@ public interface ISiteContent : ISitemapPage {
 
   public List<string> Keywords { get; }
 
+  public string GetSeoTitle();
+
   public string? GetSeoPreview() => Preview == null || Preview.Length < MaxPreviewLength ?
     Preview : Preview.Substring(0, MaxPreviewLength);
 
@@ -23,6 +25,7 @@ public interface ISiteContent : ISitemapPage {
     CanonicalPath = CanonicalPath,
     Image = SitemapImage?.AsDto(),
     Title = Title,
+    SeoTitle = GetSeoTitle(),
     Preview = Preview,
     LastModified = LastModified,
     Keywords = Keywords.ToList(),
@@ -34,9 +37,12 @@ public class SiteContent : ISiteContent {
   public ISitemapImage? SitemapImage => Image;
   public DateTime? LastModified { get; set; }
   public string Title { get; set; } = null!;
+  public string SeoTitle { get; set; } = null!;
   public string? Preview { get; set; }
   public List<string> Keywords { get; set; } = new List<string>();
   public SiteImage? Image { get; set; }
+
+  public string GetSeoTitle() => SeoTitle;
 }
 
 public interface ISitePage : ISiteContent {

@@ -25,7 +25,14 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
   [Observable] public string Title => Content?.Title ?? $"{Path.Split("/").First()}";
 
   // Fix warning of titles too short
-  public string GetSeoTitle() => Title.Length < 30 ? $"{Title} | {Context.App.ProductName}" : Title;
+  public string GetSeoTitle() => CreateTitle(Content?.GetSeoTitle() ?? Title, Context.App.ProductName);//  Title.Length < 30 ? $"{Title} | {Context.App.ProductName}" : Title;
+
+  public static string CreateTitle(string title, string subSuffix) {
+    const int idealLen = 50;
+    var suffix = " | " + subSuffix;
+    if ((title.Length + suffix.Length) > idealLen) return title;
+    return $"{title}{suffix}";
+  }
 
   [Observable] public string Path { get; }
 
