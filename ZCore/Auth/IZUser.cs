@@ -12,4 +12,6 @@ public interface IZUser : IStringKeyData, ICreatedAt, IAmOwned {
   public string? Email { get; }
 
   public string? MigratedToUserId { get; set; }
+
+  public bool IsVisitor() => Role < ZUserRole.Unconfirmed;
 }

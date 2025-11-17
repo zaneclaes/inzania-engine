@@ -59,7 +59,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
   private string? GetAnalyticsUserId(IZUser? user) {
     if (user == null) return null;
-    if (user.Role < ZUserRole.Unconfirmed) return null;
+    if (user.IsVisitor()) return null;
     return user.Id;
   }
 
