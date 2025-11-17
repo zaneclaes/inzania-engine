@@ -96,9 +96,11 @@ public abstract class ZApp : IGetLogged, IDisposable {
 
   public string Cdn => $"https://{(Env == ZEnvironment.Production ? "assets" : "assets-staging")}.{ProductDomainName}";
 
-  private string GqlFqdn => Env == ZEnvironment.Production ? $"production.{DomainName}" : Fqdn;
+  private string ApiFqdn => Env == ZEnvironment.Production ? $"production.{DomainName}" : Fqdn;
 
-  public string Gql => $"{HttpProtocol}://{GqlFqdn}/api/graphql";
+  public string ApiUrl => $"{HttpProtocol}://{ApiFqdn}";
+
+  public string Gql => $"{ApiUrl}/api/graphql";
 
   public ZAuthOptions Auth { get; }
 
