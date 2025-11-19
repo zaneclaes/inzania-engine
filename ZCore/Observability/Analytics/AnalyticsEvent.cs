@@ -29,6 +29,7 @@ public class AnalyticsEvent {
 
 // https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference?client_type=gtag#common_params
 public class BaseParams : IEventParams {
+  [JsonPropertyName("traffic_type")] public string? TrafficType { get; set; }
   [JsonPropertyName("ga_session_id")] public long SessionId { get; set; }
   [JsonPropertyName("ga_session_number")] public long SessionNumber { get; set; }
   [JsonPropertyName("engagement_time_msec")] public long? EngagementTimeMsec { get; set; }
@@ -50,6 +51,9 @@ public class BaseParams : IEventParams {
   [JsonPropertyName("browser_version")] public string? BrowserVersion { get; set; }
 
   public void LoadInstallation(Installation installation) {
+    if (installation.Context.App.Env <= ZEnvironment.Staging) {
+      TrafficType = "internal";
+    }
     Language = installation.Language;
     ScreenResolution = $"{installation.ScreenWidth}x{installation.ScreenHeight}";
     Model = installation.Model;
