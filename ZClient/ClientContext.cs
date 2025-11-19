@@ -113,7 +113,6 @@ public class ClientContext : RootContext {
   }
 
   protected virtual void UpdateUserIdentity(IZIdentity userIdentity) {
-    Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
     _userIdentity = userIdentity;
   }
 

@@ -29,6 +29,8 @@ public abstract class ZApp : IGetLogged, IDisposable {
   private readonly Func<IServiceProvider> _fallbackServiceProviderFactory;
   private IFragmentProvider? _fragmentProvider;
 
+  public virtual bool IsRootSingleton => false;
+
   public readonly Stopwatch Uptimer = Stopwatch.StartNew();
   public TimeSpan Uptime => TimeSpan.FromMilliseconds(Uptimer.Elapsed.TotalMilliseconds);
 

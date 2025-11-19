@@ -21,4 +21,6 @@ public abstract class ZClientApp : ZApp {
   public SemVersion? Version { get; set; }
 
   public IZAppSettings Settings { get; protected set; }
+
+  public override bool IsRootSingleton => true;
 }

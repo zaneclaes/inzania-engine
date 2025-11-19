@@ -16,6 +16,7 @@ public static class DependencyInjection {
   ) where TApp : ZApp where TRoot : class, IZRootContext {
     if (rootSingleton != null) sc.AddSingleton<IZRootContext>(rootSingleton);
     else if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZTRANSIENT"))) sc.AddTransient<IZRootContext, TRoot>();
+    else if (app.IsRootSingleton) sc.AddSingletons<IZRootContext, TRoot>();
     else sc.AddScoped<IZRootContext, TRoot>(); // lives for an entire HTTP request
 
     return sc
