@@ -69,6 +69,8 @@ public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : 
   protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
   protected abstract Task<List<TS>> GetStubs();
 
+  public List<TD> DbModels => Models.Values.ToList();
+
   // protected List<TD> Models { get; set; } = new List<TD>();
 
   protected virtual async Task ProcessExisting(List<TD> existing) {
@@ -96,6 +98,19 @@ public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : 
   //   }
   //   return ret;
   // }
+
+  public void Clear() {
+    Models.Clear();
+    Stubs.Clear();
+    IsSeeded = false;
+  }
+
+  public async Task ReExec(IZContext context) {
+    Context = context;
+    Clear();
+    await Exec();
+    await Context.Data.SaveAsync();
+  }
 
   private async Task SeedModelIds(List<TS> stubs, List<TD>? existing = null) {
     string[] seedIds = stubs.Select(p => p.ItemId).ToArray();
