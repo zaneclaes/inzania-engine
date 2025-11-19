@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using IZ.Client.GoogleAnalytics.Events;
 using IZ.Core;
@@ -167,6 +168,18 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
       Character = character,
       EngagementTimeMsec = GatherEngagementTime()
     });
+
+  public ZTask FileDownload(string url, string name, string fileType) =>
+    ((IZAnalytics) this).SendEvent("file_download", new FileDownloadParams() {
+      FileName = name,
+      FileExtension = Path.GetExtension(fileType).TrimStart('.'),
+      FileUrl = url,
+      FileType = fileType,
+      EngagementTimeMsec = GatherEngagementTime()
+    });
+
+  public ZTask TutorialBegin() => ((IZAnalytics)this).SendEvent("tutorial_begin");
+  public ZTask TutorialComplete() => ((IZAnalytics)this).SendEvent("tutorial_complete");
 
   public ZTask SelectContent(string contentType, string contentId) =>
     ((IZAnalytics) this).SendEvent("select_content", new ContentEventParams {

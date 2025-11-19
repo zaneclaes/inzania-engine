@@ -28,6 +28,11 @@ public interface IZAnalytics : IHaveContext, IDisposable {
 
   public ZTask Exception(string desc, bool fatal = false);
 
+  public ZTask FileDownload(string url, string name, string fileType);
+
+  public ZTask TutorialBegin(); // should be used for onboarding tutorial only
+  public ZTask TutorialComplete(); // should be used for onboarding tutorial only
+
   // Record points earned
   public ZTask EarnPoints(long points, int? skillLevel = null, string? character = null);
 
@@ -51,7 +56,7 @@ public interface IZAnalytics : IHaveContext, IDisposable {
   //   return SetUserProperties(user?.Id, userProps);
   // }
 
-  private ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<BaseParams>(name, new BaseParams()));
+  public ZTask SendEvent(string name) => SendEvent(new AnalyticsEvent<BaseParams>(name, new BaseParams()));
   public ZTask SendEvent<T>(string name, T pars) where T : IEventParams => SendEvent(new AnalyticsEvent<T>(name, pars));
 
   public ZTask UserEngagement();
