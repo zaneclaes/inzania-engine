@@ -34,12 +34,14 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   public GoogleAnalyticsHttpSink(IZContext c) : base(c) { }
 
   private const string GA4ApiEndpoint = "https://www.google-analytics.com/mp/collect";
+  private const string GA4ApiDebugEndpoint = "https://www.google-analytics.com/debug/mp/collect";
+  private string Endpoint => _analyticsOptions?.Debug ?? false ?  GA4ApiDebugEndpoint : GA4ApiEndpoint;
 
   private AnalyticsOptions? _analyticsOptions;
 
   private Installation? _installation;
 
-  protected string Url => $"{GA4ApiEndpoint}?measurement_id={_analyticsOptions?.MeasurementId}&api_secret={HttpUtility.UrlEncode(_analyticsOptions?.ApiSecret)}";
+  protected string Url => $"{Endpoint}?measurement_id={_analyticsOptions?.MeasurementId}&api_secret={HttpUtility.UrlEncode(_analyticsOptions?.ApiSecret)}";
 
   private HttpClient Client => _client ??= CreateClient();
   private HttpClient? _client;
