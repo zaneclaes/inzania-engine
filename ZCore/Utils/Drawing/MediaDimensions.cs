@@ -31,7 +31,7 @@ public static class MediaDimensions
       return ReadMatroska(s, alreadyRead: 12, prefix: head);
 
     // MP4/MOV (ISO BMFF)
-    if (LooksLikeIsoBmff(head))
+    if ((path.EndsWith(".mp4") || path.EndsWith(".mov")) && LooksLikeIsoBmff(head))
       return ReadIsoBmff(path);
 
     return null;
