@@ -131,9 +131,10 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
       EngagementTimeMsec = GatherEngagementTime()
     }); // data
 
-  public ZTask Share(string method) =>
+  public ZTask Share(string method, string itemId) =>
     ((IZAnalytics) this).SendEvent("share", new MethodEventParams {
       Method = method,
+      ItemId = itemId,
       EngagementTimeMsec = GatherEngagementTime()
     });
 

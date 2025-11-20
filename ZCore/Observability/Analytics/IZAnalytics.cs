@@ -24,7 +24,7 @@ public interface IZAnalytics : IHaveContext, IDisposable {
 
   public ZTask Search(string searchTerm);
 
-  public ZTask Share(string method);
+  public ZTask Share(string method, string itemId);
 
   public ZTask Exception(string desc, bool fatal = false);
 
