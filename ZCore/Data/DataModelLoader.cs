@@ -184,14 +184,14 @@ public static class DataModelLoader {
     this IZContext context, params TKey[] id
   ) where TModel : ModelKey<TKey>, new() {
     IZQueryable<TModel> q = context.QueryFor<TModel>();
-    return q.Where(m => m.Id != null && id.Contains(m.Id)).AsZQueryable(q.QueryProvider);
+    return q.Filter(m => m.Id != null && id.Contains(m.Id));
   }
 
   public static IZQueryable<TModel> QueryForModelId<TModel, TKey>(
     this IZContext context, TKey id
   ) where TModel : ModelKey<TKey> {
     IZQueryable<TModel> q = context.QueryFor<TModel>();
-    return q.Where(m => m.Id != null && m.Id.Equals(id)).AsZQueryable(q.QueryProvider);
+    return q.Filter(m => m.Id != null && m.Id.Equals(id));
   }
 
   public static IZQueryable<TModel> QueryForId<TModel>(
@@ -212,6 +212,12 @@ public static class DataModelLoader {
 
   public static IZQueryable<TSource> Filter<TSource>(this IZQueryable<TSource> q, Expression<Func<TSource, bool>> predicate)
     => q.Where(predicate).AsZQueryable(q.QueryProvider);
+
+  public static IZQueryable<TSource> Limit<TSource>(this IZQueryable<TSource> q, int cnt)
+    => Queryable.Take((IQueryable<TSource>)q, cnt).AsZQueryable(q.QueryProvider);
+
+  public static IZQueryable<TOut> Choose<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, TOut>> predicate)
+    => Queryable.Select((IQueryable<TSource>)q, predicate).AsZQueryable(q.QueryProvider);
 
   public static Task<TModel> Upsert<TModel>(this IZQueryable<TModel> q, Action<TModel> creator) where TModel : DataObject, new() =>
     q.QueryProvider.Context.Upsert(q, creator);

@@ -2,9 +2,9 @@
   <PropertyGroup>
     <BaseOutputPath>..\out\$(MSBuildProjectName)\bin</BaseOutputPath>
     <IntermediateOutputPath>..\out\$(MSBuildProjectName)\obj</IntermediateOutputPath>
-    <LangVersion>10</LangVersion>
+    <LangVersion>13</LangVersion>
     <Nullable>enable</Nullable>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>

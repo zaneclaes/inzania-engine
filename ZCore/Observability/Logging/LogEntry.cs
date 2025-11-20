@@ -47,7 +47,7 @@ public class LogEntry : DataObject {
     minAge ??= DateTime.UtcNow -  TimeSpan.FromDays(30);
     var q = context.QueryFor<LogEntry>()
       .Filter(l => l.ByteSize >= minByteSize && l.LoggedAt < minAge);
-    var entries = await q.Take(limit).LoadDataModelsAsync();
+    var entries = await q.Limit(limit).LoadDataModelsAsync();
     var total = (long) entries.Count;
     if (total <= 0) return;
     if (total >= limit) total = await q.LoadCountAsync();
