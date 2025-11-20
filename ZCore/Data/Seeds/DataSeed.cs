@@ -65,6 +65,11 @@ public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : 
   // Only valid once IsStubbed/IsSeeded
   public List<TS> Stubs { get; } = new List<TS>();
 
+  public async Task<List<TS>> EnsureStubs(IZContext context) {
+    Context = context;
+    return await PrepareStubs();
+  }
+
   // The best version of a model (db if available, else stub data)
   protected Dictionary<string, TD> Models { get; set; } = new Dictionary<string, TD>();
   protected abstract Task<List<TS>> GetStubs();
