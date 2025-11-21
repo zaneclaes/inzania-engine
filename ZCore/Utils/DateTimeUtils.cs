@@ -56,4 +56,9 @@ public static class DateTimeUtils {
     int td = (int) t.TotalDays;
     return $"{td} day" + (td > 1 ? "s" : "");
   }
+
+  public static string ToAgeHoursDays(this DateTime utcDateTime) {
+    var age = DateTime.UtcNow - utcDateTime;
+    return age.ToAgeHoursDays();
+  }
 }
