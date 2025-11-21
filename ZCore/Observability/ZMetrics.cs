@@ -18,6 +18,7 @@ public static class ZMetrics {
   public static readonly string VerbOpen = "open";
 
   public static readonly string UsersGroup = $"{Root}.users";
+  public static readonly string VisitorsGroup = $"{Root}.visitors";
   public static readonly string UsersAuthGroup = $"{UsersGroup}.auth";
   public static readonly string UsersAuthTokenGroup = $"{UsersAuthGroup}.token";
   public static readonly string UsersInstallsGroup = $"{UsersAuthGroup}.installs";
