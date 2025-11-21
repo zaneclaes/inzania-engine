@@ -219,6 +219,12 @@ public static class DataModelLoader {
   public static IZQueryable<TOut> Choose<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, TOut>> predicate)
     => Queryable.Select((IQueryable<TSource>)q, predicate).AsZQueryable(q.QueryProvider);
 
+  public static IZQueryable<TSource> SortAsc<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, TOut>> predicate)
+    => q.OrderBy(predicate).AsZQueryable(q.QueryProvider);
+
+  public static IZQueryable<TSource> SortDsc<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, TOut>> predicate)
+    => q.OrderByDescending(predicate).AsZQueryable(q.QueryProvider);
+
   public static Task<TModel> Upsert<TModel>(this IZQueryable<TModel> q, Action<TModel> creator) where TModel : DataObject, new() =>
     q.QueryProvider.Context.Upsert(q, creator);
 

@@ -25,7 +25,6 @@ public abstract class BaseContext : IZContext, IEventEnricher {
   private Dictionary<string, object>? _eventTags;
 
   private IZLogger? _log;
-  private IZMetrics? _metrics;
 
   protected BaseContext(
     ZApp app, IServiceProvider? services = null, IZLogger? logger = null
@@ -44,7 +43,7 @@ public abstract class BaseContext : IZContext, IEventEnricher {
   [OutputIgnore] public IZContext Context => this;
   [OutputIgnore] public IZLogger Log => _log ??= App.Log.ForContext(GetType(), this);
 
-  [OutputIgnore] public virtual IZMetrics? Metrics => _metrics ??= Parent?.Metrics;
+  [OutputIgnore] public virtual IZMetrics? Metrics => this.GetService<IZMetrics>();
 
   [OutputIgnore] public virtual IZAnalytics? Analytics => _analytics ??=
     Parent?.Analytics ?? ServiceProvider.GetService<IZAnalytics>();

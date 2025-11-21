@@ -19,7 +19,6 @@ public class HostContext : RootContext {
   private readonly IHttpContextAccessor? _httpContextAccessor;
 
   private HttpContext? _httpContext;
-  private IZMetrics? _metrics;
 
   public HostContext(
     ZApp app,
@@ -42,7 +41,6 @@ public class HostContext : RootContext {
   }
   public override IZIdentity? CurrentIdentity => HttpContext?.User.Identity as IZIdentity;
 
-  public override IZMetrics? Metrics => _metrics ??= new DataDogMetrics(this);
   public HttpContext? HttpContext {
     get => _httpContext ??= _httpContextAccessor?.HttpContext;
     internal set => _httpContext = value;
