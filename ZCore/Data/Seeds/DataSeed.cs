@@ -25,8 +25,6 @@ public abstract class DataSeed : IDataSeed {
   private static IZContext? _dataContext;
   public static IZContext DataContext => _dataContext ??= ZEnv.SpawnRootContext();
 
-  public virtual bool ReSeed => false;
-
   public bool IsSeeded { get; protected set; }
   public bool IsStubbed { get; private set; }
 
@@ -78,16 +76,6 @@ public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : 
 
   // protected List<TD> Models { get; set; } = new List<TD>();
 
-  protected virtual async Task ProcessExisting(List<TD> existing) {
-    if (!existing.Any()) return;
-
-    if (ReSeed) {
-      await Context.Data.RemoveAsync(existing.ToArray());
-      await Context.Data.SaveAsync();
-      existing.Clear();
-    }
-  }
-
   protected virtual IZQueryable<TD> FetchQuery() => Context.QueryFor<TD>();
 
   protected virtual void SetModel(TD model) {
@@ -118,11 +106,11 @@ public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : 
   }
 
   private async Task SeedModelIds(List<TS> stubs, List<TD>? existing = null) {
-    string[] seedIds = stubs.Select(p => p.ItemId).ToArray();
+    string[] findIds = stubs.Select(p => p.ItemId).Where(i => !Models.ContainsKey(i)).ToArray();
     // ZEnv.Log.Information("SEED LOOK FOR {ids}", seedIds.ToList());
-    existing ??= await FetchQuery().Filter(p => seedIds.Contains(p.Id)).LoadDataModelsAsync();
+    existing ??=
+      await FetchQuery().Filter(p => findIds.Contains(p.Id)).LoadDataModelsAsync();
 
-    await ProcessExisting(existing);
     foreach (TS stub in stubs) {
       var dbModel = existing.FirstOrDefault(e => e.Id.Equals(stub.ItemId));
       dbModel = await stub.Upsert(Context, dbModel);

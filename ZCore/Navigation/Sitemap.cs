@@ -83,7 +83,11 @@ public abstract class Sitemap : LogicBase {
       File.SetLastWriteTimeUtc(fp, curSitemapLastModified.Value);
     }
 
-    await File.WriteAllTextAsync(Path.Combine(dir, "sitemap.xml"), index.ToString());
+    var sm = index.ToString();
+    var fpSitemap = Path.Combine(dir, "sitemap.xml");
+    if (!File.Exists(fpSitemap) || (await File.ReadAllTextAsync(fpSitemap)) != sm) {
+      await File.WriteAllTextAsync(fpSitemap, sm);
+    }
   }
 
   public abstract Task<List<ISitemapPage>> GetSitemapPages(IZContext context);
