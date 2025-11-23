@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using IZ.Core;
 using IZ.Core.Auth;
+using IZ.Core.Contexts;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Server.Graphql;
 
@@ -13,6 +16,25 @@ public static class HttpExtensions {
 
   public static void ClaimZIdentity(this HttpContext http, IZIdentity identity) {
     http.User = identity.Principal;
+  }
+
+  public static async Task<IZIdentity?> Authenticate(this HttpContext http) {
+    var auth = http.RequestServices.GetRequiredService<IZAuthenticator>();
+    var ctxt = auth.Context;
+    // using var opScope = TraceSpan.FirstLoad(nameof(HttpInterceptor));
+    try {
+      // var auth = ctxt.GetRequiredService<IZAuthenticator>();
+      string? authToken = http.GetAuthToken();
+      string? installId = http.GetInstallId();
+      // ctxt.Log.Information("[CTXT] {type} {ra}", ctxt.Root.GetType().Name, ctxt.Root.ResourceAction);
+      var identity = await auth.Authenticate(ctxt, installId, authToken, http.User);
+      http.ClaimZIdentity(identity);
+      ctxt.Log.Debug("[AUTH] session is now {@id}", identity.UserSession);
+      return identity;
+    } catch (Exception e) {
+      ctxt.Log.Error(e, "Auth Error");
+      return null;
+    }
   }
 
   public static string? GetAuthToken(this HttpContext http) =>

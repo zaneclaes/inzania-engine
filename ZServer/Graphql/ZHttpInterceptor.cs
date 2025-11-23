@@ -19,23 +19,11 @@ public class ZHttpInterceptor : DefaultHttpRequestInterceptor {
   public override async ValueTask OnCreateAsync(
     HttpContext http, IRequestExecutor executor, OperationRequestBuilder builder, CancellationToken cancellationToken
   ) {
-    // var ctxt = http.RequestServices.GetCurrentContext();
-    var auth = http.RequestServices.GetRequiredService<IZAuthenticator>();
-    var ctxt = auth.Context;
-    // using var opScope = TraceSpan.FirstLoad(nameof(HttpInterceptor));
-    try {
-      // var auth = ctxt.GetRequiredService<IZAuthenticator>();
-      string? authToken = http.GetAuthToken();
-      string? installId = http.GetInstallId();
-      // ctxt.Log.Information("[CTXT] {type} {ra}", ctxt.Root.GetType().Name, ctxt.Root.ResourceAction);
-      var identity = await auth.Authenticate(ctxt, installId, authToken, http.User);
+    var identity = await http.Authenticate();
+    if (identity != null)
       builder.SetGlobalState(nameof(ClaimsPrincipal), identity.Principal);
-      http.ClaimZIdentity(identity);
-      ctxt.Log.Debug("[AUTH] session is now {@id}", identity.UserSession);
-    } catch (Exception e) {
-      ctxt.Log.Error(e, "Auth Error");
-    }
 
     await base.OnCreateAsync(http, executor, builder, cancellationToken);
   }
+
 }
