@@ -16,6 +16,7 @@ public static class ZMetrics {
   public static readonly string VerbUpdate = "update";
   public static readonly string VerbDelete = "delete";
   public static readonly string VerbOpen = "open";
+  public static readonly string VerbVerify = "open";
 
   public static readonly string UsersGroup = $"{Root}.users";
   public static readonly string VisitorsGroup = $"{Root}.visitors";
@@ -24,6 +25,7 @@ public static class ZMetrics {
   public static readonly string UsersInstallsGroup = $"{UsersAuthGroup}.installs";
   public static readonly string UsersInstrumentsGroup = $"{UsersAuthGroup}.instruments";
   public static readonly string UsersWebCamsGroup = $"{UsersAuthGroup}.webcams";
+  public static readonly string UsersTransactionGroup = $"{UsersGroup}.txn";
 
   public static readonly string SysGroup = $"{Root}.sys";
 
