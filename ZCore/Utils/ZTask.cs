@@ -125,10 +125,9 @@ namespace IZ.Core.Utils
             return new ZTask(UniTask.WaitUntil(predicate));
 #else
             // Non-blocking loop: yields back to the scheduler each iteration.
-            return new ZTask(Task.Run(async () =>
-            {
-                while (!predicate())
-                    await Task.Yield();
+            return new ZTask(Task.Run(async () => {
+              while (!predicate())
+                await Task.Delay(100);
             }));
 #endif
         }
