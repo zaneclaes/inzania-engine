@@ -43,7 +43,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     _parser = parser;
     _subscriptionUrl = new Uri(context.App.Gql.Replace("http", "ws"));
     _request = req;
-    _headers = TuneQueries.GetHeaders(context, headers);
+    _headers = ZQueries.GetHeaders(context, headers);
     CreateSocket();
   }
 
@@ -89,7 +89,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
 
   private void CreateSocket() {
     DisposeSocket();
-    Socket = TuneQueries.CreateWebSocket(Context, _subscriptionUrl, _subProtocol, _headers);
+    Socket = ZQueries.CreateWebSocket(Context, _subscriptionUrl, _subProtocol, _headers);
     Socket.OnOpen += HandleOpen;
     Socket.OnError += HandleError;
     Socket.OnClose += HandleClose;

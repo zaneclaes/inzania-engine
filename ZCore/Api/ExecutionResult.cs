@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
@@ -18,9 +19,18 @@ public class ExecutionResult : TransientObject {
     // OperationType = op;
     Plan = plan;
     Args = plan.CoerceArgs(args);
+
+    var keys = Args.Keys.ToList();
+    keys.Sort();
+    CacheId = plan.Id;
+    foreach (var key in keys) {
+      CacheId += "_" + Args[key];
+    }
     // ParentClass = parentType;
   }
   // public Type ParentClass { get; }
+
+  public string CacheId { get; }
 
   public ExecutionPlan Plan { get; }
 

@@ -13,13 +13,7 @@ using IZ.Core.Utils;
 
 namespace IZ.Core.Data;
 
-public interface IClientCache {
-  public T? Get<T>(string id) where T : class;
-
-  public void Set<T>(T value) where T : class, IStringKeyData;
-}
-
-public abstract class ClientCache : LogicBase, IClientCache {
+public abstract class ClientCache : LogicBase, IZClientCache {
   public abstract string? DiskPath { get; }
 
   private readonly Dictionary<Type, Dictionary<string, object>> _memory = new Dictionary<Type, Dictionary<string, object>>();
@@ -32,7 +26,7 @@ public abstract class ClientCache : LogicBase, IClientCache {
 
   protected async ZTask<T> Load<T>(string id, IZResult<T> func, string? format = null, TimeSpan? maxAge = null) where T : class {
     if (!string.IsNullOrEmpty(format)) id += "_" + format;
-    var data = Get<T>(id);
+    var data = Get<T>(id, maxAge);
     maxAge ??= DefaultCacheAge;
     if (data == null || GetJsonFileAge<T>(id) > maxAge) {
       try {
@@ -51,7 +45,8 @@ public abstract class ClientCache : LogicBase, IClientCache {
     SetFile(typeof(T), $"{id}.json", null);
   }
 
-  public virtual T? Get<T>(string id) where T : class {
+  public virtual T? Get<T>(string id, TimeSpan? maxCacheAge) where T : class {
+    if (GetJsonFileAge<T>(id) > maxCacheAge) return null;
     var ret = _memory.GetValueOrDefault(typeof(T))?.GetValueOrDefault(id) as T ?? null;
     if (ret != null) return ret;
     ret = GetJson<T>(id);
@@ -62,10 +57,10 @@ public abstract class ClientCache : LogicBase, IClientCache {
     return ret;
   }
 
-  public virtual void Set<T>(T value) where T : class, IStringKeyData {
+  public virtual void Set<T>(string id, T value) where T : class {
     if (!_memory.ContainsKey(typeof(T))) _memory[typeof(T)] = new Dictionary<string, object>();
-    _memory[typeof(T)][value.Id] = value;
-    SetJson(value.Id, value);
+    _memory[typeof(T)][id] = value;
+    SetJson(id, value);
   }
 
   private string? GetFilePath(Type t, string fn) {

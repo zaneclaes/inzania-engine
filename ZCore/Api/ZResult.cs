@@ -14,6 +14,8 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Api;
 
 public interface IZResult {
+  public static TimeSpan DefaultCacheAge { get; set; } = TimeSpan.FromDays(7);
+
   public Task<object> ExecuteObject(ResultSet? selectionSet = null);
 }
 
@@ -31,6 +33,14 @@ public static class ZResultExtensions {
       Format = format
     });
 
+  public static Task<TData> Cache<TData>(
+    this IZResult<TData> result, string? format = null, TimeSpan? maxCacheAge = null
+  ) where TData : class =>
+    result.ExecuteData(new ResultSet {
+      Format = format,
+      MaxCacheAge = maxCacheAge ?? IZResult.DefaultCacheAge
+    });
+
   public static Task Subscribe<TData>(
     this IZResult<TData> result, IGraphQLWebSocketDelegate<TData> del, string? format = null
   ) where TData : class =>
@@ -40,6 +50,7 @@ public static class ZResultExtensions {
 }
 
 public class ZResult<TData> : TransientObject, IZResult<TData> where TData : class {
+
   private readonly Func<ExecutionPlan, TData>? _data;
 
   private readonly Func<ExecutionPlan, Task<TData>>? _task;
@@ -69,7 +80,14 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
     var serverConnection = Context.GetService<IServerConnection>();
     if (serverConnection != null) {
       var result = new ExecutionResult(Context, plan, Args);
-      return await Context.ExecuteRequiredTask(() => serverConnection.ExecuteApiRequest<TData>(result));
+      return await Context.ExecuteRequiredTask(async () => {
+        var cache = selectionSet?.MaxCacheAge == null ? null : Context.GetService<IZClientCache>();
+        var res = cache?.Get<TData>(result.CacheId, selectionSet?.MaxCacheAge);
+        if (res != null) return res;
+        res = await serverConnection.ExecuteApiRequest<TData>(result);
+        if (cache != null) cache.Set(result.CacheId, res);
+        return res;
+      });
     }
     // On the server, tasks log errors as Debug because they will be caught by GraphQL handlers
     var ret = _data != null ?

@@ -46,7 +46,6 @@ public class ZStubJsonConnection : IConnection<JsonDocument> {
 
 public class ZGraphServerConnection : LogicBase, IServerConnection {
 
-  public ZGraphServerConnection() : base(ZEnv.SpawnRootContext()) { }
   public Task<TData> ExecuteApiRequest<TData>(ExecutionResult result, CancellationToken? ct = null) where TData : class =>
     ParseApiRequest<TData>(result.Context.ServiceProvider.GetRequiredService<IHttpConnection>(), result, ct);
 
@@ -95,4 +94,6 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     Log.Debug("[API] {@data}", data);
     return data;
   }
+
+  public ZGraphServerConnection() : base(ZEnv.SpawnRootContext()) { }
 }

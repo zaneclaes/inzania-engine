@@ -16,7 +16,7 @@ using SocketBuilder = System.Func<
 
 namespace IZ.Client;
 
-public static class TuneQueries {
+public static class ZQueries {
   private static SocketBuilder _webSocketBuilder = (context, url, protocol, headers) => new SystemWebSocket();
 
   public static void SetSocketBuilder(SocketBuilder b) {
