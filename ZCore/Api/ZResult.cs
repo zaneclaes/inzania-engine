@@ -76,16 +76,17 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
   public Type ParentClass { get; }
 
   public async Task<TData> ExecuteData(ResultSet? selectionSet = null) {
-    var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
+    selectionSet ??= new ResultSet();
+    var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet);
     var serverConnection = Context.GetService<IServerConnection>();
     if (serverConnection != null) {
       var result = new ExecutionResult(Context, plan, Args);
       return await Context.ExecuteRequiredTask(async () => {
-        var cache = selectionSet?.MaxCacheAge == null ? null : Context.GetService<IZClientCache>();
-        var res = cache?.Get<TData>(result.CacheId, selectionSet?.MaxCacheAge);
+        var cache = selectionSet.MaxCacheAge == null ? null : Context.GetService<IZClientCache>();
+        var res = cache?.Get<TData>(result.CacheId, selectionSet.MaxCacheAge);
         if (res != null) return res;
         res = await serverConnection.ExecuteApiRequest<TData>(result);
-        if (cache != null) cache.Set(result.CacheId, res);
+        if (cache != null) cache.Set(result.CacheId, res, selectionSet.Format);
         return res;
       });
     }

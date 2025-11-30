@@ -24,7 +24,7 @@ public class ExecutionResult : TransientObject {
     keys.Sort();
     CacheId = plan.Id;
     foreach (var key in keys) {
-      CacheId += "_" + Args[key];
+      CacheId += "_" + Args[key].Item2;
     }
     // ParentClass = parentType;
   }

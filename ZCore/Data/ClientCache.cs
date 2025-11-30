@@ -57,10 +57,10 @@ public abstract class ClientCache : LogicBase, IZClientCache {
     return ret;
   }
 
-  public virtual void Set<T>(string id, T value) where T : class {
+  public virtual void Set<T>(string id, T value, string? format = null) where T : class {
     if (!_memory.ContainsKey(typeof(T))) _memory[typeof(T)] = new Dictionary<string, object>();
     _memory[typeof(T)][id] = value;
-    SetJson(id, value);
+    SetJson(id, value, format);
   }
 
   private string? GetFilePath(Type t, string fn) {
