@@ -14,7 +14,11 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Api;
 
 public interface IZResult {
-  public static TimeSpan DefaultCacheAge { get; set; } = TimeSpan.FromDays(7);
+  // Short, always refresh if possible when online
+  public static TimeSpan DefaultOnlineCacheAge { get; set; } = TimeSpan.FromMinutes(1);
+
+  // Long, offline allows big cache time (TODO)
+  public static TimeSpan DefaultOfflineCacheAge { get; set; } = TimeSpan.FromDays(30);
 
   public Task<object> ExecuteObject(ResultSet? selectionSet = null);
 }
@@ -38,7 +42,7 @@ public static class ZResultExtensions {
   ) where TData : class =>
     result.ExecuteData(new ResultSet {
       Format = format,
-      MaxCacheAge = maxCacheAge ?? IZResult.DefaultCacheAge
+      MaxCacheAge = maxCacheAge ?? IZResult.DefaultOnlineCacheAge
     });
 
   public static Task Subscribe<TData>(
