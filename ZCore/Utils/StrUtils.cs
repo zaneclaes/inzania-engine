@@ -57,7 +57,7 @@ public static class StringUtils {
   };
 
   public static string ToProperTitle(this string input) {
-    var words = Regex.Split(input.ToLowerInvariant().Trim(), @"(\s-_)+")
+    var words = Regex.Split(input.ToLowerInvariant().Trim(), @"\s+")
       .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
     for (int i = 0; i < words.Length; i++) {
       string word = words[i];
