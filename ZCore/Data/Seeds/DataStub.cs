@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
+using IZ.Core.Json;
 
 namespace IZ.Core.Data.Seeds;
 
@@ -57,6 +59,16 @@ public abstract class DataStub<TD> : DataStub, IItemizable where TD : DataObject
     }
     await UpdateDataModel(context, DbData, isInsert);
     return DbData;
+  }
+
+  protected TM LoadMetaData<TM>(IZContext context, string fpMeta, bool create = true) where TM : TransientObject, new() {
+    if (File.Exists(fpMeta)) {
+      return ZJson.DeserializeObject<TM>(File.ReadAllText(fpMeta))!;
+    } else {
+      var meta = new TM() {Context = context};
+      if (create) File.WriteAllText(fpMeta, ZJson.SerializeObject(meta));
+      return meta;
+    }
   }
 }
 
