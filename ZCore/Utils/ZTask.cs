@@ -201,6 +201,20 @@ namespace IZ.Core.Utils
 
         // ---- helpers ----
 
+        public void Forget()
+        {
+#if Z_UNITY
+          _inner.Forget();
+#else
+            // Fire-and-forget: just ignore the task. Optionally hook your own extension here.
+            _ = _inner;
+#endif
+        }
+
+        public async ZTask Void() {
+          await this;
+        }
+
         public T GetResult()
         {
 #if Z_UNITY

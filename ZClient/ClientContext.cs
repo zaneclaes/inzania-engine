@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using IZ.Client.GoogleAnalytics;
+using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Auth.Args;
 using IZ.Core.Contexts;
@@ -16,7 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Client;
 
-public class ClientContext : RootContext {
+public abstract class ClientContext : RootContext {
 
   private readonly Dictionary<string, Stopwatch> _taskTimers = new Dictionary<string, Stopwatch>();
   public TimeSpan Uptime => Context.App.Uptime;
@@ -117,7 +118,7 @@ public class ClientContext : RootContext {
   }
 
   protected async ZTask RestoreSession(bool logoutOnException = true) {
-    var storedSession = ServiceProvider.GetRequiredService<IStoredUserSession>();
+    var sessionStore = ServiceProvider.GetRequiredService<IStoredUserSession>();
     // if (storedSession.AccessToken == null) {
     //   _userIdentity = null;
     //   IsSessionRestored = true;
@@ -125,9 +126,14 @@ public class ClientContext : RootContext {
     // }
     StartTaskTimer(nameof(RestoreSession));
     try {
-      var userIdentity = await storedSession.RestoreUserSession(Install);
-      Log.Information("[LOGIN] {user} via {sessionId}", userIdentity.IZUser, userIdentity.SessionId);
-      UpdateUserIdentity(userIdentity);
+      var session = await RestoreUserSession(sessionStore);
+      if (session != null) {
+        var userIdentity = sessionStore.UpdateUserSession(Install, session)!;
+        Log.Information("[LOGIN] {user} via {sessionId}", userIdentity.IZUser, userIdentity.SessionId);
+        UpdateUserIdentity(userIdentity);
+      } else {
+        Log.Information("[LOGIN] no session was restored");
+      }
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       if (logoutOnException) await Logout();
@@ -135,6 +141,10 @@ public class ClientContext : RootContext {
     IsSessionRestored = true;
     StopTaskTimer(nameof(RestoreSession));
   }
+
+  protected abstract ZTask<IZSession?> RestoreUserSession(IStoredUserSession sessionStore);
+
+  protected abstract ZTask LogoutUserSession();
 
   public virtual void SetCurrentUserSession(IZSession? session) {
     _session = session;
@@ -184,12 +194,13 @@ public class ClientContext : RootContext {
   //   Context.Analytics?.SignUp(LoginMethod).Forget();
   // }
 
-  public virtual ZTask Logout() {
-    // TODO: send Logout graphGQL and flag session as soft deleted
+  public virtual async ZTask Logout() {
+    // Context.BeginRequest<AuthMutation>().Logout().Execute().Forget();
+    LogoutUserSession().Forget();
+    await ZTask.Delay(100); // be 100% certain the logout fired first... but don't need it to finish
     _userIdentity = null;
     ServiceProvider.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install,null);
     Log.Information("[LOGOUT] cleared user identity");
-    return ZTask.CompletedTask;
   }
 
   public override void Dispose() {

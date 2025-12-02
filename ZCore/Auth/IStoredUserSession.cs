@@ -5,6 +5,8 @@ namespace IZ.Core.Auth;
 
 // Retrieves the access token for the current user
 public interface IStoredUserSession {
+  public IZSession? CurrentSession { get; }
+
   public StoredSession? StoredSession { get; }
   // public string? AccessToken { get; }
   public string? LastUsername { get; }
@@ -14,5 +16,5 @@ public interface IStoredUserSession {
 
   public IZIdentity? UpdateUserSession(Installation install, IZSession? session);
 
-  public Task<IZIdentity> RestoreUserSession(Installation install, StoredSession? session = null);
+  // public Task<IZIdentity> RestoreUserSession(Installation install, StoredSession? session = null);
 }

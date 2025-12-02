@@ -8,6 +8,7 @@ using IZ.Core.Api.GraphQLWebSockets;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Logging;
+using IZ.Core.Utils;
 
 #endregion
 
@@ -20,24 +21,25 @@ public interface IZResult {
   // Long, offline allows big cache time (TODO)
   public static TimeSpan DefaultOfflineCacheAge { get; set; } = TimeSpan.FromDays(30);
 
-  public Task<object> ExecuteObject(ResultSet? selectionSet = null);
+  public ZTask<object> ExecuteObject(ResultSet? selectionSet = null);
 }
 
 public interface IZResult<TData> : IZResult where TData : class {
-  public Task<TData> ExecuteData(ResultSet? selectionSet = null);
+  public ZTask<TData> ExecuteData(ResultSet? selectionSet = null);
 
-  public Task<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null);
+  public ZTask<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null);
 }
 
 public static class ZResultExtensions {
-  public static Task<TData> Execute<TData>(
+
+  public static ZTask<TData> Execute<TData>(
     this IZResult<TData> result, string? format = null
   ) where TData : class =>
     result.ExecuteData(new ResultSet {
       Format = format
     });
 
-  public static Task<TData> Cache<TData>(
+  public static ZTask<TData> Cache<TData>(
     this IZResult<TData> result, string? format = null, TimeSpan? maxCacheAge = null
   ) where TData : class =>
     result.ExecuteData(new ResultSet {
@@ -45,7 +47,7 @@ public static class ZResultExtensions {
       MaxCacheAge = maxCacheAge ?? IZResult.DefaultOnlineCacheAge
     });
 
-  public static Task Subscribe<TData>(
+  public static ZTask<IGraphQlWebSocket<TData>> Subscribe<TData>(
     this IZResult<TData> result, IGraphQLWebSocketDelegate<TData> del, string? format = null
   ) where TData : class =>
     result.Subscribe(del, new ResultSet {
@@ -79,7 +81,7 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
 
   public Type ParentClass { get; }
 
-  public async Task<TData> ExecuteData(ResultSet? selectionSet = null) {
+  public async ZTask<TData> ExecuteData(ResultSet? selectionSet = null) {
     selectionSet ??= new ResultSet();
     var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet);
     var serverConnection = Context.GetService<IServerConnection>();
@@ -106,12 +108,12 @@ public class ZResult<TData> : TransientObject, IZResult<TData> where TData : cla
     return ret;
   }
 
-  public async Task<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null) {
+  public async ZTask<IGraphQlWebSocket<TData>> Subscribe(IGraphQLWebSocketDelegate<TData> del, ResultSet? selectionSet = null) {
     var plan = ExecutionPlan.Load(Context, ParentClass, MethodName, selectionSet ?? new ResultSet());
     var serverConnection = Context.GetRequiredService<IServerConnection>();
     var result = new ExecutionResult(Context, plan, Args);
     return await Context.ExecuteRequiredTask(() => serverConnection.Subscribe<TData>(result, del));
   }
 
-  public async Task<object> ExecuteObject(ResultSet? selectionSet = null) => (await ExecuteData(selectionSet))!;
+  public async ZTask<object> ExecuteObject(ResultSet? selectionSet = null) => (await ExecuteData(selectionSet))!;
 }
