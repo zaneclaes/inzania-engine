@@ -45,7 +45,7 @@ public interface IAssetProvider : IHaveContext {
   public async ZTask<T> GetResourceFromServer<T>(string resourcePath) {
     var json = await GetResourceFromServer(resourcePath);
     var txt = Encoding.UTF8.GetString(json);
-    Log.Information("[RESOURCE] got {t}", txt);
-    return ZJson.DeserializeObject<T>(Context, txt);
+    Log.Debug("[RESOURCE] got {t}", txt);
+    return ZJson.DeserializeObject<T>(Context, txt)!;
   }
 }

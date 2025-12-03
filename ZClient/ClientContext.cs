@@ -113,7 +113,9 @@ public abstract class ClientContext : RootContext {
   protected async ZTask RestoreSession(bool logoutOnException = true) {
     StartTaskTimer(nameof(RestoreSession));
     try {
-      SetCurrentUserSession(await RestoreUserSession());
+      var existing = IdentityStore.LoadStoredSession();
+      if (existing != null) IdentityStore.UpdateUserSession(existing);
+      IdentityStore.UpdateUserSession(await RestoreUserSession());
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       if (logoutOnException) await Logout();
@@ -126,11 +128,6 @@ public abstract class ClientContext : RootContext {
   protected abstract ZTask<IZSession?> RestoreUserSession();
 
   protected abstract ZTask LogoutUserSession();
-
-  protected void SetCurrentUserSession(IZSession? session) {
-    var userIdentity = IdentityStore.UpdateUserSession(session);
-    Log.Information("[LOGIN] update session {sessionId} {user}", session, userIdentity);
-  }
 
   protected const string LoginMethod = "password";
 
