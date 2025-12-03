@@ -13,5 +13,5 @@ public interface IZUser : IStringKeyData, ICreatedAt, IAmOwned {
 
   public string? MigratedToUserId { get; set; }
 
-  public bool IsVisitor() => Role < ZUserRole.Unconfirmed;
+  public bool IsVisitor() => Role.IsVirtualUser();
 }

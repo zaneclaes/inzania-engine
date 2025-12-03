@@ -1,3 +1,4 @@
+using System;
 using System.Security.Claims;
 using System.Security.Principal;
 using IZ.Core.Contexts;
@@ -33,7 +34,12 @@ public class ZVisitorIdentity : TransientObject, IZIdentity {
   public IZSession? UserSession => null;
 
   [OutputIgnore]
-  public IZUser? IZUser => null;
+  public IZUser? IZUser {
+    get => null;
+    set {
+      if (value != null) throw new ArgumentException($"Visitors may not have users");
+    }
+  }
 
   public ClaimsPrincipal Principal { get; }
 }

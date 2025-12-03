@@ -34,4 +34,7 @@ public static class ZRoles {
 
   public static string[] GetRoleNames(ZUserRole minimumLevel) =>
     GetRoles(minimumLevel).Select(r => r.ToString()).ToArray();
+
+  public static bool IsRealUser(this ZUserRole role) => role >= ZUserRole.Unconfirmed;
+  public static bool IsVirtualUser(this ZUserRole role) => !role.IsRealUser();
 }

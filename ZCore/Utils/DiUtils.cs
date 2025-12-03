@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IZ.Core.Utils;
@@ -32,11 +33,25 @@ public static class DiUtils {
     .AddScopeds<TService, TImplementation>()
     .AddScoped<TAlias>(sp => sp.GetRequiredService<TService>());
 
-  public static IServiceCollection AddSingletons<TService, TImplementation>(this IServiceCollection services)
+  public static IServiceCollection AddSingletons<TService, TImplementation>(this IServiceCollection services, Func<TImplementation>? imp = null)
     where TService : class
     where TImplementation : class, TService => services
-    .AddSingleton<TImplementation>()
+    .AddSingletonImplementation<TImplementation>(imp)
     .AddSingleton<TService>(sp => sp.GetRequiredService<TImplementation>());
+
+  public static IServiceCollection AddSingletonImplementation<TImplementation>(this IServiceCollection services, Func<TImplementation>? imp = null) where TImplementation : class {
+    if (imp == null) return services.AddSingleton<TImplementation>();
+    else return services.AddSingleton(imp);
+  }
+
+  public static IServiceCollection AddSingletons<TService, TImp1, TImplementation>(this IServiceCollection services, Func<TImplementation>? imp = null)
+    where TService : class
+    where TImp1 : class, TService
+    where TImplementation : class, TService, TImp1 => services
+    .AddSingletonImplementation<TImplementation>(imp)
+    .AddSingleton<TImp1>(sp => sp.GetRequiredService<TImplementation>())
+    .AddSingleton<TService>(sp => sp.GetRequiredService<TImplementation>())
+  ;
 
   public static IServiceCollection AddSingleton<TService, TImplementation, TAlias>(this IServiceCollection services)
     where TService : class, TAlias

@@ -26,6 +26,9 @@ public abstract class ClientContext : RootContext {
 
   private IAnalyticsSink? _analyticsSink;
 
+  public IIdentityStore IdentityStore => _sessionStore ??= this.GetRequiredService<IIdentityStore>();
+  private IIdentityStore? _sessionStore;
+
   protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
     // Log.Information("[START] entrypoint...");
   }
@@ -33,14 +36,8 @@ public abstract class ClientContext : RootContext {
 
   public ZClientApp ClientApp => App as ZClientApp ?? throw new SystemException($"ClientApp is a {App?.GetType()}");
 
-  public override IZIdentity? CurrentIdentity => _userIdentity ?? (_visitorIdentity ??= GetVisitorIdentity());
-  private IZIdentity? _userIdentity;
+  public override IZIdentity? CurrentIdentity => IdentityStore.CurrentZIdentity ?? (_visitorIdentity ??= GetVisitorIdentity());
   private ZVisitorIdentity? _visitorIdentity;
-
-  public virtual IZUser? CurrentUser => _userIdentity?.IZUser;
-
-  public virtual IZSession? CurrentSession => _session;
-  private IZSession? _session;
 
   public override IZAnalytics Analytics => _analytics ??= Context.GetRequiredService<IZAnalytics>();
 
@@ -113,49 +110,26 @@ public abstract class ClientContext : RootContext {
     }
   }
 
-  protected virtual void UpdateUserIdentity(IZIdentity userIdentity) {
-    _userIdentity = userIdentity;
-  }
-
   protected async ZTask RestoreSession(bool logoutOnException = true) {
-    var sessionStore = ServiceProvider.GetRequiredService<IStoredUserSession>();
-    // if (storedSession.AccessToken == null) {
-    //   _userIdentity = null;
-    //   IsSessionRestored = true;
-    //   return;
-    // }
     StartTaskTimer(nameof(RestoreSession));
     try {
-      var session = await RestoreUserSession(sessionStore);
-      if (session != null) {
-        var userIdentity = sessionStore.UpdateUserSession(Install, session)!;
-        Log.Information("[LOGIN] {user} via {sessionId}", userIdentity.IZUser, userIdentity.SessionId);
-        UpdateUserIdentity(userIdentity);
-      } else {
-        Log.Information("[LOGIN] no session was restored");
-      }
+      SetCurrentUserSession(await RestoreUserSession());
     } catch (Exception e) {
       Log.Warning(e, "Restoring session failed");
       if (logoutOnException) await Logout();
+    } finally {
+      IsSessionRestored = true;
+      StopTaskTimer(nameof(RestoreSession));
     }
-    IsSessionRestored = true;
-    StopTaskTimer(nameof(RestoreSession));
   }
 
-  protected abstract ZTask<IZSession?> RestoreUserSession(IStoredUserSession sessionStore);
+  protected abstract ZTask<IZSession?> RestoreUserSession();
 
   protected abstract ZTask LogoutUserSession();
 
-  public virtual void SetCurrentUserSession(IZSession? session) {
-    _session = session;
-    var userIdentity = Context.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install, session);
-    if (userIdentity == null) {
-      Log.Warning("[LOGIN] NULL id from {session}", session);
-      _userIdentity = null;
-    } else {
-      Log.Information("[LOGIN] {sessionId} {user}", userIdentity.SessionId, userIdentity.IZUser);
-      UpdateUserIdentity(userIdentity);
-    }
+  protected void SetCurrentUserSession(IZSession? session) {
+    var userIdentity = IdentityStore.UpdateUserSession(session);
+    Log.Information("[LOGIN] update session {sessionId} {user}", session, userIdentity);
   }
 
   protected const string LoginMethod = "password";
@@ -198,8 +172,7 @@ public abstract class ClientContext : RootContext {
     // Context.BeginRequest<AuthMutation>().Logout().Execute().Forget();
     LogoutUserSession().Forget();
     await ZTask.Delay(100); // be 100% certain the logout fired first... but don't need it to finish
-    _userIdentity = null;
-    ServiceProvider.GetRequiredService<IStoredUserSession>().UpdateUserSession(Install,null);
+    IdentityStore.UpdateUserSession(null);
     Log.Information("[LOGOUT] cleared user identity");
   }
 

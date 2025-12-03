@@ -9,7 +9,11 @@ public interface IZSession : IStringKeyData, ICreatedAt, IHaveContext {
 
   public string Token { get; }
 
+  public string InstallId { get; }
+
   public DateTime ExpiresAt { get; }
+
+  public DateTime? DeletedAt { get; }
 
   public StoredSession ToStoredSession() => new StoredSession() {
     Context = Context,

@@ -44,7 +44,7 @@ public static class ZQueries {
       [ZHeaders.Env] = context.App.Env.ToString()
     };
 
-    var at = context.GetService<IStoredUserSession>()?.StoredSession;
+    var at = context.GetService<IIdentityStore>()?.StoredSession;
     if (at?.AccessToken != null) ret[ZHeaders.Authorization] = "bearer " + at.AccessToken;
 
     if (extra != null) {

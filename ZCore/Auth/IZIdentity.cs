@@ -16,7 +16,8 @@ public interface IZIdentity : IIdentity {
   [ApiDocs("If in user mode, who, if anybody?")]
   public IZSession? UserSession { get; }
 
-  public IZUser? IZUser { get; }
+  // Most recent user data
+  public IZUser? IZUser { get; set; }
 
   [ApiDocs("A principal representing this identity")]
   public ClaimsPrincipal Principal { get; }

@@ -70,4 +70,7 @@ public class Installation : TransientObject {
       Version = value.ToString();
     }
   }
+
+  public string GetInstallIdForUserId(string userId) =>
+    ClientId.ToSecureAlphanumericHash(userId.ToMd5Hash());
 }
