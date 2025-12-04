@@ -9,7 +9,7 @@ public interface IZSession : IStringKeyData, ICreatedAt, IHaveContext {
 
   public string Token { get; }
 
-  public string InstallId { get; }
+  public string? InstallId { get; }
 
   public DateTime ExpiresAt { get; }
 
