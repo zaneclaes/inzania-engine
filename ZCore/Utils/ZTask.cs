@@ -127,7 +127,7 @@ namespace IZ.Core.Utils
             // Non-blocking loop: yields back to the scheduler each iteration.
             return new ZTask(Task.Run(async () => {
               while (!predicate())
-                await Task.Delay(100);
+                await Task.Yield();
             }));
 #endif
         }

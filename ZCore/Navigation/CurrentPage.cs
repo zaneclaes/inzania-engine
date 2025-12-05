@@ -30,7 +30,7 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
   public static string CreateTitle(string title, string subSuffix) {
     const int idealLen = 50;
     var suffix = " | " + subSuffix;
-    if ((title.Length + suffix.Length) > idealLen) return title;
+    if ((title.Length + suffix.Length) > idealLen || title.EndsWith(suffix)) return title;
     return $"{title}{suffix}";
   }
 
