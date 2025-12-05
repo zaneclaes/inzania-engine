@@ -37,7 +37,7 @@ public class Installation : TransientObject {
 
   public DeviceType DeviceType { get; set; }
 
-  public int SessionNumber { get; set; } // Used in analytics
+  public uint LaunchNumber { get; set; } // Used in analytics
 
   public int ProcessorCount { get; set; }
 

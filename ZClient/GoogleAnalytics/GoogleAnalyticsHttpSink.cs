@@ -84,7 +84,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     e.EventParams ??= new BaseParams();
     if (_installation != null) e.EventParams.LoadInstallation(_installation);
     e.EventParams.SessionId = SessionId;
-    e.EventParams.SessionNumber = _installation?.SessionNumber ?? 0;
+    e.EventParams.SessionNumber = _installation?.LaunchNumber ?? 0;
     req.Events.Add(e);
     string json = ZJson.SerializeObject(req);
     return SendRequest(json);
