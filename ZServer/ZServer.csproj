@@ -12,6 +12,7 @@
     <ProjectReference Include="..\ZDataDog\ZDataDog.csproj"/>
     <ProjectReference Include="..\ZData\ZData.csproj"/>
     <ProjectReference Include="..\ZSchema\ZSchema.csproj"/>
+    <ProjectReference Include="..\ZExt\ZExt.csproj" />
     <ProjectReference Include="..\ZSerilog\ZSerilog.csproj"/>
   </ItemGroup>
 

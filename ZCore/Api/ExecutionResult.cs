@@ -14,7 +14,7 @@ namespace IZ.Core.Api;
 public class ExecutionResult : TransientObject {
 
   public ExecutionResult(
-    IZContext context, ExecutionPlan plan, List<object?> args
+    IZContext context, IExecutionPlan plan, List<object?> args
   ) : base(context) {
     // OperationType = op;
     Plan = plan;
@@ -32,7 +32,7 @@ public class ExecutionResult : TransientObject {
 
   public string CacheId { get; }
 
-  public ExecutionPlan Plan { get; }
+  public IExecutionPlan Plan { get; }
 
   public Dictionary<string, Tuple<ZTypeDescriptor, object?>> Args { get; }
 

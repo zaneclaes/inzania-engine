@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>IZ.Ext</AssemblyName>
+    <RootNamespace>IZ.Ext</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HotChocolate.Abstractions" Version="15.1.11" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\ZCore\ZCore.csproj"/>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Folder Include="Utils\" />
+  </ItemGroup>
+
+</Project>

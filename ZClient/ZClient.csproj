@@ -10,7 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="GoogleAnalyticsTracker.Simple" Version="7.0.1"/>
     <PackageReference Include="StrawberryShake.Transport.Http" Version="15.1.11" />
   </ItemGroup>
 

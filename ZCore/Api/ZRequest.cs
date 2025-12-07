@@ -13,11 +13,11 @@ public abstract class ZRequestBase : LogicBase {
     // Request = context;
   }
 
-  protected IZResult<TData> Result<TData>(string name, Func<ExecutionPlan, TData> action, params object?[] args) where TData : class =>
+  protected IZResult<TData> Result<TData>(string name, Func<IExecutionPlan, TData> action, params object?[] args) where TData : class =>
     new ZResult<TData>(Context, GetType(), name, action, args);
   // Request.Result(GetType(), name, action, args);
 
-  protected IZResult<TData> Result<TData>(string name, Func<ExecutionPlan, Task<TData>> action, params object?[] args) where TData : class =>
+  protected IZResult<TData> Result<TData>(string name, Func<IExecutionPlan, Task<TData>> action, params object?[] args) where TData : class =>
     new ZResult<TData>(Context, GetType(), name, action, args);
   //Request.Result(GetType(), name, action, args);
 }

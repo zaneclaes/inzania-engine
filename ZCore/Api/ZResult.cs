@@ -57,18 +57,18 @@ public static class ZResultExtensions {
 
 public class ZResult<TData> : TransientObject, IZResult<TData> where TData : class {
 
-  private readonly Func<ExecutionPlan, TData>? _data;
+  private readonly Func<IExecutionPlan, TData>? _data;
 
-  private readonly Func<ExecutionPlan, Task<TData>>? _task;
+  private readonly Func<IExecutionPlan, Task<TData>>? _task;
 
-  public ZResult(IZContext context, Type parentClass, string name, Func<ExecutionPlan, TData> data, params object?[] args) : base(context) {
+  public ZResult(IZContext context, Type parentClass, string name, Func<IExecutionPlan, TData> data, params object?[] args) : base(context) {
     _data = data;
     Args = args.ToList();
     MethodName = name;
     ParentClass = parentClass;
   }
 
-  public ZResult(IZContext context, Type parentClass, string name, Func<ExecutionPlan, Task<TData>> dataTask, params object?[] args) : base(context) {
+  public ZResult(IZContext context, Type parentClass, string name, Func<IExecutionPlan, Task<TData>> dataTask, params object?[] args) : base(context) {
     _task = dataTask;
     Args = args.ToList();
     MethodName = name;
