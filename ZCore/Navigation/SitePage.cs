@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Attributes;
+using IZ.Core.Navigation.SchemaOrg;
 using IZ.Core.Utils;
 
 #endregion
@@ -50,6 +51,8 @@ public abstract class SitePage : LogicBase, ISitePage {
   public virtual bool MatchesPath(string path) => path.Split('/').First().ToLowerInvariant() == Section;
 
   [Observable] public List<string> Paths { get; } = new List<string>();
+
+  public virtual List<SchemaItemJson> GetSchemaItems() => new List<SchemaItemJson>();
 
   public string GetSeoTitle() => Title;
 

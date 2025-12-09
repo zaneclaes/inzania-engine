@@ -33,10 +33,11 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
   public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
     .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable) {
 
+    var jsonPropName = propertyInfo.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
     PropertyInfo = propertyInfo;
     IsInherited = parentProp != null;
     Name = propertyInfo.Name;
-    FieldName = propertyInfo.Name.ToFieldName();
+    FieldName = jsonPropName ?? propertyInfo.Name.ToFieldName();
     IsSettable = propertyInfo.CanWrite;
     Order = propertyInfo.GetCustomAttribute<ApiOrderAttribute>()?.Order ?? -1;
     Observable = propertyInfo.GetCustomAttribute<ObservableAttribute>();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
+using IZ.Core.Navigation.SchemaOrg;
 using IZ.Core.Observability.Logging;
 
 namespace IZ.Core.Navigation;
@@ -15,6 +16,8 @@ public interface ISiteContent : ISitemapPage {
   public string? Preview { get; }
 
   public List<string> Keywords { get; }
+
+  public List<SchemaItemJson> GetSchemaItems();
 
   public string GetSeoTitle();
 
@@ -29,6 +32,7 @@ public interface ISiteContent : ISitemapPage {
     Preview = Preview,
     LastModified = LastModified,
     Keywords = Keywords.ToList(),
+    SchemaItems = GetSchemaItems().ToList(),
   };
 }
 
@@ -40,9 +44,11 @@ public class SiteContent : ISiteContent {
   public string SeoTitle { get; set; } = null!;
   public string? Preview { get; set; }
   public List<string> Keywords { get; set; } = new List<string>();
+  public List<SchemaItemJson> SchemaItems { get; set; } = new List<SchemaItemJson>();
   public SiteImage? Image { get; set; }
 
   public string GetSeoTitle() => SeoTitle;
+  public List<SchemaItemJson> GetSchemaItems() => SchemaItems;
 }
 
 public interface ISitePage : ISiteContent {
