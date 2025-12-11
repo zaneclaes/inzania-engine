@@ -40,7 +40,7 @@ public abstract class FreeObjectPool : LogicBase, IPool {
   public List<object> GetBusyObjects() => _busy;
 
   public virtual object ClaimObject() {
-    object claimed = ClaimFreeObject();
+    object? claimed = ClaimFreeObject();
     if (claimed == null) claimed = CreateObject(); // No ?? in unity!
     _busy.Add(claimed);
     return claimed;
