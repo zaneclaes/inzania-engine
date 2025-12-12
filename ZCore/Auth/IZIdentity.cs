@@ -6,7 +6,7 @@ namespace IZ.Core.Auth;
 
 [ApiDocs("App-specific IIdentity")]
 public interface IZIdentity : IIdentity {
-  public string ClientId { get; }
+  public string? ClientId { get; }
 
   public string SessionId { get; }
 

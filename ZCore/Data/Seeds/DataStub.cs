@@ -63,7 +63,12 @@ public abstract class DataStub<TD> : DataStub, IItemizable where TD : DataObject
 
   protected TM LoadMetaData<TM>(IZContext context, string fpMeta, bool create = true) where TM : TransientObject, new() {
     if (File.Exists(fpMeta)) {
-      return ZJson.DeserializeObject<TM>(File.ReadAllText(fpMeta))!;
+      try {
+        return ZJson.DeserializeObject<TM>(File.ReadAllText(fpMeta))!;
+      } catch (Exception) {
+        context.Log.Error("Failed to load {fp}", fpMeta);
+        throw;
+      }
     } else {
       var meta = new TM() {Context = context};
       if (create) File.WriteAllText(fpMeta, ZJson.SerializeObject(meta));

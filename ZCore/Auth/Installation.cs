@@ -71,6 +71,9 @@ public class Installation : TransientObject {
     }
   }
 
+  public static string GetInstallIdForUserId(string userId, string clientId) =>
+    clientId.ToSecureAlphanumericHash(userId.ToMd5Hash());
+
   public string GetInstallIdForUserId(string userId) =>
-    ClientId.ToSecureAlphanumericHash(userId.ToMd5Hash());
+    GetInstallIdForUserId(userId, ClientId);
 }
