@@ -55,11 +55,11 @@ public abstract class DeepLink<TPage> : DeepLink where TPage : SitePage {
 
   protected DeepLink(IZContext context, string path) : base(context, path) {
     Page = context.GetRequiredService<Sitemap>().GetPagePath<TPage>(string.Join("/", Parts));
-    if (!IsValid) {
-      var p = string.Join("/", Parts);
-      if (p != "not-found")
-       Log.Warning("[DL] invalid page {section}", p);
-    }
+    // if (!IsValid) {
+    //   var p = string.Join("/", Parts);
+    //   if (p != "not-found")
+    //    Log.Warning("[DL] invalid page {section}", p);
+    // }
   }
   // private static string Schema => ZEnv.ProductName.ToLower();
 
