@@ -9,7 +9,7 @@ using IZ.Core.Observability.Logging;
 namespace IZ.Core.Navigation;
 
 public interface ISiteContent : ISitemapPage {
-  public const int MaxPreviewLength = 120; // For search engines.
+  public const int MaxPreviewLength = 160; // For search engines.
 
   public string Title { get; }
 
