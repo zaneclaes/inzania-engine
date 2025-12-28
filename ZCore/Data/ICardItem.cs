@@ -6,9 +6,9 @@ namespace ZCore.Data;
 public interface ICardItem : IItemizable {
   public string Title { get; }
 
-  public string? ImagePath { get; }
+  public string? CoverImagePath { get; }
 
   public string? About { get; }
 
-  public string GetImageUrlForHost(string url) => $"{url}/{ImagePath}";
+  public string? GetCoverImageUrlForHost(string url) => CoverImagePath == null ? null : $"{url}/{CoverImagePath}";
 }

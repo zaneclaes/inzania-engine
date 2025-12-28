@@ -4,7 +4,11 @@ using IZ.Core.Data;
 
 namespace IZ.Core.Auth;
 
-public interface IZSession : IStringKeyData, ICreatedAt, IHaveContext {
+public interface ISoftDelete {
+  public DateTime? DeletedAt { get; set; }
+}
+
+public interface IZSession : IStringKeyData, ICreatedAt, IHaveContext, ISoftDelete {
   public IZUser IZUser { get; }
 
   public string Token { get; }
@@ -12,8 +16,6 @@ public interface IZSession : IStringKeyData, ICreatedAt, IHaveContext {
   public string? InstallId { get; }
 
   public DateTime ExpiresAt { get; }
-
-  public DateTime? DeletedAt { get; }
 
   public StoredSession ToStoredSession() => new StoredSession() {
     Context = Context,
