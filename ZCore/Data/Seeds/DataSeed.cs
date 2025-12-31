@@ -20,6 +20,10 @@ public interface IDataSeed : IHaveContext {
   public void StubLibrary(IZContext context);
 }
 
+public interface IDataSeed<T> : IDataSeed {
+  public Task ReExec(IZContext context);
+}
+
 public abstract class DataSeed : IDataSeed {
   private static IZContext? _dataContext;
   public static IZContext DataContext => _dataContext ??= ZEnv.SpawnRootContext();
@@ -58,7 +62,7 @@ public abstract class DataSeed : IDataSeed {
   protected abstract void Stub();
 }
 
-public abstract class DataSeed<TD, TS> : DataSeed where TD : ModelId where TS : DataStub<TD> {
+public abstract class DataSeed<TD, TS> : DataSeed, IDataSeed<TD> where TD : ModelId where TS : DataStub<TD> {
   // Only valid once IsStubbed/IsSeeded
   public List<TS> Stubs { get; } = new List<TS>();
 

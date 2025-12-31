@@ -64,13 +64,15 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
     set {
       if (_context != null) {
         if (value == _context) return;
-        if (!(_context is IZRootContext)) throw new InternalZException(Context, $"Double-context on {GetType()}: {_context} -> {value}");
+        if (!AllowContextChange) throw new InternalZException(Context, $"Double-context on {GetType()}: {_context} -> {value}");
       }
       // if (value is ChildContext child && child.ScopeType == GetType())
       // else _context = value.Spawn(GetType());
       _context = value;
     }
   }
+
+  protected virtual bool AllowContextChange => _context is IZRootContext;
 
   private string GetUuid() => GetType().Name + "#" + UuidId;
 
