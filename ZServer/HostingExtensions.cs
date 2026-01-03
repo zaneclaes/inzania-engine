@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HotChocolate.Execution.Configuration;
 using IZ.Core;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -140,7 +141,7 @@ public static class HostingExtensions {
     (section.ToZObject(typeof(TObj), context) as TObj)!;
 
   private static object ToZObject(this IConfigurationSection section, Type t, IZContext context) {
-    var desc = ZObjectDescriptor.LoadZObjectDescriptor(t);
+    var desc = ZApi.LoadZObjectDescriptor(t);
     var obj = (Activator.CreateInstance(t) as ApiObject)!;
     obj.Context = context;
     foreach (var prop in desc.AllProperties) {

@@ -17,91 +17,6 @@ namespace IZ.Core.Api.Types;
 // Describes a concrete node type, without nullable/list/etc. decoration
 public class ZObjectDescriptor : IAmInternal {
 
-  public static readonly Dictionary<string, ZObjectDescriptor> ObjectTypes =
-    new Dictionary<string, ZObjectDescriptor>();
-  private readonly List<MethodInfo> _methodInfos = new List<MethodInfo>();
-
-  private readonly Dictionary<string, ZPropertyDescriptor> _properties = new Dictionary<string, ZPropertyDescriptor>();
-
-  public List<ZPropertyDescriptor> GetPropertiesForFormat(string? format = null) => AllProperties
-    .Where(p => !p.IsIgnoredForFormat(format))
-    .ToList();
-
-  private ZObjectDescriptor(Type t) {
-    ObjectType = t;
-
-    if (t == typeof(long)) TypeName = "Long";
-    else TypeName = t.Name;
-
-    IsFile = ObjectType.HasAssignableType<IFileUpload>();
-    PacketDiscriminator = ObjectType.GetCustomAttribute<ApiPacketAttribute>()?.PacketDiscriminator ?? 0;
-    PolymorphicDiscriminatorName = ObjectType.GetCustomAttribute<JsonPolymorphicAttribute>(true)?.TypeDiscriminatorPropertyName;
-    PolymorphicTypes = ObjectType.GetCustomAttributes<JsonDerivedTypeAttribute>(true).Select(it => it.DerivedType).ToList();
-
-    if (IsFile) {
-      IsScalar = false;
-      InputTypeName = "Upload";
-    } else if (!t.IsScalar()) { // t.HasAssignableType<ApiObject>() || t.HasAssignableType<ZRequestBase>()
-      IsScalar = false;
-      InputTypeName = TypeName + "Input";
-      List<PropertyInfo> parentProps = t.BaseType?.GetProperties().Where(p => p.CanRead).ToList() ?? new List<PropertyInfo>();
-      List<PropertyInfo> props = t.GetProperties().Where(p => p.CanRead).ToList();
-
-      foreach (var prop in props) {
-        var parentProp = parentProps.FirstOrDefault(p => p.Name == prop.Name);
-        _properties[prop.Name] = new ZPropertyDescriptor(prop, parentProp);
-        _methodInfos.Add(prop.GetGetMethod()!);
-        if (prop.CanWrite) {
-          _methodInfos.Add(prop.GetSetMethod()!);
-        }
-
-
-        string fieldName = prop.Name.ToCamelCase();
-        if (!_properties[prop.Name].IsInputIgnored) {
-          Inputs[fieldName] = _properties[prop.Name];
-        }
-
-        if (prop.PropertyType.IsAssignableToBaseType<ApiObject>()) {
-          // Non-scalar (nested) objects are excluded as properties, UNLESS there's an explicit format provided.
-          ObjectProperties[fieldName] = _properties[prop.Name];
-          if (prop.GetCustomAttribute<ApiFormatAttribute>() != null) {
-            FieldMap[fieldName] = ObjectProperties[fieldName];
-          }
-        } else if (_properties[prop.Name].FieldType.IsScalar()) {
-          ScalarProperties[fieldName] = _properties[prop.Name];
-          if (!_properties[prop.Name].IsOutputIgnored || prop.GetCustomAttribute<ApiFormatAttribute>() != null) {
-            FieldMap[fieldName] = _properties[prop.Name];
-          }
-        }
-      }
-      Methods = t.GetMethods(BindingFlags.Public | BindingFlags.Instance) // BindingFlags.DeclaredOnly |
-        .Where(mi =>
-          !_methodInfos.Contains(mi) &&
-          mi.GetCustomAttribute<ApiFormatAttribute>(true) != null &&
-          !mi.ReturnType.HasAssignableType(typeof(IAmInternal)))
-        .Select(m => new ZMethodDescriptor(m))
-        .ToDictionary(p => p.FieldName, p => p);
-
-      foreach (string fieldName in Methods.Keys) {
-        if (FieldMap.ContainsKey(fieldName))
-          throw new SystemException($"Duplicate field {fieldName} on {t.Name}");
-        if (ObjectProperties.TryGetValue(fieldName, out var property) || ScalarProperties.TryGetValue(fieldName, out property)) {
-          if (Methods[fieldName].Parameters.Any(p => !p.IsOptional))
-            ZEnv.Log.Warning("[OBJ] {type}.{field} has an execution method, but it has parameters", t.Name, fieldName);
-          if (property.IsOutputIgnored)
-            throw new SystemException($"[OBJ] {t.Name}.{fieldName} has an execution method, but it is also ignored for output ({property})");
-          property.ExecutionMethod = Methods[fieldName];
-        }
-        FieldMap[fieldName] = Methods[fieldName];
-      }
-    } else {
-      IsScalar = true;
-      InputTypeName = TypeName;
-    }
-
-    ZEnv.Log.Verbose("[OBJ] {@obj}", this);
-  }
-
   public bool IsFile { get; set; }
 
   public bool IsScalar { get; set; }
@@ -112,9 +27,9 @@ public class ZObjectDescriptor : IAmInternal {
 
   public string InputTypeName { get; }
 
-  public string? PolymorphicDiscriminatorName { get; }
+  public string? PolymorphicDiscriminatorName { get; protected set; }
 
-  public List<Type> PolymorphicTypes { get; }
+  public List<Type> PolymorphicTypes { get; protected set; } = new List<Type>();
 
   public byte PacketDiscriminator { get; }
 
@@ -131,6 +46,149 @@ public class ZObjectDescriptor : IAmInternal {
 
   // Accessible on all requests (queries or mutations)
   public Dictionary<string, ZFieldDescriptor> FieldMap { get; } = new Dictionary<string, ZFieldDescriptor>();
+
+  private readonly Dictionary<string, ZPropertyDescriptor> _properties = new Dictionary<string, ZPropertyDescriptor>();
+
+  public List<ZPropertyDescriptor> GetPropertiesForFormat(string? format = null) => AllProperties
+    .Where(p => !p.IsIgnoredForFormat(format))
+    .ToList();
+
+  protected ZObjectDescriptor(string name, string inputTypeName, Type t, bool isFile, bool isScalar, byte packetDiscriminator) {
+    ObjectType = t;
+    TypeName = name;
+    InputTypeName = inputTypeName;
+    IsFile = isFile;
+    IsScalar = isScalar;
+    PacketDiscriminator = packetDiscriminator;
+  }
+
+  public string GetSource(string className, string ns) {
+    var inits = new List<string>();
+    var usings = new HashSet<string>() {ObjectType.Namespace!, "System.Collections.Generic"};
+    if (PolymorphicDiscriminatorName != null) {
+      inits.Add($"PolymorphicDiscriminatorName = \"{PolymorphicDiscriminatorName}\";");
+      inits.Add($"PolymorphicTypes = new List<Type>() {{ typeof({string.Join("), typeof(", PolymorphicTypes.Select(t => t.Name))}) }};");
+      foreach (var pt in PolymorphicTypes) usings.Add(pt.Namespace!);
+    }
+    var classes = new List<string>();
+    foreach (var propName in _properties.Keys) {
+      var prop = _properties[propName];
+      var propClass = $"{className}_{prop.Name}_Property";
+      classes.Add(prop.GetClassSource(propClass, TypeName, usings));
+      inits.Add($"LoadProperty(new {propClass}());");
+    }
+    foreach (var methodName in Methods.Keys) {
+      var method = Methods[methodName];
+      var methodClass = $"{className}_{method.Name}_Method";
+      classes.Add(method.GetClassSource(methodClass, TypeName, usings));
+      inits.Add($"LoadMethod(new {methodClass}());");
+    }
+    return $@"using IZ.Core.Api.Types;
+using {string.Join(";\nusing ", usings)};
+
+namespace {ns};
+
+public class {className} : ZObjectDescriptor {{
+  public {className}() : base(
+    ""{TypeName}"", 
+    ""{InputTypeName}"",
+    typeof({ObjectType.Name}),
+    {IsFile.ToString().ToLowerInvariant()},
+    {IsScalar.ToString().ToLowerInvariant()},
+    {PacketDiscriminator}
+  ) {{ 
+    {string.Join("\n    ", inits)}
+  }}
+}}
+
+{string.Join("\n\n", classes)}
+".Trim();
+  }
+
+  public ZObjectDescriptor(Type t) {
+    ObjectType = t;
+
+    // if (t == typeof(long)) TypeName = "Long";
+    // else
+    TypeName = t.Name;
+
+    IsFile = ObjectType.HasAssignableType<IFileUpload>();
+    PacketDiscriminator = ObjectType.GetCustomAttribute<ApiPacketAttribute>()?.PacketDiscriminator ?? 0;
+    PolymorphicDiscriminatorName = ObjectType.GetCustomAttribute<JsonPolymorphicAttribute>(true)?.TypeDiscriminatorPropertyName;
+    PolymorphicTypes = ObjectType.GetCustomAttributes<JsonDerivedTypeAttribute>(true).Select(it => it.DerivedType).ToList();
+
+    if (IsFile) {
+      IsScalar = false;
+      InputTypeName = "Upload";
+    } else if (!t.IsScalar()) { // t.HasAssignableType<ApiObject>() || t.HasAssignableType<ZRequestBase>()
+      List<MethodInfo> methodInfos = new List<MethodInfo>();
+      IsScalar = false;
+      InputTypeName = TypeName + "Input";
+      List<PropertyInfo> parentProps = t.BaseType?.GetProperties().Where(p => p.CanRead).ToList() ?? new List<PropertyInfo>();
+      List<PropertyInfo> props = t.GetProperties().Where(p => p.CanRead).ToList();
+
+      foreach (var prop in props) {
+        var parentProp = parentProps.FirstOrDefault(p => p.Name == prop.Name);
+        var propDesc = new ZPropertyDescriptor(prop, parentProp);
+        methodInfos.Add(prop.GetGetMethod()!);
+        if (prop.CanWrite) {
+          methodInfos.Add(prop.GetSetMethod()!);
+        }
+        LoadProperty(propDesc);
+      }
+      Methods = t.GetMethods(BindingFlags.Public | BindingFlags.Instance) // BindingFlags.DeclaredOnly |
+        .Where(mi =>
+          !methodInfos.Contains(mi) &&
+          mi.GetCustomAttribute<ApiFormatAttribute>(true) != null &&
+          !mi.ReturnType.HasAssignableType(typeof(IAmInternal)))
+        .Select(m => new ZMethodDescriptor(m))
+        .ToDictionary(p => p.FieldName, p => p);
+
+      foreach (string fieldName in Methods.Keys) {
+        if (FieldMap.ContainsKey(fieldName))
+          throw new SystemException($"Duplicate field {fieldName} on {t.Name}");
+        if (ObjectProperties.TryGetValue(fieldName, out var property) || ScalarProperties.TryGetValue(fieldName, out property)) {
+          if (Methods[fieldName].Parameters.Any(p => !p.IsOptional))
+            ZEnv.Log.Warning("[OBJ] {type}.{field} has an execution method, but it has parameters", t.Name, fieldName);
+          if (property.IsOutputIgnored)
+            throw new SystemException($"[OBJ] {t.Name}.{fieldName} has an execution method, but it is also ignored for output ({property})");
+          property.Formats = Methods[fieldName].Formats;
+        }
+        FieldMap[fieldName] = Methods[fieldName];
+      }
+    } else {
+      IsScalar = true;
+      InputTypeName = TypeName;
+    }
+
+    ZEnv.Log.Verbose("[OBJ] {@obj}", this);
+  }
+
+  protected void LoadMethod(ZMethodDescriptor md) {
+    Methods[md.FieldName] = md;
+    FieldMap[md.FieldName] = md;
+  }
+
+  protected void LoadProperty(ZPropertyDescriptor propDesc) {
+    _properties[propDesc.Name] = propDesc;
+    string fieldName = propDesc.FieldName;// propDesc.Name.ToCamelCase();
+    if (!propDesc.IsInputIgnored) {
+      Inputs[fieldName] = propDesc;
+    }
+
+    if (propDesc.FieldType.IsAssignableToBaseType<ApiObject>()) {
+      // Non-scalar (nested) objects are excluded as properties, UNLESS there's an explicit format provided.
+      ObjectProperties[fieldName] = propDesc;
+      if (propDesc.Formats.Any()) {
+        FieldMap[fieldName] = ObjectProperties[fieldName];
+      }
+    } else if (propDesc.FieldType.IsScalar()) {
+      ScalarProperties[fieldName] = propDesc;
+      if (!propDesc.IsOutputIgnored || propDesc.Formats.Any()) {
+        FieldMap[fieldName] = propDesc;
+      }
+    }
+  }
 
   public List<string?> ExpectedFormats => AllProperties
     .SelectMany(p => p.Formats)
@@ -166,7 +224,7 @@ public class ZObjectDescriptor : IAmInternal {
 
   public override string ToString() => $"{TypeName} {{ {string.Join(", ", FieldMap.Keys)} }}";
 
-  private static Type StripOuterTypes(Type type) {
+  public static Type StripOuterTypes(Type type) {
     if (type.GenericTypeArguments.Any()) {
       if (type.GenericTypeArguments.Length > 1) throw new ArgumentException($"Cannot strip outer types from {type}");
       return StripOuterTypes(type.GenericTypeArguments.First());
@@ -177,16 +235,4 @@ public class ZObjectDescriptor : IAmInternal {
     }
     return type;
   }
-
-  public static ZObjectDescriptor LoadZObjectDescriptor(Type t) {
-    var innerType = StripOuterTypes(t);
-    string key = innerType.Name;
-    if (key.Contains("`") || key.Contains("[]")) throw new SystemException($"Invalid type {innerType} from {t}");
-    if (ObjectTypes.TryGetValue(key, out var d)) return d;
-    var descriptor = new ZObjectDescriptor(innerType);
-    ObjectTypes[key] = descriptor;
-    return descriptor;
-  }
-
-  public static ZObjectDescriptor? FindZObjectDescriptor(string key) => ObjectTypes.GetValueOrDefault(key);
 }

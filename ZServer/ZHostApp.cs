@@ -50,14 +50,14 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
 
   protected readonly WebApplicationBuilder _builder;
 
-  protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) : base(
+  protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder, IZTypeMap? typeMap = null) : base(
     productName,
     domainName,
     c => ZTask<IZAppSettings>.FromResult(new HostAppSettings(productName, builder.Configuration)),
     () => builder.Services.BuildServiceProvider(),
     Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!),
     () => CreateLogger(builder.Configuration),
-    ZTarget.PublicApp
+    ZTarget.PublicApp, typeMap
   ) {
     DataDogTracing.Enable();
     _builder = builder;

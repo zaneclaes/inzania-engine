@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using IZ.Core;
+using IZ.Core.Api;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
 using IZ.Core.Observability.Logging;
@@ -14,8 +15,8 @@ public abstract class ZClientApp : ZApp {
     string productName, string domainName,
     Func<IZContext, ZTask<IZAppSettings>> settings, Func<IServiceProvider> fallbackServiceProviderFactory,
     ZEnvironment env, Func<ZLogBuilder>? logFactory = null,
-    ZTarget? target = null, Stopwatch? uptimer = null
-  ) : base(productName, domainName, settings, fallbackServiceProviderFactory, env, logFactory, target, uptimer) {
+    ZTarget? target = null, IZTypeMap? typeMap = null, Stopwatch? uptimer = null
+  ) : base(productName, domainName, settings, fallbackServiceProviderFactory, env, logFactory, target, typeMap, uptimer) {
     // Settings = settings.Invoke(ZJson.DefaultContext);
   }
   public string? ClientId { get; set; }

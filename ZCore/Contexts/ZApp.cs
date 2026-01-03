@@ -44,9 +44,10 @@ public abstract class ZApp : IGetLogged, IDisposable {
     Func<IZContext, ZTask<IZAppSettings>> settingsBuilder,
     Func<IServiceProvider> fallbackServiceProviderFactory,
     ZEnvironment env, Func<ZLogBuilder>? logFactory = null, ZTarget? target = null,
-    Stopwatch? uptimer = null
+    IZTypeMap? typeMap = null, Stopwatch? uptimer = null
   ) {
     Uptimer = uptimer ?? Stopwatch.StartNew();
+    if (typeMap != null) ZApi.TypeMap = typeMap;
     ProductName = productName;
     _settingsBuilder = settingsBuilder;
     Env = env;
@@ -69,7 +70,7 @@ public abstract class ZApp : IGetLogged, IDisposable {
   }
 
   protected virtual async ZTask BuildAsync() {
-    ZApi.EnsureSchemaAsync().Forget();
+    // ZApi.EnsureSchemaAsync().Forget();
     var ctxt = new WorkContext(this);
     _appSettings = await _settingsBuilder.Invoke(ctxt);
     _storage = _appSettings?.Storage ?? new ApplicationStorage(ProductName);

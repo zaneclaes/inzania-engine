@@ -113,7 +113,7 @@ public abstract class ClientContext : RootContext {
   protected async ZTask RestoreSession(bool logoutOnException = true) {
     StartTaskTimer(nameof(RestoreSession));
     try {
-      await ZApi.WaitForSchema(); // required for queries...
+      // await ZApi.WaitForSchema(); // required for queries...
       var existing = IdentityStore.LoadStoredSession();
       if (existing != null) IdentityStore.UpdateUserSession(existing);
       IdentityStore.UpdateUserSession(await RestoreUserSession());

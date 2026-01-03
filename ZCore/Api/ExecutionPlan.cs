@@ -36,7 +36,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
     FieldName = _method.FieldName;
     ReturnType = ZTypeDescriptor.FromType(_method.FieldType);
     Set = resultSet ?? new ResultSet();
-    OperationName = _method.OperationName;
+    OperationName = _method.Name;
     Id = $"{OperationType}{QueryIdSplit}{FieldName}{QueryIdSplit}{Set}";
     try {
       Fragments = new FragmentSet(context, fragmentProvider, ReturnType, Set);
@@ -134,7 +134,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
       List<string> pars = new List<string>();
       foreach (var param in _method.Parameters) {
         string key = param.FieldName;
-        args.Add($"${key}: {param.ApiType.ToObjectTypeName(true)}");
+        args.Add($"${key}: {param.ApiType.ToGraphTypeName(true)}");
         pars.Add($"{key}: ${key}");
       }
       op += "(" + string.Join(", ", args) + ")";

@@ -27,10 +27,10 @@ public class ZTestApp : ZApp {
   protected IServiceCollection _serviceCollection;
 
   public ZTestApp(
-    string appName, string domainName, ZLogBuilder logBuilder, IServiceCollection services, ApplicationStorage? directories = null
+    string appName, string domainName, ZLogBuilder logBuilder, IServiceCollection services, ApplicationStorage? directories = null, IZTypeMap? typeMap = null
   ) : base(appName + "Test", domainName, c => ZTask<IZAppSettings>.FromResult(new ZTestAppSettings {
     Storage = directories
-  }), services.BuildServiceProvider, ZEnvironment.Testing, () => logBuilder, ZTarget.UnitTests) {
+  }), services.BuildServiceProvider, ZEnvironment.Testing, () => logBuilder, ZTarget.UnitTests, typeMap) {
     _serviceCollection = services
       .AddSingleton<ZApp>(this);
   }
@@ -43,7 +43,6 @@ public class ZTestApp : ZApp {
   public async ZTask GetReadyAsync() {
     await BuildAsync();
     await PrepareAsync();
-    await ZApi.EnsureSchemaAsync();
   }
 
   // public override IServiceProvider CreateServices() => _services.BuildServiceProvider();

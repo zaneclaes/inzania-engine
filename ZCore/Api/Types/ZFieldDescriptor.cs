@@ -12,17 +12,24 @@ namespace IZ.Core.Api.Types;
 
 public abstract class ZFieldDescriptor : IAmInternal {
 
-  private readonly bool _enforceOptional;
+  public readonly bool EnforceOptional;
   private ZTypeDescriptor? _apiType;
 
   // private MemberInfo _member;
+
+  protected ZFieldDescriptor(Type fieldType, HashSet<string?>? formats = null, IApiAuthorize? auth = null, bool enforceOptional = false) {
+    FieldType = fieldType;
+    Formats = formats ?? new HashSet<string?>();
+    Auth = auth;
+    EnforceOptional = enforceOptional;
+  }
 
   protected ZFieldDescriptor(MemberInfo member, Type fieldType, bool enforceOptional = false) {
     // _member = member;
     FieldType = fieldType;
     Formats = member.GetCustomAttribute<ApiFormatAttribute>()?.FormatTags ?? new HashSet<string?>();
     Auth = member.GetCustomAttribute<ApiAuthorizeAttribute>();
-    _enforceOptional = enforceOptional;
+    EnforceOptional = enforceOptional;
   }
   public string Name { get; protected set; } = null!;
 
@@ -30,11 +37,11 @@ public abstract class ZFieldDescriptor : IAmInternal {
 
   public Type FieldType { get; }
 
-  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, _enforceOptional);
+  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, EnforceOptional);
 
-  public HashSet<string?> Formats { get; }
+  public HashSet<string?> Formats { get; set; }
 
-  public ApiAuthorizeAttribute? Auth { get; }
+  public IApiAuthorize? Auth { get; }
 
   protected virtual IEnumerable<ZTypeDescriptor> GetTypeDescriptors() {
     yield return FieldTypeDescriptor;
@@ -50,11 +57,10 @@ public abstract class ZFieldDescriptor : IAmInternal {
       }
     }
 
-    return ret ?? s_empty;
+    return ret ?? _sEmpty;
   }
 
-  private static readonly List<ZTypeDescriptor> s_empty = new();
-
+  private static readonly List<ZTypeDescriptor> _sEmpty = new();
 
   public override string ToString() => $"{FieldName}: {FieldTypeDescriptor}";
 }

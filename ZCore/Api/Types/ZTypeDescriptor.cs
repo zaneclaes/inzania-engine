@@ -17,17 +17,21 @@ public class ZTypeDescriptor {
   public static readonly Dictionary<string, ZTypeDescriptor> ApiTypes = new Dictionary<string, ZTypeDescriptor>();
   public Type OrigType { get; set; } = null!;
 
-  public bool HasInner => IsList;
+  public bool HasInner => IsList || IsArray || DictionaryKeyType != null;
 
   public bool IsList { get; set; }
+
+  public bool IsArray { get; set; }
 
   public bool IsNullableOuter { get; set; }
 
   public bool IsNullableInner { get; set; }
 
+  public Type? DictionaryKeyType { get; set; }
+
   public ZObjectDescriptor ObjectDescriptor { get; set; } = null!;
 
-  public string ToObjectTypeName(bool asInput, string optionalIndicator = "") {
+  public string ToGraphTypeName(bool asInput, string optionalIndicator = "") {
     string ret = asInput ? ObjectDescriptor.InputTypeName : ObjectDescriptor.TypeName;
     if (HasInner) ret += IsNullableInner ? optionalIndicator : "!";
     if (IsList) ret = $"[{ret}]";
@@ -54,10 +58,14 @@ public class ZTypeDescriptor {
       ZEnv.Log.Verbose("[TYPE] array {t}", innerType.Name);
       innerType = innerType.GetElementType()!;
       ret.IsList = true;
+      ret.IsArray = true;
     } else if (innerType.HasAssignableType(typeof(IList))) {
       ZEnv.Log.Verbose("[TYPE] list {t}", innerType.Name);
       innerType = innerType.GenericTypeArguments[0];
       ret.IsList = true;
+    } else if (innerType.HasAssignableType(typeof(IDictionary)) && innerType.GenericTypeArguments.Length == 2) {
+      ret.DictionaryKeyType = innerType.GenericTypeArguments[0];
+      innerType = innerType.GenericTypeArguments[1];
     }
     var nt2 = Nullable.GetUnderlyingType(innerType);
     if (ret.IsList && nt2 != null) {
@@ -65,7 +73,7 @@ public class ZTypeDescriptor {
       innerType = nt2;
       ret.IsNullableInner = true;
     }
-    ret.ObjectDescriptor = ZObjectDescriptor.LoadZObjectDescriptor(innerType);
+    ret.ObjectDescriptor = ZApi.LoadZObjectDescriptor(innerType);
     // if (task) t = typeof(Task<>).MakeGenericType(t);
     ApiTypes[key] = ret;
     return ret;
@@ -162,5 +170,18 @@ public class ZTypeDescriptor {
   //   return t;
   // }
 
-  public override string ToString() => ToObjectTypeName(false, "?");
+  public string ToSystemTypeName() {
+    var t = ObjectDescriptor.TypeName;
+    if (IsNullableInner) t = $"Nullable<{t}>";
+    if (IsArray) t = $"{t}[]";
+    else if (IsList) t = $"List<{t}>";
+    if (DictionaryKeyType != null) t = $"Dictionary<{DictionaryKeyType.Name}, {t}>";
+    if (IsNullableOuter) t = $"Nullable<{t}>";
+    return t;
+  }
+
+  internal string ToCast(string val) => !IsList && !IsNullableInner && !IsNullableOuter && (OrigType.IsEnum || ObjectDescriptor.IsScalar) ?
+    $"({OrigType.Name}) {val}!" : $"({val} as {ToSystemTypeName()})!";
+
+  public override string ToString() => ToGraphTypeName(false, "?");
 }

@@ -52,7 +52,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     if (Directory.Exists(_graphqlDir)) Directory.Delete(_graphqlDir, true);
     Directory.CreateDirectory(_graphqlDir);
     // ZApi.EnsureSchema();
-    var types = ZObjectDescriptor.ObjectTypes.Values.ToList();
+    var types = ZApi.TypeMap.ApiObjects.Values.ToList();
     foreach (var type in types) {
       if (type.IsScalar) continue;
       Log.Information("[FRAGMENT] loading {type}", type);
@@ -93,7 +93,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
         // }
       }
       string typeName = string.Join("_", names);
-      var desc = ZObjectDescriptor.FindZObjectDescriptor(typeName);
+      var desc = ZApi.FindZObjectDescriptor(typeName);
       if (desc == null) {
         Log.Warning("[FRAGMENT] type {name} missing; cannot load {fn}", typeName, fn);
         continue;

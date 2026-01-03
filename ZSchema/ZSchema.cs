@@ -79,7 +79,7 @@ public static class ZSchema {
   }
 
 
-  public static IObjectFieldDescriptor AddApiAuthorization(this IObjectFieldDescriptor field, ApiAuthorizeAttribute auth) {
+  public static IObjectFieldDescriptor AddApiAuthorization(this IObjectFieldDescriptor field, IApiAuthorize auth) {
     // ZEnv.Log.Information("[AUTH] {name} with {@auth}", field.ToString(), auth);
     if (auth.IsDefault) field = field.Authorize();
     if (auth.Roles.Any()) field = field.Authorize(auth.Roles.Select(r => r.ToString()).ToArray());
@@ -141,7 +141,7 @@ public static class ZSchema {
     if (ZApi.GetApiMethodNames<ZSubscriptionBase>().Any())
       descriptor = descriptor.AddSubscriptionType<ZSubscriptionType>();
 
-    List<ZObjectDescriptor> types = ZObjectDescriptor.ObjectTypes.Values.ToList();
+    List<ZObjectDescriptor> types = ZApi.TypeMap.ApiObjects.Values.ToList();
     foreach (var t in types) {
       if (t.ObjectType == typeof(IFileUpload)) continue;
       descriptor = descriptor.AddType(GetZSchemaType(t.ObjectType, typeof(ZObjectType<>)));

@@ -37,7 +37,7 @@ public static class ZLogging {
     }
     Dictionary<string, object>? ret = new Dictionary<string, object>();
     foreach (var prop in desc.ObjectDescriptor.AllProperties) {
-      if (prop.Observable == null) continue;
+      if (!prop.IsObservable) continue;
       object? v = null;
       try {
         v = prop.GetValue(obj);

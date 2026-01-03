@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using MessagePack;
@@ -11,12 +12,12 @@ using MessagePack.Formatters;
 namespace IZ.P2P.Packets;
 
 public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
-  private readonly Dictionary<byte, List<ZTypeDescriptor>> _packetTypes;
+  private readonly Dictionary<byte, List<ZObjectDescriptor>> _packetTypes;
 
   public ZPacketFormatter(IZContext? context) : base(context) {
-    List<ZTypeDescriptor> types = ZTypeDescriptor.ApiTypes.Values.ToList();
-    _packetTypes = types.Where(t => t.ObjectDescriptor.PacketDiscriminator > 0)
-      .GroupBy(t => t.ObjectDescriptor.PacketDiscriminator)
+    List<ZObjectDescriptor> types = ZApi.TypeMap.ApiObjects.Values.ToList();
+    _packetTypes = types.Where(t => t.PacketDiscriminator > 0)
+      .GroupBy(t => t.PacketDiscriminator)
       .ToDictionary(p => p.Key, p => p.ToList());
     if (!_packetTypes.Any()) Log.Error("[PACKET] no classes have the ApiPacket attribute among {names}", types.Select(t => t.ToString()));
     foreach (byte type in _packetTypes.Keys) {
@@ -27,9 +28,9 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
 
   public void Serialize(ref MessagePackWriter writer, ZPacket? value, MessagePackSerializerOptions options) {
     if (value == null) return;
-    var desc = ZTypeDescriptor.FromType(value.GetType());
-    if (desc.ObjectDescriptor.PacketDiscriminator <= 0) throw new ArgumentException($"[PACKET] {desc} has no packet discriminator");
-    writer.WriteUInt8(desc.ObjectDescriptor.PacketDiscriminator);
+    var desc = ZApi.LoadZObjectDescriptor(value.GetType());
+    if (desc.PacketDiscriminator <= 0) throw new ArgumentException($"[PACKET] {desc} has no packet discriminator");
+    writer.WriteUInt8(desc.PacketDiscriminator);
 
     (List<int> orders, Dictionary<int, List<ZPropertyDescriptor>> orderGroups) = GetOrders(desc);
     foreach (int order in orders) {
@@ -61,11 +62,11 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
     options.Security.DepthStep(ref reader);
     try {
       byte discrim = reader.ReadByte();
-      if (!_packetTypes.TryGetValue(discrim, out List<ZTypeDescriptor>? packetTypes) || packetTypes.Count == 0) {
+      if (!_packetTypes.TryGetValue(discrim, out List<ZObjectDescriptor>? packetTypes) || packetTypes.Count == 0) {
         throw new ArgumentException($"ZPacket discriminator {discrim} is not supported");
       }
       var desc = _packetTypes[discrim].First();
-      var packetType = desc.ObjectDescriptor.ObjectType;
+      var packetType = desc.ObjectType;
       object pack = Activator.CreateInstance(packetType) ?? throw new ArgumentException($"Failed to create instance of {packetType.Name}");
       var packet = pack as ZPacket ?? throw new ArgumentException($"Failed to convert {packetType.Name} into ZPacket");
       (List<int> orders, Dictionary<int, List<ZPropertyDescriptor>> orderGroups) = GetOrders(desc);
@@ -95,8 +96,8 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
     }
   }
 
-  private Tuple<List<int>, Dictionary<int, List<ZPropertyDescriptor>>> GetOrders(ZTypeDescriptor desc) {
-    Dictionary<int, List<ZPropertyDescriptor>> orderGroups = desc.ObjectDescriptor.AllProperties
+  private Tuple<List<int>, Dictionary<int, List<ZPropertyDescriptor>>> GetOrders(ZObjectDescriptor desc) {
+    Dictionary<int, List<ZPropertyDescriptor>> orderGroups = desc.AllProperties
       .Where(p => p.Order >= 0)
       .GroupBy(p => p.Order)
       .ToDictionary(p => p.Key, p => p.ToList());

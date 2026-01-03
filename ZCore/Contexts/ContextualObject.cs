@@ -95,9 +95,9 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
   protected virtual Dictionary<string, object> GetObservableProperties(bool isMetric = false) {
     Dictionary<string, object> ret = new Dictionary<string, object>();
     foreach (var prop in ApiType.ObjectDescriptor.AllProperties) {
-      if (prop.Observable == null) continue;
-      if (isMetric && prop.Observable.MetricName == null) continue;
-      string key = isMetric ? prop.Observable.MetricName! : prop.FieldName;
+      if (!prop.IsObservable) continue;
+      if (isMetric && prop.MetricName == null) continue;
+      string key = isMetric ? prop.MetricName! : prop.FieldName;
       object? val = prop.GetValue(this);
       if (val != null) ret[key] = val;
     }

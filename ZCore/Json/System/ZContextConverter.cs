@@ -178,24 +178,25 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         val = ReadArray(ref reader, prop?.FieldType ?? typeof(List<object>), AddBreadcrumb(propName, breadcrumbs));
       } else { // Scalars
         var tt = reader.TokenType;
-        if (prop != null && !prop.IsIgnoredForFormat(_opts?.ApiFormat)) {
+        if (prop != null) { //  && !prop.IsIgnoredForFormat(_opts?.ApiFormat)
           if (tt != JsonTokenType.Number && tt != JsonTokenType.String && tt != JsonTokenType.Null
               && tt != JsonTokenType.True && tt != JsonTokenType.False)
             Context.Log.Warning("[JSON] READ JSON {token}", reader.TokenType);
-          if (tt != JsonTokenType.Null)
+          if (tt != JsonTokenType.Null) {
             val = JsonSerializer.Deserialize(ref reader, prop.FieldType, DeserializerOptions); // reader.GetDouble();
+          }
         }
         reader.Read();
 
         if (polymorphicDiscriminatorName != null && prop?.Name == polymorphicDiscriminatorName) {
-          if (ZObjectDescriptor.ObjectTypes.TryGetValue(val?.ToString() ?? "", out var td)) {
+          if (ZApi.TypeMap.ApiObjects.TryGetValue(val?.ToString() ?? "", out var td)) {
             if (td.ObjectType.HasAssignableType(typeDescriptor.ObjectDescriptor.ObjectType)) {
               typeDescriptor = ZTypeDescriptor.FromType(td.ObjectType);
             } else {
               Context.Log.Warning("[DISCRIMINATOR] {t} is not a subclass of {parent}", td, typeDescriptor);
             }
           } else {
-            Context.Log.Warning("[DISCRIMINATOR] {v} could not be found among {types}", val, ZObjectDescriptor.ObjectTypes.Keys);
+            Context.Log.Warning("[DISCRIMINATOR] {v} could not be found among {types}", val, ZApi.TypeMap.ApiObjects.Keys);
           }
         }
 
@@ -203,7 +204,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       }
       if (prop != null) {
         if (prop.IsSettable) {
-          // Context.Log.Verbose("{key} = {val} ({type}) on {r}", propName, val,val?.GetType(),  ret.GetType());
+          // Context.Log.Information("{key} = {val} ({type}) on {r}", propName, val,val?.GetType());
           // prop.SetValue(ret, val);
           vals[prop] = val;
         } else {
@@ -249,7 +250,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     } else if (value.GetType().IsScalar(false)) {
       JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
     } else {
-      var desc = ZObjectDescriptor.LoadZObjectDescriptor(value.GetType());
+      var desc = ZApi.LoadZObjectDescriptor(value.GetType());
       writer.WriteStartObject();
       var props = desc.GetPropertiesForFormat(_opts?.ApiFormat);
       foreach (var prop in props) {

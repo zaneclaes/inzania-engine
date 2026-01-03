@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
@@ -18,9 +19,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     if (!IsSettable) return true;
 
     // If it has an explicit separate GetXXX accessor, use THOSE formats
-    var checkFormats = ExecutionMethod?.Formats ?? Formats;
+    var checkFormats = Formats;
     if (checkFormats.Any()) {
-      if (IsOutputIgnored && ExecutionMethod == null) throw new SystemException($"{this} is both ignored and formatted");
       return !checkFormats.Contains(format);
     }
 
@@ -38,9 +38,11 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     IsInherited = parentProp != null;
     Name = propertyInfo.Name;
     FieldName = jsonPropName ?? propertyInfo.Name.ToFieldName();
-    IsSettable = propertyInfo.CanWrite;
+    IsSettable = propertyInfo.CanWrite && (propertyInfo.GetSetMethod()?.IsPublic ?? false);
     Order = propertyInfo.GetCustomAttribute<ApiOrderAttribute>()?.Order ?? -1;
-    Observable = propertyInfo.GetCustomAttribute<ObservableAttribute>();
+    var obs = propertyInfo.GetCustomAttribute<ObservableAttribute>();
+    IsObservable = obs != null;
+    MetricName = obs?.MetricName;
     var isValid = IsSettable && propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>(true) == null && !FieldType.HasAssignableType(typeof(IAmInternal));
     IsOutputIgnored = propertyInfo.GetCustomAttribute<OutputIgnoreAttribute>(true) != null || !isValid;
     // IsLogIgnored = propertyInfo.GetCustomAttribute<LogIgnoreAttribute>() != null || hasJsonIgnore;
@@ -67,41 +69,100 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
       ChildDeleteBehavior = parent.DeleteBehavior;
     }
   }
-  private PropertyInfo PropertyInfo { get; }
+
+  protected ZPropertyDescriptor(
+    string name, string fieldName, Type fieldType, object? defaultValue,
+    HashSet<string?>? formats = null, IApiAuthorize? auth = null, bool enforceOptional = false
+  ) : base(fieldType, formats, auth, enforceOptional) {
+    Name = name;
+    FieldName = fieldName;
+    DefaultValue = defaultValue;
+  }
+
+  private PropertyInfo? PropertyInfo { get; }
 
   // public bool IsLogIgnored { get; }
 
-  public bool IsInputIgnored { get; }
+  public bool IsInputIgnored { get; protected set; }
 
-  public bool IsOutputIgnored { get; private set; }
+  public bool IsOutputIgnored { get; protected set; }
 
-  public bool IsSettable { get; }
+  public bool IsSettable { get; protected set; }
 
-  public bool IsInherited { get; }
+  public bool IsInherited { get;  protected set; }
 
-  public object? DefaultValue { get; }
+  public object? DefaultValue { get;  protected set; }
 
-  public int Order { get; }
+  public int Order { get; protected set; } = -1;
 
-  public string? ChildPropertyName { get; }
+  public string? ChildPropertyName { get; protected set; }
 
-  public ApiDeleteBehavior ChildDeleteBehavior { get; } = ApiDeleteBehavior.SetNull;
+  public ApiDeleteBehavior ChildDeleteBehavior { get; protected set; } = ApiDeleteBehavior.SetNull;
 
-  public Type? ThroughPropertyType { get; }
+  public Type? ThroughPropertyType { get; protected set; }
 
-  public ZMethodDescriptor? ExecutionMethod { get; set; }
+  public bool IsObservable { get; protected set; }
 
-  public ObservableAttribute? Observable { get; private set; }
+  public string? MetricName { get; protected set; }
 
-  public object? GetValue(object obj) => PropertyInfo.GetValue(obj);
+  public virtual object? GetValue(object obj) =>
+    PropertyInfo == null ? throw new NullReferenceException(nameof(PropertyInfo)) : PropertyInfo.GetValue(obj);
 
-  public void SetValue(object obj, object? val) {
+  public virtual void SetValue(object obj, object? val) {
     if (!IsSettable) throw new SystemException($"{this} is not settable");
-    if (PropertyInfo.SetMethod == null) throw new SystemException($"{this} has no setter");
+    if (PropertyInfo?.SetMethod == null) throw new SystemException($"{this} has no setter");
     PropertyInfo.SetMethod!.Invoke(obj, new[] {
       val
     });
   }
 
-  public override string ToString() => $"<{PropertyInfo.Name}: {FieldTypeDescriptor} {IsSettable}>";
+  public string GetClassSource(string className, string objectName, HashSet<string> usings) {
+    var rt = ZTypeDescriptor.FromType(FieldType);
+    usings.Add(rt.ObjectDescriptor.ObjectType.Namespace!);
+    var fm = "new HashSet<string?>()";
+    if (Formats.Any()) {
+      fm += "{ " + string.Join(", ", Formats.Select(f => f == null ? "null" : $"\"{f}\"")) + " }";
+    }
+    var auth = Auth == null ? "null" : Auth.GetSource();
+
+    var setter = !IsSettable ? "" :
+      $"\n\n  public override void SetValue(object o, object? val) =>\n    (o as {objectName} ?? throw new NullReferenceException($\"{{o.GetType()}} is not a {objectName}\")).{Name} = {rt.ToCast("val")};";
+
+    List<string> inits = new List<string>();
+    if (Order != -1) inits.Add($"Order = {Order};");
+    if (IsInputIgnored) inits.Add($"IsInputIgnored = true;");
+    if (IsOutputIgnored) inits.Add($"IsOutputIgnored = true;");
+    if (IsSettable) inits.Add($"IsSettable = true;");
+    if (IsInherited) inits.Add($"IsInherited = true;");
+    if (IsObservable) inits.Add($"IsObservable = true;");
+    if (MetricName != null) inits.Add($"MetricName = \"{MetricName}\";");
+    if (ChildPropertyName != null) inits.Add($"ChildPropertyName = \"{ChildPropertyName}\";");
+    if (ThroughPropertyType != null) {
+      usings.Add(ThroughPropertyType.Namespace!);
+      inits.Add($"ThroughModelType = typeof({ThroughPropertyType.Name});");
+    }
+    if (ChildDeleteBehavior != ApiDeleteBehavior.SetNull) {
+      usings.Add(typeof(ApiDeleteBehavior).Namespace!);
+      inits.Add($"ChildDeleteBehavior = ApiDeleteBehavior.{ChildDeleteBehavior};");
+    }
+
+    return $@"public class {className} : ZPropertyDescriptor {{
+  public {className}() : base(
+    ""{Name}"",
+    ""{FieldName}"",
+    typeof({rt.ToSystemTypeName()}),
+    {ZParameterDescriptor.GetDefaultValueSource(DefaultValue, usings)},
+    {fm},
+    {auth},
+    {EnforceOptional.ToString().ToLower()}
+  ) {{ 
+    {string.Join("\n    ", inits)}
+  }}
+
+  public override object? GetValue(object o) =>
+    (o as {objectName} ?? throw new NullReferenceException($""{{o.GetType()}} is not a {objectName}"")).{Name};{setter}
+}}";
+  }
+
+  public override string ToString() => $"<{Name}: {FieldTypeDescriptor} {IsSettable}>";
 }
