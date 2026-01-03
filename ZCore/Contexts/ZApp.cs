@@ -3,6 +3,7 @@
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using System.Threading.Tasks;
 using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
@@ -10,6 +11,7 @@ using IZ.Core.Exceptions;
 using IZ.Core.Observability;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Observability.Logging;
+using IZ.Core.Utils;
 // ReSharper disable VirtualMemberCallInConstructor
 
 #endregion
@@ -24,23 +26,29 @@ public interface IZAppSettings {
 
 public abstract class ZApp : IGetLogged, IDisposable {
 
-  private readonly IZAppSettings? _appSettings;
+  public IZAppSettings Settings => _appSettings ??
+                                   throw new NullReferenceException(nameof(Settings));
+  private IZAppSettings? _appSettings;
+  private readonly Func<IZContext, ZTask<IZAppSettings>> _settingsBuilder;
 
   private readonly Func<IServiceProvider> _fallbackServiceProviderFactory;
   private IFragmentProvider? _fragmentProvider;
 
   public virtual bool IsRootSingleton => false;
 
-  public readonly Stopwatch Uptimer = Stopwatch.StartNew();
+  public readonly Stopwatch Uptimer;
   public TimeSpan Uptime => TimeSpan.FromMilliseconds(Uptimer.Elapsed.TotalMilliseconds);
 
   protected ZApp(
     string productName, string domainName,
-    Func<IZContext, IZAppSettings> settingsBuilder,
+    Func<IZContext, ZTask<IZAppSettings>> settingsBuilder,
     Func<IServiceProvider> fallbackServiceProviderFactory,
-    ZEnvironment env, Func<ZLogBuilder>? logFactory = null, ZTarget? target = null
+    ZEnvironment env, Func<ZLogBuilder>? logFactory = null, ZTarget? target = null,
+    Stopwatch? uptimer = null
   ) {
+    Uptimer = uptimer ?? Stopwatch.StartNew();
     ProductName = productName;
+    _settingsBuilder = settingsBuilder;
     Env = env;
     _fallbackServiceProviderFactory = fallbackServiceProviderFactory;
     CoreAssembly = Assembly.GetExecutingAssembly();
@@ -58,15 +66,22 @@ public abstract class ZApp : IGetLogged, IDisposable {
     ProductDomainName = domainName;
     ZEnv.App = this;
     ZEnv.SetRootContextSpawner(() => CreateServices().GetRootContext()); // new HostContext(this, builder.Services.BuildServiceProvider(), null)
-
-    // Actually build the app settings, including storage and auth
-    var ctxt = new WorkContext(this);
-    _appSettings = settingsBuilder.Invoke(ctxt);
-    Storage = _appSettings?.Storage ?? new ApplicationStorage(ProductName);
-    Auth = _appSettings?.Auth ?? new ZAuthOptions();
-
-    ZApi.EnsureSchema();
   }
+
+  protected virtual async ZTask BuildAsync() {
+    ZApi.EnsureSchemaAsync().Forget();
+    var ctxt = new WorkContext(this);
+    _appSettings = await _settingsBuilder.Invoke(ctxt);
+    _storage = _appSettings?.Storage ?? new ApplicationStorage(ProductName);
+    _auth = _appSettings?.Auth ?? new ZAuthOptions();
+  }
+
+  // Actually build the app settings, including storage and auth
+  protected virtual ZTask PrepareAsync() {
+    // await ZApi.WaitForSchema();
+    return ZTask.CompletedTask;
+  }
+
   public string ProductName { get; }
 
   public ZTarget Target { get; }
@@ -104,13 +119,17 @@ public abstract class ZApp : IGetLogged, IDisposable {
 
   public string Gql => $"{ApiUrl}/api/graphql";
 
-  public ZAuthOptions Auth { get; }
+  public ZAuthOptions Auth => _auth ??
+                              throw new NullReferenceException(nameof(Auth));
+  private ZAuthOptions? _auth;
 
   public ZEnvironment Env { get; }
 
   public string EnvName => Env.ToString();
 
-  public ApplicationStorage Storage { get; }
+  public ApplicationStorage Storage => _storage ??
+                                       throw new NullReferenceException(nameof(Storage));
+  private ApplicationStorage? _storage;
 
   public IZLogger Log { get; private set; }
 

@@ -54,9 +54,11 @@ public class ZMethodDescriptor : ZFieldDescriptor {
       throw;
     }
   }
-
-  protected override List<ZTypeDescriptor> GetTypeDescriptors() =>
-    base.GetTypeDescriptors().Union(Parameters.Select(p => p.ApiType)).ToList();
+  protected override IEnumerable<ZTypeDescriptor> GetTypeDescriptors() {
+    yield return FieldTypeDescriptor;
+    foreach (var p in Parameters)
+      yield return p.ApiType;
+  }
 
   public static Type StripIgnoredOuterFunctionTypes(Type t) {
     if (t.Name == "Task`1") { // ISAssignableTo(Task<>) seems to not work

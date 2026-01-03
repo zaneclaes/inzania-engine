@@ -71,28 +71,76 @@ public class ZTypeDescriptor {
     return ret;
   }
 
-  public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) => ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new List<ZTypeDescriptor>());
+  // public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) => ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new HashSet<ZTypeDescriptor>());
+  public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) {
+    // breadcrumbs = "seen" (base + discovered)
+    var breadcrumbs = new HashSet<ZTypeDescriptor>();
 
-  private static List<ZTypeDescriptor> ExpandTypeTree(List<ZTypeDescriptor> baseTypes, List<ZTypeDescriptor> breadcrumbs) {
-    List<ZTypeDescriptor> added = new List<ZTypeDescriptor>();
-    foreach (var desc in baseTypes) {
-      added.AddRange(desc.ExpandTypeTree(breadcrumbs));
+    // work queue
+    var queue = new Queue<ZTypeDescriptor>(capacity: ApiTypes.Count + types.Length);
+
+    // seed from ApiTypes.Values
+    foreach (var t in ApiTypes.Values)
+    {
+      if (breadcrumbs.Add(t))
+        queue.Enqueue(t);
     }
-    if (added.Any()) ExpandTypeTree(added, breadcrumbs);
-    return added;
+
+    // seed from params
+    for (int i = 0; i < types.Length; i++)
+    {
+      var t = types[i];
+      if (breadcrumbs.Add(t))
+        queue.Enqueue(t);
+    }
+
+    // collect everything we *discover beyond the seed* (matches your previous return semantics better than returning the whole tree)
+    var discovered = new List<ZTypeDescriptor>(256);
+
+    while (queue.Count > 0)
+    {
+      var desc = queue.Dequeue();
+
+      // Expand children; this should NOT allocate much
+      foreach (var child in desc.EnumerateTypeTreeChildren(breadcrumbs))
+      {
+        // child was already added to breadcrumbs inside EnumerateTypeTreeChildren via Add/ExpandTypes,
+        // so just enqueue + record
+        queue.Enqueue(child);
+        discovered.Add(child);
+      }
+    }
+
+    return discovered;
+  }
+// Enumerates ONLY newly-added children (i.e., not already in breadcrumbs)
+  private IEnumerable<ZTypeDescriptor> EnumerateTypeTreeChildren(HashSet<ZTypeDescriptor> breadcrumbs)
+  {
+    // Fast dictionary iteration (no Keys + indexer)
+    foreach (var kvp in ObjectDescriptor.FieldMap)
+    {
+      var key = kvp.Key;
+      var field = kvp.Value;
+
+      // IMPORTANT: ExpandTypes should be the optimized version:
+      // ExpandTypes(ISet<ZTypeDescriptor>) using breadcrumbs.Add(desc)
+      var newly = field.ExpandTypes(breadcrumbs);
+
+      // Avoid foreach over empty list allocations if your ExpandTypes returns a shared empty list
+      for (int i = 0; i < newly.Count; i++)
+        yield return newly[i];
+    }
+
+    // Polymorphic types:
+    // Only yield if truly new; otherwise you spam the queue with repeats.
+    foreach (var type in ObjectDescriptor.PolymorphicTypes)
+    {
+      var td = FromType(type);
+      if (breadcrumbs.Add(td))
+        yield return td;
+    }
   }
 
-  private List<ZTypeDescriptor> ExpandTypeTree(List<ZTypeDescriptor> breadcrumbs) {
-    List<ZTypeDescriptor> added = new List<ZTypeDescriptor>();
-    foreach (string key in ObjectDescriptor.FieldMap.Keys) {
-      ZEnv.Log.Debug("[EXPAND] TREE {type} :: {key} => {field}", this, key, ObjectDescriptor.FieldMap[key]);
-      added.AddRange(ObjectDescriptor.FieldMap[key].ExpandTypes(breadcrumbs));
-    }
-    foreach (var type in ObjectDescriptor.PolymorphicTypes) {
-      added.Add(FromType(type));
-    }
-    return added;
-  }
 
   // public static Type MakeBaseType(Type t) {
   //   t = StripIgnoredOuterTypes(t);

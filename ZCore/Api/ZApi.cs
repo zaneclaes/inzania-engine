@@ -51,81 +51,114 @@ public static class ZApi {
   private static List<Type> GetSubclasses(Type parentType) => Classes.Where(a => a.IsSubclassOf(parentType)).ToList();
 
   // Gets TOP LEVEL Api methods
-  private static Dictionary<Type, Dictionary<string, ZMethodDescriptor>> CacheApiMethods<TRequest>() where TRequest : ZRequestBase {
-    // ZEnv.Log.Information("[ASM] {asm}", string.Join("\n", assemblies.Select(a => a.ToString())));
-    List<Type> queryTypes = GetSubclasses(typeof(TRequest));
-    Dictionary<Type, Dictionary<string, ZMethodDescriptor>> ret = new Dictionary<Type, Dictionary<string, ZMethodDescriptor>>();
-    Dictionary<string, ZMethodDescriptor> methodNames = new Dictionary<string, ZMethodDescriptor>();
+  private static Dictionary<Type, Dictionary<string, ZMethodDescriptor>> CacheApiMethods<TRequest>()
+    where TRequest : ZRequestBase {
+    var queryTypes = GetSubclasses(typeof(TRequest)); // make sure *this* is cached elsewhere too
+    var ret = new Dictionary<Type, Dictionary<string, ZMethodDescriptor>>(queryTypes.Count);
+    var methodNames = new Dictionary<string, ZMethodDescriptor>(capacity: 256);
+    var expandScratch = new HashSet<ZTypeDescriptor>(64);
 
     foreach (var t in queryTypes) {
-      List<MethodInfo> methods = t.GetMethods()
-        .Where(m => m.IsPublic && m.ReturnType.HasAssignableType(typeof(IZResult))).ToList();
-      Dictionary<string, ZMethodDescriptor>? dict = methods.Select(m => new ZMethodDescriptor(m))
-        .ToDictionary(m => m.FieldName, m => m);
-      ZEnv.Log.Debug("[SCHEMA] add {t}: {methods}", t, dict.Values.Select(m => m.ToString()));
-      ret.Add(t, dict);
-      foreach (string key in dict.Keys) {
-        methodNames[key] = dict[key];
-        dict[key].ExpandTypes(new List<ZTypeDescriptor>());
+      // Tighter flags reduces returned methods substantially.
+      var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static);
+
+      // Build dict without LINQ
+      var dict = new Dictionary<string, ZMethodDescriptor>(methods.Length);
+
+      for (int i = 0; i < methods.Length; i++) {
+        var m = methods[i];
+        if (!m.IsPublic) continue;
+
+        // Replace HasAssignableType(...) with direct IsAssignableFrom if possible.
+        if (!typeof(IZResult).IsAssignableFrom(m.ReturnType)) continue;
+
+        var d = new ZMethodDescriptor(m);
+        dict[d.FieldName] = d;
+        methodNames[d.FieldName] = d;
+
+        expandScratch.Clear();
+        d.ExpandTypes(expandScratch);
       }
+
+      ret[t] = dict;
     }
+
     ApiMethods[typeof(TRequest)] = ret;
     ApiMethodNames[typeof(TRequest)] = methodNames;
-    ZEnv.Log.Debug("[SCHEMA] generated {type}: {@names}",
-      typeof(TRequest), methodNames.Select(m => m.Key));
+
     return ret;
   }
+
 
   // Any subclass of ApiObject that meets these criteria will be in the schema
   private static bool IsTypeExplicitlyIncluded(Type t) => t is {IsAbstract: false, IsGenericType: false, IsPublic: true} &&
                                                           t.GetCustomAttribute<ApiPacketAttribute>() != null;
 
-  public static void EnsureSchema() {
-    _startup.Wait();
+  public static async ZTask WaitForSchema() {
+    if (_hasSchema) return;
+    await ZTask.WaitUntil(() => _hasSchema);
+    ZEnv.Log.Information("[SCHEMA] schema loaded @{sec}", ZEnv.App.Uptime.TotalSeconds);
+    return;
+  }
+
+  public static async ZTask EnsureSchemaAsync(int tries = 0) {
+    await ZTask.Yield();
+    await _startup.WaitAsync();
     try {
       if (_hasSchema) return;
-      ZEnv.Log.Debug("[SCHEMA] loading...");
+      // ZEnv.Log.Debug("[SCHEMA] loading...");
 
       CacheApiMethods<ZQueryBase>();
-      ZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
+      // ZEnv.Log.Debug("[SCHEMA] query names: {@types}", ApiMethodNames[typeof(ZQueryBase)].Keys);
+      await ZTask.Yield();
 
       CacheApiMethods<ZMutationBase>();
-      ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
+      // ZEnv.Log.Debug("[SCHEMA] mutation names: {@types}", ApiMethodNames[typeof(ZMutationBase)].Keys);
+      await ZTask.Yield();
 
       CacheApiMethods<ZSubscriptionBase>();
-      ZEnv.Log.Debug("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
+      // ZEnv.Log.Debug("[SCHEMA] subscription names: {@types}", ApiMethodNames[typeof(ZSubscriptionBase)].Keys);
+      await ZTask.Yield();
 
       ZTypeDescriptor[] foundTypes = GetSubclasses(typeof(ApiObject))
         .Where(IsTypeExplicitlyIncluded)
         .Select(o => ZTypeDescriptor.FromType(o))
         .ToArray();
+      await ZTask.Yield();
 
+      // ZEnv.Log.Information("[SCHEMA] @{time} object types: {@types}", ZEnv.App.Uptime.TotalSeconds, ZObjectDescriptor.ObjectTypes.Keys);
       ZTypeDescriptor.ExpandTypeTree(foundTypes);
-      ZEnv.Log.Debug("[SCHEMA] object types: {@types}", ZObjectDescriptor.ObjectTypes.Keys);
-      ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
+      await ZTask.Yield();
+      // ZEnv.Log.Information("[SCHEMA] @{time} object types: {@types}", ZEnv.App.Uptime.TotalSeconds, ZObjectDescriptor.ObjectTypes.Keys);
+      // ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
 
       _hasSchema = ZObjectDescriptor.ObjectTypes.Keys.Any();
-      if (!_hasSchema) ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace());
+      if (!_hasSchema) {
+        ZEnv.Log.Warning("[SCHEMA] failed {trace}", new ZTrace());
+        if (tries > 3) throw new SystemException("Failed to load schema");
+        await EnsureSchemaAsync(tries + 1);
+      }
+      await ZTask.Yield();
     } finally {
       _startup.Release();
     }
   }
 
   public static ZMethodDescriptor GetRequiredMethodByMethodName(ApiExecutionType opType, string methodName) {
-    EnsureSchema();
+    // EnsureSchema();
     Dictionary<string, ZMethodDescriptor>? names = GetMethodFieldNames(opType);
     return names.Values.FirstOrDefault(n => n.OperationName.Equals(methodName) || n.FieldName.Equals(methodName)) ?? throw new ArgumentException(
       $"{opType} does not contain {methodName} among ({string.Join(", ", names.Keys)})");
   }
 
   public static ZMethodDescriptor? GetMethod(ApiExecutionType opType, string methodName) {
-    EnsureSchema();
+    // EnsureSchema();
     Dictionary<string, ZMethodDescriptor>? names = GetMethodFieldNames(opType);
     return names.GetValueOrDefault(methodName);
   }
 
   private static Dictionary<string, ZMethodDescriptor> GetMethodFieldNames(ApiExecutionType opType) {
-    EnsureSchema();
+    // EnsureSchema();
     if (opType == ApiExecutionType.Query) return ApiMethodNames[typeof(ZQueryBase)];
     if (opType == ApiExecutionType.Mutation) return ApiMethodNames[typeof(ZMutationBase)];
     if (opType == ApiExecutionType.Subscription) return ApiMethodNames[typeof(ZSubscriptionBase)];

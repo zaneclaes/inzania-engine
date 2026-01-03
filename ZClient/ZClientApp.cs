@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using IZ.Core;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
@@ -11,16 +12,15 @@ public abstract class ZClientApp : ZApp {
 
   protected ZClientApp(
     string productName, string domainName,
-    Func<IZContext, IZAppSettings> settings, Func<IServiceProvider> fallbackServiceProviderFactory,
-    ZEnvironment env, Func<ZLogBuilder>? logFactory = null, ZTarget? target = null
-  ) : base(productName, domainName, settings, fallbackServiceProviderFactory, env, logFactory, target) {
-    Settings = settings.Invoke(ZJson.DefaultContext);
+    Func<IZContext, ZTask<IZAppSettings>> settings, Func<IServiceProvider> fallbackServiceProviderFactory,
+    ZEnvironment env, Func<ZLogBuilder>? logFactory = null,
+    ZTarget? target = null, Stopwatch? uptimer = null
+  ) : base(productName, domainName, settings, fallbackServiceProviderFactory, env, logFactory, target, uptimer) {
+    // Settings = settings.Invoke(ZJson.DefaultContext);
   }
   public string? ClientId { get; set; }
 
   public SemVersion? Version { get; set; }
-
-  public IZAppSettings Settings { get; protected set; }
 
   public override bool IsRootSingleton => true;
 }

@@ -36,25 +36,25 @@ public abstract class ZFieldDescriptor : IAmInternal {
 
   public ApiAuthorizeAttribute? Auth { get; }
 
-  protected virtual List<ZTypeDescriptor> GetTypeDescriptors() =>
-    new List<ZTypeDescriptor> {
-      FieldTypeDescriptor
-    };
+  protected virtual IEnumerable<ZTypeDescriptor> GetTypeDescriptors() {
+    yield return FieldTypeDescriptor;
+  }
 
-  public List<ZTypeDescriptor> ExpandTypes(List<ZTypeDescriptor> breadcrumbs) {
-    ZEnv.Log.Debug("[EXPAND] {type}", this);
-    List<ZTypeDescriptor> ret = new List<ZTypeDescriptor>();
+  public List<ZTypeDescriptor> ExpandTypes(ISet<ZTypeDescriptor> breadcrumbs) {
+    List<ZTypeDescriptor>? ret = null;
+
     foreach (var desc in GetTypeDescriptors()) {
-      if (!breadcrumbs.Contains(desc)) {
-        ZEnv.Log.Debug("[ADD] {type} from {t}", desc, this);
-        ret.Add(desc);
-        breadcrumbs.Add(desc);
-      } else {
-        ZEnv.Log.Verbose("[EXIST] {type}", desc);
+      // HashSet-style membership: O(1) average
+      if (breadcrumbs.Add(desc)) {
+        (ret ??= new List<ZTypeDescriptor>(4)).Add(desc);
       }
     }
-    return ret;
+
+    return ret ?? s_empty;
   }
+
+  private static readonly List<ZTypeDescriptor> s_empty = new();
+
 
   public override string ToString() => $"{FieldName}: {FieldTypeDescriptor}";
 }

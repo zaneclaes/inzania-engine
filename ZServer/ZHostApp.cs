@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using IZ.Core;
+using IZ.Core.Api;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
@@ -47,22 +48,26 @@ public class HostAppSettings : IZAppSettings {
 
 public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
 
-  private readonly WebApplicationBuilder _builder;
+  protected readonly WebApplicationBuilder _builder;
 
   protected ZHostApp(string productName, string domainName, WebApplicationBuilder builder) : base(
     productName,
     domainName,
-    c => new HostAppSettings(productName, builder.Configuration),
+    c => ZTask<IZAppSettings>.FromResult(new HostAppSettings(productName, builder.Configuration)),
     () => builder.Services.BuildServiceProvider(),
     Enum.Parse<ZEnvironment>(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")!),
     () => CreateLogger(builder.Configuration),
     ZTarget.PublicApp
   ) {
     DataDogTracing.Enable();
-
     _builder = builder;
-    builder.Services.AddZServerCore(this);
   }
+
+  protected override async ZTask BuildAsync() {
+    await base.BuildAsync();
+    _builder.Services.AddZServerCore(this);
+  }
+
   protected WebApplication? WebApp { get; private set; }
 
   protected abstract IDataSeed[] DataSeeds { get; }
@@ -93,18 +98,18 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     });
   }
 
-  protected virtual async Task PrepareAsync(WebApplication app) {
-    app.UseSerilogRequestLogging(opts => {
+  protected override async ZTask PrepareAsync() {
+    await base.PrepareAsync();
+    WebApp!.UseSerilogRequestLogging(opts => {
       opts.GetLevel = ApiExceptionMiddleware.GetLogLevel;
     });
-    app.Services.GetRequiredService<IFragmentProvider>().LoadDirectory(Storage.GraphQLDir);
+    WebApp!.Services.GetRequiredService<IFragmentProvider>().LoadDirectory(Storage.GraphQLDir);
 
-    await app.Services.MigrateDatabaseAsync<TDb>();
+    await WebApp!.Services.MigrateDatabaseAsync<TDb>();
 
     // Seeding should not block startup:
-    app.Services.SeedDatabaseAsync(DataSeeds).Forget();
-
-    app.Lifetime.ApplicationStarted.Register(() => ListUrls(app));
+    WebApp!.Services.SeedDatabaseAsync(DataSeeds).Forget();
+    WebApp!.Lifetime.ApplicationStarted.Register(() => ListUrls(WebApp!));
   }
 
   protected void ListUrls(WebApplication app) {
@@ -119,8 +124,9 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   }
 
   public async Task RunAsync() {
+    await BuildAsync();
     WebApp = _builder.Build();
-    await PrepareAsync(WebApp);
+    await PrepareAsync();
     await WebApp.RunAsync();
   }
 }

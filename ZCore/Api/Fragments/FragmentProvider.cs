@@ -51,10 +51,11 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     _graphqlDir = dir;
     if (Directory.Exists(_graphqlDir)) Directory.Delete(_graphqlDir, true);
     Directory.CreateDirectory(_graphqlDir);
-    ZApi.EnsureSchema();
+    // ZApi.EnsureSchema();
     var types = ZObjectDescriptor.ObjectTypes.Values.ToList();
     foreach (var type in types) {
       if (type.IsScalar) continue;
+      Log.Information("[FRAGMENT] loading {type}", type);
       foreach (var format in type.ExpectedFormats) {
         LoadRequired(context, type, format, new HashSet<string>());
       }
@@ -72,7 +73,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
       }
     }
     Log.Information("[FRAGMENT] loading files from {dir}", dir);
-    ZApi.EnsureSchema();
+    // ZApi.EnsureSchema();
     string[] files = Directory.GetFiles(dir, "*.graphql", SearchOption.AllDirectories);
     List<string> dependencies = new List<string>();
     foreach (string fn in files) {
@@ -111,7 +112,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
     }
   }
 
-  public IZLogger Log { get; }
+  public IZLogger Log { get; set; }
 
   private Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs) {
     if (string.IsNullOrWhiteSpace(format)) format = null;
