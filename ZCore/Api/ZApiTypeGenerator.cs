@@ -15,7 +15,7 @@ public class ZApiTypeGenerator : IZTypeMap {
   public Dictionary<Type, Dictionary<Type, Dictionary<string, ZMethodDescriptor>>> ApiMethods { get; }
     = new Dictionary<Type, Dictionary<Type, Dictionary<string, ZMethodDescriptor>>>();
 
-  // public Dictionary<string, ZTypeDescriptor> ApiTypes { get; } = new Dictionary<string, ZTypeDescriptor>();
+  public Dictionary<string, ZTypeDescriptor> ApiTypes { get; } = new Dictionary<string, ZTypeDescriptor>();
 
   public Dictionary<string, ZObjectDescriptor> ApiObjects { get; }
     = new Dictionary<string, ZObjectDescriptor>();
@@ -71,8 +71,8 @@ public class ZApiTypeGenerator : IZTypeMap {
         foreach (var name in methods.Keys) {
           var method = methods[name];
           var cn = $"{method.Name}{mg}Descriptor";
-          await File.WriteAllTextAsync(Path.Combine(methodsDir, $"{cn}.cs"), method.GetSource(cn, qt, methodsNs));
-          methodMap.Add($"          [\"{name}\"] = new {cn}()");
+          await File.WriteAllTextAsync(Path.Combine(methodsDir, $"{cn}.cs"), method.GetSource(this, cn, qt, methodsNs));
+          methodMap.Add($"          [\"{name}\"] = new {cn}(this)");
         }
         typeMap.Add($"        [typeof({qt.Name})] = new Dictionary<string, ZMethodDescriptor>() {{\n" + string.Join(",\n", methodMap) + "\n        }");
       }
@@ -88,11 +88,11 @@ public class ZApiTypeGenerator : IZTypeMap {
     var objLines = new List<string>();
     foreach (var objectType in types) {
       var cn = $"{objectType.TypeName}ObjectDescriptor";
-      await File.WriteAllTextAsync(Path.Combine(objectsDir, $"{cn}.cs"), objectType.GetSource(cn, $"{ns}.Objects"));
-      objLines.Add($"      [\"{objectType.TypeName}\"] = new {cn}()");
+      await File.WriteAllTextAsync(Path.Combine(objectsDir, $"{cn}.cs"), objectType.GetSource(this, cn, $"{ns}.Objects"));
+      objLines.Add($"      [\"{objectType.TypeName}\"] = new {cn}(this)");
     }
 
-    await File.WriteAllTextAsync(Path.Combine(dir, "TypeMap.cs"), $@"using System;
+    await File.WriteAllTextAsync(Path.Combine(dir, $"{typeMapName}.cs"), $@"using System;
 using System.Collections.Generic;
 using IZ.Core.Api;
 using IZ.Core.Api.Types;
@@ -102,6 +102,8 @@ namespace Tuneality.Core.Types;
 
 public class {typeMapName} : IZTypeMap {{
   public Dictionary<Type, Dictionary<Type, Dictionary<string, ZMethodDescriptor>>> ApiMethods {{ get; }}
+
+  public Dictionary<string, ZTypeDescriptor> ApiTypes {{ get; }} = new Dictionary<string, ZTypeDescriptor>();
   
   public Dictionary<string, ZObjectDescriptor> ApiObjects {{ get; }}
 
@@ -126,11 +128,11 @@ public class {typeMapName} : IZTypeMap {{
 
     ZTypeDescriptor[] foundTypes = GetSubclasses(typeof(ApiObject))
       .Where(IsTypeExplicitlyIncluded)
-      .Select(o => ZTypeDescriptor.FromType(o))
+      .Select(o => ((IZTypeMap)this).LoadTypeDescriptor(o))
       .ToArray();
 
     // ZEnv.Log.Information("[SCHEMA] @{time} object types: {@types}", ZEnv.App.Uptime.TotalSeconds, ZObjectDescriptor.ObjectTypes.Keys);
-    ZTypeDescriptor.ExpandTypeTree(foundTypes);
+    ZTypeDescriptor.ExpandTypeTree(this, foundTypes);
     // ZEnv.Log.Information("[SCHEMA] @{time} object types: {@types}", ZEnv.App.Uptime.TotalSeconds, ZObjectDescriptor.ObjectTypes.Keys);
     // ZEnv.Log.Debug("[SCHEMA] API types: {@types}", ZTypeDescriptor.ApiTypes.Values.Select(o => o.ToString()));
     // ZObjectDescriptor.ObjectTypes.Keys.Any();
@@ -158,7 +160,7 @@ public class {typeMapName} : IZTypeMap {{
         // Replace HasAssignableType(...) with direct IsAssignableFrom if possible.
         if (!typeof(IZResult).IsAssignableFrom(m.ReturnType)) continue;
 
-        var d = new ZMethodDescriptor(m);
+        var d = new ZMethodDescriptor(this, m);
         dict[d.FieldName] = d;
         methodNames[d.FieldName] = d;
 

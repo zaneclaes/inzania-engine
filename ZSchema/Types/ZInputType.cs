@@ -23,7 +23,7 @@ namespace IZ.Schema.Types;
 public class ZInputType<TData> : InputObjectType<TData> where TData : ApiObject {
   protected override void Configure(IInputObjectTypeDescriptor<TData> descriptor) {
     ZEnv.Log.Verbose("[IN] {type}", typeof(TData));
-    var zTypeDescriptor = ZTypeDescriptor.FromType(typeof(TData));
+    var zTypeDescriptor = ZApi.LoadTypeDescriptor(typeof(TData));
     foreach (string inputName in zTypeDescriptor.ObjectDescriptor.Inputs.Keys) {
       var prop = zTypeDescriptor.ObjectDescriptor.Inputs[inputName];
       ZEnv.Log.Verbose("[IN] [{type}] {arg} = {type}", typeof(TData), inputName, prop.FieldType);
@@ -108,7 +108,7 @@ public static class ZInputTypes {
           continue;
         }
 
-        var paramType = ZTypeDescriptor.FromType(parameterInfo.ParameterType);
+        var paramType = ZApi.LoadTypeDescriptor(parameterInfo.ParameterType);
         object? obj = parameterInfo.IsEventMessage && eventMessage != null ? eventMessage :
           node.Kind == SyntaxKind.NullValue ? parameterInfo.DefaultValue : ResolveInputVariable(context, paramType, node);
 

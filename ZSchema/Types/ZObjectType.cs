@@ -22,7 +22,7 @@ public class ZObjectType<TData> : ObjectType<TData>  {
   protected override void Configure(IObjectTypeDescriptor<TData> descriptor) {
     ZEnv.Log.Verbose("[OUT] {type}", typeof(TData));
 
-    var zDescriptor = ZTypeDescriptor.FromType(typeof(TData));
+    var zDescriptor = ZApi.LoadTypeDescriptor(typeof(TData));
     AddProperties(zDescriptor, descriptor);
     AddMethods(zDescriptor, descriptor);
 

@@ -14,7 +14,6 @@ namespace IZ.Core.Api.Types;
 // Describes wrapping type around a ZObjectDescriptor (nullable, list, etc.)
 public class ZTypeDescriptor {
 
-  public static readonly Dictionary<string, ZTypeDescriptor> ApiTypes = new Dictionary<string, ZTypeDescriptor>();
   public Type OrigType { get; set; } = null!;
 
   public bool HasInner => IsList || IsArray || DictionaryKeyType != null;
@@ -39,57 +38,16 @@ public class ZTypeDescriptor {
     return ret;
   }
 
-  public static ZTypeDescriptor FromType(Type t, bool isOptional = false) {
-    string key = $"{t}{(isOptional ? "?" : "!")}";
-    if (ApiTypes.TryGetValue(key, out var d)) return d;
-
-    var innerType = ZMethodDescriptor.StripIgnoredOuterFunctionTypes(t);
-    var ret = new ZTypeDescriptor();
-    ZEnv.Log.Verbose("[TYPE] start {t}", innerType.Name);
-    ret.OrigType = innerType;
-    var nt1 = Nullable.GetUnderlyingType(innerType);
-    if (nt1 != null) {
-      innerType = nt1;
-      ret.IsNullableOuter = true;
-    } else if (isOptional) {
-      ret.IsNullableOuter = true;
-    }
-    if (innerType.IsArray) {
-      ZEnv.Log.Verbose("[TYPE] array {t}", innerType.Name);
-      innerType = innerType.GetElementType()!;
-      ret.IsList = true;
-      ret.IsArray = true;
-    } else if (innerType.HasAssignableType(typeof(IList))) {
-      ZEnv.Log.Verbose("[TYPE] list {t}", innerType.Name);
-      innerType = innerType.GenericTypeArguments[0];
-      ret.IsList = true;
-    } else if (innerType.HasAssignableType(typeof(IDictionary)) && innerType.GenericTypeArguments.Length == 2) {
-      ret.DictionaryKeyType = innerType.GenericTypeArguments[0];
-      innerType = innerType.GenericTypeArguments[1];
-    }
-    var nt2 = Nullable.GetUnderlyingType(innerType);
-    if (ret.IsList && nt2 != null) {
-      ZEnv.Log.Verbose("[TYPE] list-nullable {t}", innerType.Name);
-      innerType = nt2;
-      ret.IsNullableInner = true;
-    }
-    ret.ObjectDescriptor = ZApi.LoadZObjectDescriptor(innerType);
-    // if (task) t = typeof(Task<>).MakeGenericType(t);
-    ApiTypes[key] = ret;
-    return ret;
-  }
-
   // public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) => ExpandTypeTree(ApiTypes.Values.Union(types).Distinct().ToList(), new HashSet<ZTypeDescriptor>());
-  public static List<ZTypeDescriptor> ExpandTypeTree(params ZTypeDescriptor[] types) {
+  public static List<ZTypeDescriptor> ExpandTypeTree(IZTypeMap typeMap, params ZTypeDescriptor[] types) {
     // breadcrumbs = "seen" (base + discovered)
     var breadcrumbs = new HashSet<ZTypeDescriptor>();
 
     // work queue
-    var queue = new Queue<ZTypeDescriptor>(capacity: ApiTypes.Count + types.Length);
+    var queue = new Queue<ZTypeDescriptor>(capacity: typeMap.ApiTypes.Count + types.Length);
 
     // seed from ApiTypes.Values
-    foreach (var t in ApiTypes.Values)
-    {
+    foreach (var t in typeMap.ApiTypes.Values) {
       if (breadcrumbs.Add(t))
         queue.Enqueue(t);
     }
@@ -110,8 +68,7 @@ public class ZTypeDescriptor {
       var desc = queue.Dequeue();
 
       // Expand children; this should NOT allocate much
-      foreach (var child in desc.EnumerateTypeTreeChildren(breadcrumbs))
-      {
+      foreach (var child in desc.EnumerateTypeTreeChildren(typeMap, breadcrumbs)) {
         // child was already added to breadcrumbs inside EnumerateTypeTreeChildren via Add/ExpandTypes,
         // so just enqueue + record
         queue.Enqueue(child);
@@ -122,7 +79,7 @@ public class ZTypeDescriptor {
     return discovered;
   }
 // Enumerates ONLY newly-added children (i.e., not already in breadcrumbs)
-  private IEnumerable<ZTypeDescriptor> EnumerateTypeTreeChildren(HashSet<ZTypeDescriptor> breadcrumbs)
+  private IEnumerable<ZTypeDescriptor> EnumerateTypeTreeChildren(IZTypeMap typeMap, HashSet<ZTypeDescriptor> breadcrumbs)
   {
     // Fast dictionary iteration (no Keys + indexer)
     foreach (var kvp in ObjectDescriptor.FieldMap)
@@ -141,9 +98,8 @@ public class ZTypeDescriptor {
 
     // Polymorphic types:
     // Only yield if truly new; otherwise you spam the queue with repeats.
-    foreach (var type in ObjectDescriptor.PolymorphicTypes)
-    {
-      var td = FromType(type);
+    foreach (var type in ObjectDescriptor.PolymorphicTypes) {
+      var td = typeMap.LoadTypeDescriptor(type);
       if (breadcrumbs.Add(td))
         yield return td;
     }

@@ -30,7 +30,7 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     return !FieldTypeDescriptor.ObjectDescriptor.IsScalar;
   }
 
-  public ZPropertyDescriptor(PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
+  public ZPropertyDescriptor(IZTypeMap typeMap, PropertyInfo propertyInfo, PropertyInfo? parentProp) : base(typeMap, propertyInfo, propertyInfo.PropertyType, propertyInfo.GetMethod != null && new NullabilityInfoContext()
     .Create(propertyInfo.GetMethod!.ReturnParameter!).ReadState == NullabilityState.Nullable) {
 
     var jsonPropName = propertyInfo.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
@@ -71,9 +71,9 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
   }
 
   protected ZPropertyDescriptor(
-    string name, string fieldName, Type fieldType, object? defaultValue,
+    IZTypeMap typeMap, string name, string fieldName, Type fieldType, object? defaultValue,
     HashSet<string?>? formats = null, IApiAuthorize? auth = null, bool enforceOptional = false
-  ) : base(fieldType, formats, auth, enforceOptional) {
+  ) : base(typeMap, fieldType, formats, auth, enforceOptional) {
     Name = name;
     FieldName = fieldName;
     DefaultValue = defaultValue;
@@ -116,8 +116,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     });
   }
 
-  public string GetClassSource(string className, string objectName, HashSet<string> usings) {
-    var rt = ZTypeDescriptor.FromType(FieldType);
+  public string GetClassSource(IZTypeMap typeMap, string className, string objectName, HashSet<string> usings) {
+    var rt = typeMap.LoadTypeDescriptor(FieldType);
     usings.Add(rt.ObjectDescriptor.ObjectType.Namespace!);
     var fm = "new HashSet<string?>()";
     if (Formats.Any()) {
@@ -147,7 +147,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     }
 
     return $@"public class {className} : ZPropertyDescriptor {{
-  public {className}() : base(
+  public {className}(IZTypeMap typeMap) : base(
+    typeMap,
     ""{Name}"",
     ""{FieldName}"",
     typeof({rt.ToSystemTypeName()}),

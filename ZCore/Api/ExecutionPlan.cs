@@ -34,7 +34,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
     _method = ZApi.GetRequiredMethodByMethodName(op, operationName);
     OperationType = op;
     FieldName = _method.FieldName;
-    ReturnType = ZTypeDescriptor.FromType(_method.FieldType);
+    ReturnType = ZApi.LoadTypeDescriptor(_method.FieldType);
     Set = resultSet ?? new ResultSet();
     OperationName = _method.Name;
     Id = $"{OperationType}{QueryIdSplit}{FieldName}{QueryIdSplit}{Set}";
@@ -81,7 +81,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
     var converter = Context.GetService<IParameterConverter>();
 
     for (int i = 0; i < _method.Parameters.Count; i++) {
-      var zType = ZTypeDescriptor.FromType(_method.Parameters[i].ParameterType);
+      var zType = ZApi.LoadTypeDescriptor(_method.Parameters[i].ParameterType);
       object? argVal = i >= args.Count ? null :
         (converter == null ? PrepareArgJson(args[i]) : converter.ConvertParameter(args[i]));
 
@@ -114,7 +114,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
       }
       return arr;
     }
-    var desc = ZTypeDescriptor.FromType(arg.GetType());
+    var desc = ZApi.LoadTypeDescriptor(arg.GetType());
     if (desc.ObjectDescriptor.IsScalar) return JsonSerializer.SerializeToNode(arg);
     // if (!(arg is ApiObject obj)) return arg;
 

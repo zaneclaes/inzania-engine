@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using IZ.Core;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
@@ -130,7 +131,7 @@ public class ZDbContext : DbContext, IHaveContext {
       Context.Log.Debug("[DB] start {type}", dataType);
 
       // Go through each property...
-      var dt = ZTypeDescriptor.FromType(dataType);
+      var dt = ZApi.LoadTypeDescriptor(dataType);
       foreach (string propertyName in dt.ObjectDescriptor.ObjectProperties.Keys) {
         ConfigureModelProperty(dt, propertyName, modelBuilder);
       }
@@ -162,7 +163,7 @@ public class ZDbContext : DbContext, IHaveContext {
   private void ConfigureModelProperty(ZTypeDescriptor zTypeDescriptor, string propertyName, ModelBuilder modelBuilder) {
     var prop = zTypeDescriptor.ObjectDescriptor.ObjectProperties[propertyName];
     if (prop is {IsInherited: false, ChildPropertyName: not null}) {
-      var zForeignType = ZTypeDescriptor.FromType(prop.FieldType);
+      var zForeignType = ZApi.LoadTypeDescriptor(prop.FieldType);
       if (prop.ThroughPropertyType == null) {
         if (zForeignType.IsList) {
           Log.Debug("[PARENT] {type}.{p} <one2many> {ft}.{child}", zTypeDescriptor.OrigType, prop.Name, zForeignType.ObjectDescriptor.ObjectType, prop.ChildPropertyName);
@@ -178,7 +179,7 @@ public class ZDbContext : DbContext, IHaveContext {
             .OnDelete((DeleteBehavior) prop.ChildDeleteBehavior);
         }
       } else {
-        var zThru = ZTypeDescriptor.FromType(prop.ThroughPropertyType ?? throw new NullReferenceException(nameof(prop.ThroughPropertyType)));
+        var zThru = ZApi.LoadTypeDescriptor(prop.ThroughPropertyType ?? throw new NullReferenceException(nameof(prop.ThroughPropertyType)));
         List<ZPropertyDescriptor> localProps = zThru.ObjectDescriptor.ObjectProperties.Values.Where(p => p.FieldType == zForeignType.ObjectDescriptor.ObjectType).ToList();
         List<ZPropertyDescriptor> foreignProps = zThru.ObjectDescriptor.ObjectProperties.Values.Where(p => p.FieldType == zTypeDescriptor.ObjectDescriptor.ObjectType).ToList();
         if (localProps.Count != 1 || foreignProps.Count != 1) throw new ArgumentException($"{zThru.ObjectDescriptor.ObjectType} has {localProps.Count}x {zForeignType.ObjectDescriptor.ObjectType} and {foreignProps.Count}x {zTypeDescriptor.ObjectDescriptor.ObjectType}");

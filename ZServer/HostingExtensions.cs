@@ -141,7 +141,7 @@ public static class HostingExtensions {
     (section.ToZObject(typeof(TObj), context) as TObj)!;
 
   private static object ToZObject(this IConfigurationSection section, Type t, IZContext context) {
-    var desc = ZApi.LoadZObjectDescriptor(t);
+    var desc = ZApi.LoadObjectDescriptor(t);
     var obj = (Activator.CreateInstance(t) as ApiObject)!;
     obj.Context = context;
     foreach (var prop in desc.AllProperties) {

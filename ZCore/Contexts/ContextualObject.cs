@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text.Json.Serialization;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
@@ -33,7 +34,7 @@ public abstract class ContextualObject : IDisposable, IEventEnricher {
   [OutputIgnore]
   public virtual string Uuid => _uuid ??= GetUuid();
 
-  internal ZTypeDescriptor ApiType => _apiType ??= ZTypeDescriptor.FromType(GetType());
+  internal ZTypeDescriptor ApiType => _apiType ??= ZApi.LoadTypeDescriptor(GetType());
   protected virtual string UuidId => _transientId ??= ModelId.GenerateId();
 
   // Low-cardinality grouping of objects used for metric tags & event property groups

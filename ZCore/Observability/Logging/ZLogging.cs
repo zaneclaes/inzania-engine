@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
@@ -19,7 +20,7 @@ public static class ZLogging {
 
   private static object TransformLoggableObject(object obj, int level = 0) {
     var t = obj.GetType();
-    var desc = ZTypeDescriptor.FromType(t);
+    var desc = ZApi.LoadTypeDescriptor(t);
     if (desc.ObjectDescriptor.IsScalar) {
       if (desc.IsList) {
         return ((IEnumerable) obj).Cast<object>().ToList();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
@@ -21,7 +22,7 @@ public abstract class DataStub<TD> : DataStub, IItemizable where TD : DataObject
 
   public TD Data => DbData ?? StubData;
 
-  private ZTypeDescriptor TypeDesc => _desc ??= ZTypeDescriptor.FromType(typeof(TD));
+  private ZTypeDescriptor TypeDesc => _desc ??= ZApi.LoadTypeDescriptor(typeof(TD));
   private ZTypeDescriptor? _desc = null;
 
   protected DataStub(TD? data = null) {

@@ -28,7 +28,7 @@ public class ZPacketFormatter : LogicBase, IMessagePackFormatter<ZPacket?> {
 
   public void Serialize(ref MessagePackWriter writer, ZPacket? value, MessagePackSerializerOptions options) {
     if (value == null) return;
-    var desc = ZApi.LoadZObjectDescriptor(value.GetType());
+    var desc = ZApi.LoadObjectDescriptor(value.GetType());
     if (desc.PacketDiscriminator <= 0) throw new ArgumentException($"[PACKET] {desc} has no packet discriminator");
     writer.WriteUInt8(desc.PacketDiscriminator);
 

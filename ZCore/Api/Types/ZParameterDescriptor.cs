@@ -13,11 +13,15 @@ using IZ.Core.Utils;
 namespace IZ.Core.Api.Types;
 
 public class ZParameterDescriptor : IAmInternal {
+  public ZTypeDescriptor ApiType => _apiType ??= _typeMap.LoadTypeDescriptor(ParameterType, IsOptional);
+  protected readonly IZTypeMap _typeMap;
+  private ZTypeDescriptor? _apiType;
 
   public ZParameterDescriptor(
-    string fieldName, Type parameterType, object? defaultValue = null,
+    IZTypeMap typeMap, string fieldName, Type parameterType, object? defaultValue = null,
     bool isTopic = false, bool isEventMessage = false, bool isOptional = false
   ) {
+    _typeMap = typeMap;
     FieldName = fieldName;
     ParameterType = parameterType;
     IsOptional = isOptional;
@@ -26,7 +30,8 @@ public class ZParameterDescriptor : IAmInternal {
     IsEventMessage = isEventMessage;
   }
 
-  public ZParameterDescriptor(ParameterInfo member) {
+  public ZParameterDescriptor(IZTypeMap typeMap, ParameterInfo member) {
+    _typeMap = typeMap;
     FieldName = member.Name!.ToFieldName();
     ParameterType = member.ParameterType;
     IsOptional = member.IsOptional || ParameterType.IsListType() || ParameterType.IsArray;
@@ -37,9 +42,6 @@ public class ZParameterDescriptor : IAmInternal {
   public string FieldName { get; }
 
   public Type ParameterType { get; }
-
-  public ZTypeDescriptor ApiType => _apiType ??= ZTypeDescriptor.FromType(ParameterType, IsOptional);
-  private ZTypeDescriptor? _apiType;
 
   public bool IsOptional { get; }
 
@@ -59,11 +61,11 @@ public class ZParameterDescriptor : IAmInternal {
     return def.ToString()!;
   }
 
-  public string GetSource(HashSet<string> namespaces) {
+  public string GetSource(IZTypeMap typeMap, HashSet<string> namespaces) {
     if (ParameterType.Namespace != null) namespaces.Add(ParameterType.Namespace);
-    var pt = ZTypeDescriptor.FromType(ParameterType);
+    var pt = typeMap.LoadTypeDescriptor(ParameterType);
     string dv = GetDefaultValueSource(DefaultValue, namespaces);
-    return $"new ZParameterDescriptor(\"{FieldName}\", typeof({pt.ToSystemTypeName()}), {dv}, " +
+    return $"new ZParameterDescriptor(typeMap, \"{FieldName}\", typeof({pt.ToSystemTypeName()}), {dv}, " +
            $"{IsTopic.ToString().ToLowerInvariant()}, {IsEventMessage.ToString().ToLowerInvariant()}, {IsOptional.ToString().ToLowerInvariant()})";
   }
 }

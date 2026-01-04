@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
 using IZ.Core.Utils;
@@ -144,7 +145,7 @@ public abstract class ApiObject : ContextualObject {
     var localProp = ApiType.ObjectDescriptor.GetProperty(localFieldName) ??
                     throw new ArgumentException($"Local Key '{localFieldName}' missing: {ApiType.ObjectDescriptor}");
 
-    var foreignDesc = ZTypeDescriptor.FromType(typeof(TData));
+    var foreignDesc = ZApi.LoadTypeDescriptor(typeof(TData));
     string foreignFieldName = foreignKeyName.ToFieldName();
     var foreignProp = foreignDesc.ObjectDescriptor.GetProperty(foreignFieldName) ??
                       throw new ArgumentException($"Foreign Key '{foreignFieldName}' missing: {foreignDesc.ObjectDescriptor}");

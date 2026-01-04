@@ -13,22 +13,21 @@ using IZ.Core.Utils;
 namespace IZ.Core.Api.Types;
 
 public class ZMethodDescriptor : ZFieldDescriptor {
-
   protected ZMethodDescriptor(
-    string opName, ApiExecutionType executionType, List<ZParameterDescriptor> parameters,
+    IZTypeMap typeMap, string opName, ApiExecutionType executionType, List<ZParameterDescriptor> parameters,
     Type returnType, HashSet<string?>? formats = null, IApiAuthorize? auth = null, bool enforceOptional = false
-  ) : base(returnType, formats, auth, enforceOptional) {
+  ) : base(typeMap, returnType, formats, auth, enforceOptional) {
     Name = opName;
     ExecutionType = executionType;
     Parameters = parameters.ToList();
     SetFieldName();
   }
 
-  public ZMethodDescriptor(MethodInfo methodInfo) : base(methodInfo, methodInfo.ReturnType, IsMethodReturnNullable(methodInfo)) {
+  public ZMethodDescriptor(IZTypeMap typeMap, MethodInfo methodInfo) : base(typeMap, methodInfo, methodInfo.ReturnType, IsMethodReturnNullable(methodInfo)) {
     Method = methodInfo;
     Name = methodInfo.Name;
     Parameters = methodInfo.GetParameters()
-      .Select(p => new ZParameterDescriptor(p))
+      .Select(p => new ZParameterDescriptor(typeMap, p))
       .ToList();
     // ApiMethod = methodInfo.GetCustomAttribute<ApiMethodAttribute>();
 
@@ -94,9 +93,9 @@ public class ZMethodDescriptor : ZFieldDescriptor {
     return inner is {ReadState: NullabilityState.Nullable};
   }
 
-  public string GetSource(string className, Type queryable, string ns) {
+  public string GetSource(IZTypeMap typeMap, string className, Type queryable, string ns) {
     var usings = new HashSet<string>() {queryable.Namespace!};
-    var src = GetClassSource(className, queryable.Name, usings);
+    var src = GetClassSource(typeMap, className, queryable.Name, usings);
     return @$"using {string.Join(";\nusing ", usings)};
 
 namespace {ns};
@@ -104,8 +103,8 @@ namespace {ns};
 {src}";
   }
 
-  public string GetClassSource(string className, string objectName, HashSet<string> usings) {
-    var rt = ZTypeDescriptor.FromType(FieldType.GenericTypeArguments[0]);
+  public string GetClassSource(IZTypeMap typeMap, string className, string objectName, HashSet<string> usings) {
+    var rt = typeMap.LoadTypeDescriptor(FieldType.GenericTypeArguments[0]);
     var p = "new List<ZParameterDescriptor>()";
     usings.Add("System");
     usings.Add("System.Collections.Generic");
@@ -117,9 +116,9 @@ namespace {ns};
     usings.Add(rt.ObjectDescriptor.ObjectType.Namespace!);
     var args = new List<string>() { };
     if (Parameters.Any()) {
-      p += "{\n      " + string.Join(",\n      ", Parameters.Select(p => p.GetSource(usings))) + "}\n    ";
+      p += "{\n      " + string.Join(",\n      ", Parameters.Select(p => p.GetSource(typeMap, usings))) + "}\n    ";
       args = Parameters.Select((p, i) => {
-        var pt = ZTypeDescriptor.FromType(p.ParameterType);
+        var pt = typeMap.LoadTypeDescriptor(p.ParameterType);
         usings.Add(pt.ObjectDescriptor.ObjectType.Namespace!);
         return pt.ToCast($"args![{i}]");
       }).ToList();
@@ -131,7 +130,8 @@ namespace {ns};
     var auth = Auth == null ? "null" : Auth.GetSource();
 
     return @$"public class {className} : ZMethodDescriptor {{
-  public {className}() : base(
+  public {className}(IZTypeMap typeMap) : base(
+    typeMap,
     ""{Name}"", 
     ApiExecutionType.{ExecutionType}, 
     {p}, 

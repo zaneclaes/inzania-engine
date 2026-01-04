@@ -88,7 +88,7 @@ public static class ZSchema {
   }
 
   public static Type GetZSchemaType(Type t, Type? generic, bool isOptional = false) =>
-    GetZSchemaType(ZTypeDescriptor.FromType(t, isOptional), generic);
+    GetZSchemaType(ZApi.LoadTypeDescriptor(t, isOptional), generic);
 
   private static Type GetZSchemaType(ZTypeDescriptor descriptor, Type? generic) {
     ZEnv.Log.Verbose("[TYPE] finalize {t}", descriptor);

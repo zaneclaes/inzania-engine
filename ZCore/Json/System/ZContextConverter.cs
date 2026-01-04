@@ -80,7 +80,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     Log.Debug("[JSON] ARR START {idx}", string.Join("", breadcrumbs));
     var list = (IList) Activator.CreateInstance(type)!; // typeof(List<>).MakeGenericType(type)
     // Context.Log.Debug("ARR {key} {type}", reader.TokenType, type);
-    var typeDescriptor = ZTypeDescriptor.FromType(type);
+    var typeDescriptor = ZApi.LoadTypeDescriptor(type);
     if (reader.TokenType == JsonTokenType.StartArray) reader.Read();
     int p = 0;
     while (reader.TokenType != JsonTokenType.EndArray) {
@@ -139,7 +139,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     // GetPolymorphicType(ref reader);
 
     var vals = new Dictionary<ZPropertyDescriptor, object?>();
-    var typeDescriptor = ZTypeDescriptor.FromType(type);
+    var typeDescriptor = ZApi.LoadTypeDescriptor(type);
     var polymorphicDiscriminatorName = typeDescriptor.ObjectDescriptor.PolymorphicDiscriminatorName;
 
     if (reader.TokenType == JsonTokenType.StartObject) reader.Read();
@@ -191,7 +191,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         if (polymorphicDiscriminatorName != null && prop?.Name == polymorphicDiscriminatorName) {
           if (ZApi.TypeMap.ApiObjects.TryGetValue(val?.ToString() ?? "", out var td)) {
             if (td.ObjectType.HasAssignableType(typeDescriptor.ObjectDescriptor.ObjectType)) {
-              typeDescriptor = ZTypeDescriptor.FromType(td.ObjectType);
+              typeDescriptor = ZApi.LoadTypeDescriptor(td.ObjectType);
             } else {
               Context.Log.Warning("[DISCRIMINATOR] {t} is not a subclass of {parent}", td, typeDescriptor);
             }
@@ -250,7 +250,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     } else if (value.GetType().IsScalar(false)) {
       JsonSerializer.Serialize(writer, value, value.GetType(), options); // SerializerOptions??
     } else {
-      var desc = ZApi.LoadZObjectDescriptor(value.GetType());
+      var desc = ZApi.LoadObjectDescriptor(value.GetType());
       writer.WriteStartObject();
       var props = desc.GetPropertiesForFormat(_opts?.ApiFormat);
       foreach (var prop in props) {

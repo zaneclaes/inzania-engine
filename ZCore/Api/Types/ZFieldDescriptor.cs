@@ -13,18 +13,23 @@ namespace IZ.Core.Api.Types;
 public abstract class ZFieldDescriptor : IAmInternal {
 
   public readonly bool EnforceOptional;
+
+  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= _typeMap.LoadTypeDescriptor(FieldType, EnforceOptional);
+  protected readonly IZTypeMap _typeMap;
   private ZTypeDescriptor? _apiType;
 
   // private MemberInfo _member;
 
-  protected ZFieldDescriptor(Type fieldType, HashSet<string?>? formats = null, IApiAuthorize? auth = null, bool enforceOptional = false) {
+  protected ZFieldDescriptor(IZTypeMap typeMap, Type fieldType, HashSet<string?>? formats = null, IApiAuthorize? auth = null, bool enforceOptional = false) {
+    _typeMap = typeMap;
     FieldType = fieldType;
     Formats = formats ?? new HashSet<string?>();
     Auth = auth;
     EnforceOptional = enforceOptional;
   }
 
-  protected ZFieldDescriptor(MemberInfo member, Type fieldType, bool enforceOptional = false) {
+  protected ZFieldDescriptor(IZTypeMap typeMap, MemberInfo member, Type fieldType, bool enforceOptional = false) {
+    _typeMap = typeMap;
     // _member = member;
     FieldType = fieldType;
     Formats = member.GetCustomAttribute<ApiFormatAttribute>()?.FormatTags ?? new HashSet<string?>();
@@ -36,8 +41,6 @@ public abstract class ZFieldDescriptor : IAmInternal {
   public string FieldName { get; protected set; } = null!;
 
   public Type FieldType { get; }
-
-  public ZTypeDescriptor FieldTypeDescriptor => _apiType ??= ZTypeDescriptor.FromType(FieldType, EnforceOptional);
 
   public HashSet<string?> Formats { get; set; }
 

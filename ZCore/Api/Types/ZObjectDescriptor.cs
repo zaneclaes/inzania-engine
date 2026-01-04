@@ -16,6 +16,7 @@ namespace IZ.Core.Api.Types;
 
 // Describes a concrete node type, without nullable/list/etc. decoration
 public class ZObjectDescriptor : IAmInternal {
+  protected readonly IZTypeMap _typeMap;
 
   public bool IsFile { get; set; }
 
@@ -53,7 +54,8 @@ public class ZObjectDescriptor : IAmInternal {
     .Where(p => !p.IsIgnoredForFormat(format))
     .ToList();
 
-  protected ZObjectDescriptor(string name, string inputTypeName, Type t, bool isFile, bool isScalar, byte packetDiscriminator) {
+  protected ZObjectDescriptor(IZTypeMap typeMap, string name, string inputTypeName, Type t, bool isFile, bool isScalar, byte packetDiscriminator) {
+    _typeMap = typeMap;
     ObjectType = t;
     TypeName = name;
     InputTypeName = inputTypeName;
@@ -62,9 +64,9 @@ public class ZObjectDescriptor : IAmInternal {
     PacketDiscriminator = packetDiscriminator;
   }
 
-  public string GetSource(string className, string ns) {
+  public string GetSource(IZTypeMap typeMap, string className, string ns) {
     var inits = new List<string>();
-    var usings = new HashSet<string>() {ObjectType.Namespace!, "System.Collections.Generic"};
+    var usings = new HashSet<string>() {ObjectType.Namespace!, "System.Collections.Generic", "IZ.Core.Api"};
     if (PolymorphicDiscriminatorName != null) {
       inits.Add($"PolymorphicDiscriminatorName = \"{PolymorphicDiscriminatorName}\";");
       inits.Add($"PolymorphicTypes = new List<Type>() {{ typeof({string.Join("), typeof(", PolymorphicTypes.Select(t => t.Name))}) }};");
@@ -74,14 +76,14 @@ public class ZObjectDescriptor : IAmInternal {
     foreach (var propName in _properties.Keys) {
       var prop = _properties[propName];
       var propClass = $"{className}_{prop.Name}_Property";
-      classes.Add(prop.GetClassSource(propClass, TypeName, usings));
-      inits.Add($"LoadProperty(new {propClass}());");
+      classes.Add(prop.GetClassSource(typeMap, propClass, TypeName, usings));
+      inits.Add($"LoadProperty(new {propClass}(typeMap));");
     }
     foreach (var methodName in Methods.Keys) {
       var method = Methods[methodName];
       var methodClass = $"{className}_{method.Name}_Method";
-      classes.Add(method.GetClassSource(methodClass, TypeName, usings));
-      inits.Add($"LoadMethod(new {methodClass}());");
+      classes.Add(method.GetClassSource(typeMap, methodClass, TypeName, usings));
+      inits.Add($"LoadMethod(new {methodClass}(typeMap));");
     }
     return $@"using IZ.Core.Api.Types;
 using {string.Join(";\nusing ", usings)};
@@ -89,7 +91,8 @@ using {string.Join(";\nusing ", usings)};
 namespace {ns};
 
 public class {className} : ZObjectDescriptor {{
-  public {className}() : base(
+  public {className}(IZTypeMap typeMap) : base(
+    typeMap,
     ""{TypeName}"", 
     ""{InputTypeName}"",
     typeof({ObjectType.Name}),
@@ -105,7 +108,8 @@ public class {className} : ZObjectDescriptor {{
 ".Trim();
   }
 
-  public ZObjectDescriptor(Type t) {
+  public ZObjectDescriptor(IZTypeMap typeMap, Type t) {
+    _typeMap = typeMap;
     ObjectType = t;
 
     // if (t == typeof(long)) TypeName = "Long";
@@ -129,7 +133,7 @@ public class {className} : ZObjectDescriptor {{
 
       foreach (var prop in props) {
         var parentProp = parentProps.FirstOrDefault(p => p.Name == prop.Name);
-        var propDesc = new ZPropertyDescriptor(prop, parentProp);
+        var propDesc = new ZPropertyDescriptor(typeMap, prop, parentProp);
         methodInfos.Add(prop.GetGetMethod()!);
         if (prop.CanWrite) {
           methodInfos.Add(prop.GetSetMethod()!);
@@ -141,7 +145,7 @@ public class {className} : ZObjectDescriptor {{
           !methodInfos.Contains(mi) &&
           mi.GetCustomAttribute<ApiFormatAttribute>(true) != null &&
           !mi.ReturnType.HasAssignableType(typeof(IAmInternal)))
-        .Select(m => new ZMethodDescriptor(m))
+        .Select(m => new ZMethodDescriptor(typeMap, m))
         .ToDictionary(p => p.FieldName, p => p);
 
       foreach (string fieldName in Methods.Keys) {

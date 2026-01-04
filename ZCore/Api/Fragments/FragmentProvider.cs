@@ -28,8 +28,12 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
 
   private bool _generateContents = false;
 
-  public FragmentProvider(ZApp app) {
+  public IZTypeMap TypeMap => _typeMap ?? ZApi.TypeMap;
+  private IZTypeMap? _typeMap;
+
+  public FragmentProvider(ZApp app, IZTypeMap? typeMap = null) {
     _app = app;
+    _typeMap = typeMap;
     Log = app.Log.ForContext(GetType());
     _generateContents = _app.Target == ZTarget.PublicApp || _app.Env <= ZEnvironment.Development;
   }
@@ -45,17 +49,16 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
   public Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format) =>
     LoadRequired(context, desc, format, new HashSet<string>());
 
-  public void WriteDirectory(IZContext context, string dir) {
+  public void GenerateSourceFiles(IZContext context, string dir) {
     bool wasGenerate = _generateContents;
     _generateContents = true;
     _graphqlDir = dir;
     if (Directory.Exists(_graphqlDir)) Directory.Delete(_graphqlDir, true);
     Directory.CreateDirectory(_graphqlDir);
-    // ZApi.EnsureSchema();
-    var types = ZApi.TypeMap.ApiObjects.Values.ToList();
+    var types = TypeMap.ApiObjects.Values.ToList();
     foreach (var type in types) {
       if (type.IsScalar) continue;
-      Log.Information("[FRAGMENT] loading {type}", type);
+      // Log.Information("[FRAGMENT] loading {type}", type);
       foreach (var format in type.ExpectedFormats) {
         LoadRequired(context, type, format, new HashSet<string>());
       }
@@ -73,7 +76,6 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
       }
     }
     Log.Information("[FRAGMENT] loading files from {dir}", dir);
-    // ZApi.EnsureSchema();
     string[] files = Directory.GetFiles(dir, "*.graphql", SearchOption.AllDirectories);
     List<string> dependencies = new List<string>();
     foreach (string fn in files) {
@@ -93,7 +95,7 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
         // }
       }
       string typeName = string.Join("_", names);
-      var desc = ZApi.FindZObjectDescriptor(typeName);
+      var desc = TypeMap.ApiObjects.GetValueOrDefault(typeName);
       if (desc == null) {
         Log.Warning("[FRAGMENT] type {name} missing; cannot load {fn}", typeName, fn);
         continue;

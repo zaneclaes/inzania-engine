@@ -23,7 +23,7 @@ public class HotChocolateParameterConverter : LogicBase, IParameterConverter {
       }
       return new ListValueNode(arr);
     }
-    var desc = ZTypeDescriptor.FromType(arg.GetType());
+    var desc = ZApi.LoadTypeDescriptor(arg.GetType());
 
     if (desc.ObjectDescriptor.IsScalar) {
       if (arg is string stringVal) return new StringValueNode(stringVal);
