@@ -24,6 +24,10 @@ public interface IZAppSettings {
   public AnalyticsOptions? GoogleAnalytics { get; }
 }
 
+public class ZProfiled : IDisposable {
+  public void Dispose() { }
+}
+
 public abstract class ZApp : IGetLogged, IDisposable {
 
   public IZAppSettings Settings => _appSettings ??
@@ -137,6 +141,8 @@ public abstract class ZApp : IGetLogged, IDisposable {
   public virtual IServiceProvider CreateServices() => _fallbackServiceProviderFactory.Invoke();
 
   public virtual bool HandleZException(ZException e) => false;
+
+  public virtual IDisposable Profile(string func) => new ZProfiled();
 
   public virtual void Dispose() {
     Storage.Dispose();
