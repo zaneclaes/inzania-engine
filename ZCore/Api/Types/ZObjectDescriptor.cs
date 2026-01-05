@@ -66,7 +66,7 @@ public class ZObjectDescriptor : IAmInternal {
 
   public string GetSource(IZTypeMap typeMap, string className, string ns) {
     var inits = new List<string>();
-    var usings = new HashSet<string>() {ObjectType.Namespace!, "System.Collections.Generic", "IZ.Core.Api"};
+    var usings = new HashSet<string>() {ObjectType.Namespace!, "System.Collections.Generic", "IZ.Core.Api", "IZ.Core.Api.Types"};
     if (PolymorphicDiscriminatorName != null) {
       inits.Add($"PolymorphicDiscriminatorName = \"{PolymorphicDiscriminatorName}\";");
       inits.Add($"PolymorphicTypes = new List<Type>() {{ typeof({string.Join("), typeof(", PolymorphicTypes.Select(t => t.Name))}) }};");
@@ -85,8 +85,7 @@ public class ZObjectDescriptor : IAmInternal {
       classes.Add(method.GetClassSource(typeMap, methodClass, TypeName, usings));
       inits.Add($"LoadMethod(new {methodClass}(typeMap));");
     }
-    return $@"using IZ.Core.Api.Types;
-using {string.Join(";\nusing ", usings)};
+    return $@"using {string.Join(";\nusing ", usings)};
 
 namespace {ns};
 
