@@ -16,7 +16,7 @@ namespace IZ.Core.Api;
 
 public interface IZResult {
   // Short, always refresh if possible when online
-  public static TimeSpan DefaultOnlineCacheAge { get; set; } = TimeSpan.FromMinutes(1);
+  public static TimeSpan DefaultOnlineCacheAge { get; set; } = TimeSpan.FromSeconds(1);
 
   // Long, offline allows big cache time (TODO)
   public static TimeSpan DefaultOfflineCacheAge { get; set; } = TimeSpan.FromDays(30);
