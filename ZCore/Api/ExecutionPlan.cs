@@ -39,7 +39,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
     OperationName = _method.Name;
     Id = $"{OperationType}{QueryIdSplit}{FieldName}{QueryIdSplit}{Set}";
     try {
-      Fragments = new FragmentSet(context, fragmentProvider, ReturnType, Set);
+      Fragments = ReturnType.ObjectDescriptor.IsScalar ? null : new FragmentSet(context, fragmentProvider, ReturnType, Set);
     } catch (Exception e) {
       throw new SystemException("Failed to create fragments", e);
     }
@@ -59,7 +59,7 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
 
   public ResultSet Set { get; }
 
-  public FragmentSet Fragments { get; }
+  private FragmentSet? Fragments { get; }
 
   public static ExecutionPlan Load(IZContext context, Type parent, string operationName, ResultSet resultSet) =>
     Load(context, GetClassExecutionType(parent), operationName, resultSet);
@@ -141,7 +141,8 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
       invoke += "(" + string.Join(", ", pars) + ")";
     }
 
-    string query = $"{Fragments.Headers}\n\n{op} {{\n  {invoke} {{ ...{Fragments.Root.Name} }} \n}}";
+    string query = Fragments == null ? $"{op} {{\n  {invoke}\n}}" :
+      $"{Fragments.Headers}\n\n{op} {{\n  {invoke} {{ ...{Fragments.Root.Name} }} \n}}";
 
     // ZEnv.Log.Information("[OP] {query}", op);
 

@@ -116,8 +116,11 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
 
   public IZLogger Log { get; set; }
 
+  private bool IsFragmentObject(ZObjectDescriptor desc) => !desc.IsScalar;
+
   private Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format, HashSet<string> breadcrumbs) {
     if (string.IsNullOrWhiteSpace(format)) format = null;
+    if (!IsFragmentObject(desc)) throw new ArgumentException($"{desc.TypeName} is not a fragmented type");
     string fragmentName = Fragment.GetName(desc, format);
     if (breadcrumbs.Add(fragmentName)) {
       context.Log.Debug("[FRAGMENT] check {dir} {path}...", fragmentName);
