@@ -28,7 +28,7 @@ public interface IZAnalytics : IHaveContext, IDisposable {
 
   public ZTask Exception(string desc, bool fatal = false);
 
-  public ZTask FileDownload(string url, string name, string fileType);
+  public ZTask FileDownload(string url, string name);
 
   public ZTask TutorialBegin(); // should be used for onboarding tutorial only
   public ZTask TutorialComplete(); // should be used for onboarding tutorial only

@@ -170,12 +170,11 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
       EngagementTimeMsec = GatherEngagementTime()
     });
 
-  public ZTask FileDownload(string url, string name, string fileType) =>
+  public ZTask FileDownload(string url, string name) =>
     ((IZAnalytics) this).SendEvent("file_download", new FileDownloadParams() {
       FileName = name,
-      FileExtension = Path.GetExtension(fileType).TrimStart('.'),
+      FileExtension = Path.GetExtension(name).TrimStart('.'),
       FileUrl = url,
-      FileType = fileType,
       EngagementTimeMsec = GatherEngagementTime()
     });
 
