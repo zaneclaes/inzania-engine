@@ -130,11 +130,15 @@ public class SchemaItemJson : TransientObject {
     var req = subscriptionName == null ? null : SchemaRequirementJson.ForSubscription(Context, name);
     PotentialAction.Add(new SchemaActionJson() {
       Context = Context,
-      Type = "ViewAction",
+      Type = "DownloadAction",
       Name = name,
       Target = new SchemaActionTargetJson() {
         Type = "EntryPoint",
         UrlTemplate = url,
+        ActionPlatform = new List<string>() {
+          "https://schema.org/DesktopWebPlatform",
+          "https://schema.org/MobileWebPlatform"
+        }
       },
       ActionAccessibilityRequirement = req,
       ExpectsAcceptanceOf = new SchemaIdJson() {
