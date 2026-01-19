@@ -18,11 +18,11 @@
 
   <ItemGroup>
     <PackageReference Include="HotChocolate.AspNetCore" Version="15.1.11" />
-    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="15.1.11" />
+    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="15.1.12" />
     <PackageReference Include="HotChocolate.Subscriptions.Redis" Version="15.1.11" />
     <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="10.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.3.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.3.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.9" />
     <PackageReference Include="SendGrid" Version="9.29.3"/>
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
