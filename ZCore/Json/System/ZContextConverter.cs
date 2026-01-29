@@ -151,9 +151,9 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       //   reader.Read();
       //   continue;
       // }
-      string fieldName = propName.ToFieldName();
       reader.Read();
-      var prop = typeDescriptor.ObjectDescriptor.GetProperty(fieldName);
+      var prop = typeDescriptor.ObjectDescriptor.GetProperty(propName) ??
+                 typeDescriptor.ObjectDescriptor.GetProperty(propName.ToFieldName());
       // Log.Information("[JSON] READ {type}.{field} {token}", type, fieldName, reader.TokenType);
 
       object? val = null;
@@ -210,6 +210,8 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         } else {
           Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {r}", propName, val, val?.GetType(), typeDescriptor);
         }
+      } else {
+        Context.Log.Verbose("[JSON] SET {key} MISSING FROM {desc} AMONG {fields}", propName, typeDescriptor.ObjectDescriptor, typeDescriptor.ObjectDescriptor.AllProperties.Select(p => p.FieldName));
       }
     }
     // Context.Log.Debug("OBJ END1 {idx} {key} {type}", n,reader.TokenType, type);
