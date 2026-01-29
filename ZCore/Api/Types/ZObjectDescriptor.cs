@@ -148,8 +148,8 @@ public class {className} : ZObjectDescriptor {{
         .ToDictionary(p => p.FieldName, p => p);
 
       foreach (string fieldName in Methods.Keys) {
-        if (FieldMap.ContainsKey(fieldName))
-          throw new SystemException($"Duplicate field {fieldName} on {t.Name}");
+        // if (FieldMap.ContainsKey(fieldName))
+        //   throw new SystemException($"Duplicate field {fieldName} on {t.Name}");
         if (ObjectProperties.TryGetValue(fieldName, out var property) || ScalarProperties.TryGetValue(fieldName, out property)) {
           if (Methods[fieldName].Parameters.Any(p => !p.IsOptional))
             ZEnv.Log.Warning("[OBJ] {type}.{field} has an execution method, but it has parameters", t.Name, fieldName);

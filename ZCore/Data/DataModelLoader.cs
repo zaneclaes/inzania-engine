@@ -219,6 +219,9 @@ public static class DataModelLoader {
   public static IZQueryable<TOut> Choose<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, TOut>> predicate)
     => Queryable.Select((IQueryable<TSource>)q, predicate).AsZQueryable(q.QueryProvider);
 
+  public static IZQueryable<TOut> ChooseMany<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, IEnumerable<TOut>>> predicate)
+    => Queryable.SelectMany((IQueryable<TSource>)q, predicate).AsZQueryable(q.QueryProvider);
+
   public static IZQueryable<TSource> SortAsc<TSource, TOut>(this IZQueryable<TSource> q, Expression<Func<TSource, TOut>> predicate)
     => q.OrderBy(predicate).AsZQueryable(q.QueryProvider);
 
