@@ -65,17 +65,17 @@ public class ZHttpClient : HttpClient, IHaveContext {
     return str;
   }
 
-  public async Task<string> LoadCachedUrl(
+  public async Task<Tuple<string, bool>> LoadCachedUrl(
     string href, HttpMethod? method = null, string? body = null, string? mediaType = null, TimeSpan? cacheDuration = null
   ) {
     string fn = GetCacheFn(href, method, body);
-    cacheDuration ??= TimeSpan.FromDays(1);
+    cacheDuration ??= TimeSpan.FromHours(12);
     if (File.Exists(fn) && DateTime.UtcNow - File.GetLastWriteTimeUtc(fn) < cacheDuration) {
-      return await ZFile.ReadAllTextAsync(fn);
+      return new Tuple<string, bool>(await ZFile.ReadAllTextAsync(fn), true);
     }
     string str = await LoadString(href, method, body, mediaType);
     await ZFile.WriteAllTextAsync(fn, str);
-    return str;
+    return new Tuple<string, bool>(str, false);
   }
 
   public async Task<T> LoadJson<T>(
@@ -85,7 +85,7 @@ public class ZHttpClient : HttpClient, IHaveContext {
   public async Task<T> LoadCachedJson<T>(
     string href, HttpMethod? method = null, string? body = null, string? mediaType = null, TimeSpan? cacheDuration = null
   ) {
-    string str = await LoadCachedUrl(href, method, body, mediaType, cacheDuration);
+    var (str, _) = await LoadCachedUrl(href, method, body, mediaType, cacheDuration);
     return Deserialize<T>(str, href);
   }
 

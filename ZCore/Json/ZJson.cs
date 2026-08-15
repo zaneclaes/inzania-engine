@@ -13,6 +13,8 @@ public class ZJsonSerializationOpts {
 
   public bool IgnoreDefaults { get; set; } = true;
 
+  public bool IgnoreNull { get; set; } = true;
+
   public string? ApiFormat { get; set; }
 }
 
@@ -23,13 +25,15 @@ public static class ZJson {
     set => _defaultContext = value;
   }
 
+  public static ZJsonSerializationOpts DefaultOptions { get; set; } = new ZJsonSerializationOpts();
+
   public static IZJson Converter { get; set; } = new SystemJson();
 
   public static string SerializeObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) =>
     Converter.SerializeObject(obj, opts);
 
   public static string PrettyPrintObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) {
-    opts ??= new ZJsonSerializationOpts();
+    opts ??= DefaultOptions;
     opts.PrettyPrint = true;
     return SerializeObject(obj, opts);
   }

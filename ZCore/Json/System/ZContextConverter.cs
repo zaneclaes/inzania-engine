@@ -57,7 +57,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
   public ZContextConverter(IZContext context, ZJsonSerializationOpts? opts = null) {
     Context = context;
     Log = context.Log.ForContext(GetType());
-    _opts = opts;
+    _opts = opts ?? ZJson.DefaultOptions;
   }
 
   private JsonSerializerOptions DeserializerOptions =>
@@ -258,6 +258,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       foreach (var prop in props) {
         object? val = prop.GetValue(value);
         if ((_opts?.IgnoreDefaults ?? true) && (val == prop.DefaultValue || (val?.Equals(prop.DefaultValue) ?? false))) continue;
+        if ((_opts?.IgnoreNull ?? true) && (val == null)) continue;
         writer.WritePropertyName(prop.FieldName);
         if (val == null) writer.WriteNullValue();
         else Write(writer, val, options);
