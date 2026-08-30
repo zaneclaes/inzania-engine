@@ -21,6 +21,8 @@ Directory prefix `Z*` ↔ assembly/namespace `IZ.*`. net10 / C# 13 / nullable vi
 | `ZExt` | **Empty** placeholder referenced by ZSchema/ZServer (kept alive by `<Folder Include>`) | — |
 | `LoggingMicrosoft`, `ZJsonNewtonsoft` | Dead — dangling project refs, won't restore | — |
 
+Data layer deep-dives: `ZCore/AGENTS.md` (object model, attributes, lazy resolution), `ZData/AGENTS.md` (EF Core pipeline, design rules, inspecting queries in Datadog), `ZSchema/AGENTS.md` (HotChocolate binding, batching resolver). Migrations workflow: `TuneWeb/Server/Migrations/AGENTS.md`.
+
 ## Conventions and gotchas
 
 - Behaviour via base classes (`ZApp`, `ZHostApp<TDb>`, `ZClientApp`, `ZDbContext`, `RootContext`,
@@ -41,3 +43,7 @@ Directory prefix `Z*` ↔ assembly/namespace `IZ.*`. net10 / C# 13 / nullable vi
 - Unity-safe code only in ZCore/ZClient/ZP2P/ZSerilog: `Z_UNITY` swaps `ZTask` onto UniTask and
   disables `global using` aliases (`Typedefs.cs`, guard `__IZ_TYPES__`); no blocking `.Result`,
   no threads/sync sockets on WebGL. `InternalsVisibleTo("inzania.Tests")` is vestigial.
+
+## Before you finish a change
+
+Follow the root `AGENTS.md` **Safe change protocol**. `ZCore`, `ZClient`, `ZExt`, `ZP2P`, `ZSerilog` are symlinked into Unity: after editing them run `dotnet build Chordzy.sln -c Release`, `dotnet test TuneTests/TuneTests.csproj -c Release`, and the Unity batchmode check; C# 10 / netstandard2.0 in those five projects, `ZTask` not `Task`, `Z_UNITY` gates. `ZData`/`ZSchema`/`ZServer`/`ZDataDog`/`ZTests` are .NET-only (build + tests suffice). Remember this is a submodule: commit here first, then bump the pointer in the parent repo.
