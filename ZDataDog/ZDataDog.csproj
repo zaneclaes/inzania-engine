@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DogStatsD-CSharp-Client" Version="9.0.0" />
-    <PackageReference Include="Serilog.Sinks.Datadog.Logs" Version="0.6.0" />
-    <PackageReference Include="Datadog.Trace" Version="3.36.0" />
+    <PackageReference Include="DogStatsD-CSharp-Client" Version="9.2.1" />
+    <PackageReference Include="Serilog.Sinks.Datadog.Logs" Version="0.6.1" />
+    <PackageReference Include="Datadog.Trace" Version="3.52.0" />
   </ItemGroup>
 
   <ItemGroup>

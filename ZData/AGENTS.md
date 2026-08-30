@@ -19,7 +19,7 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    Everything else (column types, FK columns `FooId`, `[MaxLength]`, `[NotMapped]`) is plain EF
    convention. No fluent config lives in `TuneDbContext` — attributes on the model are the source of truth.
 2. **Provider.** `ZServer/Sql/ZMySql.AddZMySql<TDb>` registers a **pooled** `DbContext` factory
-   (`AddPooledDbContextFactory`) with Pomelo MySQL: `EnableRetryOnFailure(3)`,
+   (`AddPooledDbContextFactory`) with MySQL (Microting.EntityFrameworkCore.MySql 10.0.11, the maintained Pomelo fork — same `UseMySql` API): `EnableRetryOnFailure(3)`,
    **`QuerySplittingBehavior.SplitQuery`** (each `Include` becomes its own SELECT — no cartesian
    joins, but N round-trips per include level), `EnablePrimitiveCollectionsSupport`,
    `TranslateParameterizedCollectionsToConstants` (`Contains(list)` inlines values → plan cache

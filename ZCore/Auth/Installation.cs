@@ -64,7 +64,9 @@ public class Installation : TransientObject {
   public string Version { get; set; } = null!;
 
   [JsonIgnore] [OutputIgnore] public SemVersion SemVer {
-    get => _semVersion ??= SemVersion.Parse(Version);
+    // Web/Blazor installs have no version source and historically left Version null,
+    // which crashed client Startup with an NRE; fall back to 0.0.0 instead.
+    get => _semVersion ??= SemVersion.Parse(string.IsNullOrWhiteSpace(Version) ? "0.0.0" : Version);
     set {
       _semVersion = value;
       Version = value.ToString();
