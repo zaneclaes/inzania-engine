@@ -28,9 +28,12 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
           .SetExtension("Exception", ex.GetType().Name)
           .SetExtension("Method", ex.Data["method"])
         ;
-      if (ex is ZException zEx)
+      if (ex is ZException zEx) {
         error = error.SetExtension("Reason", zEx.Reason);
-      Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
+        Log.Error("[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
+      } else {
+        Log.Error(ex, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
+      }
     } else {
       var path = error.Path is not null ? error.Path.ToString() : "null";
       string ext = error.Extensions?.Any() ?? false ?
