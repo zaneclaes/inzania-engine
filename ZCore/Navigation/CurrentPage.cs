@@ -1,5 +1,6 @@
 #region
 
+using System;
 using System.Linq;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
@@ -59,6 +60,7 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
   public void SendPageView() {
     // Context.Log.Information("[GA] {path} => {page}", Path, Title);
     Context.Analytics?.PageView(Path, Title);
+    PageViews.Raise(Path, Title);
   }
 
   public override string ToString() => $"<{Title} {Path} />";
