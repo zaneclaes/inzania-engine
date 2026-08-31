@@ -23,7 +23,48 @@ public class ZApiTypeGenerator : IZTypeMap {
   private static List<Assembly>? _assemblies;
   private static List<Type>? _classes;
 
-  private static List<Assembly> Assemblies => _assemblies ??= AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
+  private static List<Assembly> Assemblies => _assemblies ??=
+    LoadReferencedAssemblies().Where(a => !IsExternal(a)).ToList();
+
+  /// <summary>
+  /// .NET loads a referenced assembly only when something in it is first touched, so
+  /// <c>AppDomain.CurrentDomain.GetAssemblies()</c> answers "what has run so far", not "what this
+  /// program consists of". The schema must not depend on that: a host that happens not to have touched
+  /// a project yet would generate a *smaller* type map and prune the descriptors for everything it
+  /// could not see. Walking the reference graph makes any host — dev server, CLI, tests — scan the
+  /// same closure.
+  /// </summary>
+  private static List<Assembly> LoadReferencedAssemblies() {
+    var seen = new HashSet<string>();
+    var queue = new Queue<Assembly>(AppDomain.CurrentDomain.GetAssemblies());
+    var entry = Assembly.GetEntryAssembly();
+    if (entry != null) queue.Enqueue(entry);
+    var all = new List<Assembly>();
+    while (queue.Count > 0) {
+      var asm = queue.Dequeue();
+      if (!seen.Add(asm.GetName().Name ?? asm.FullName ?? "")) continue;
+      all.Add(asm);
+      if (IsExternal(asm)) continue;   // don't crawl the framework's reference graph
+      foreach (var reference in asm.GetReferencedAssemblies()) {
+        if (seen.Contains(reference.Name ?? "")) continue;
+        try {
+          queue.Enqueue(Assembly.Load(reference));
+        } catch (Exception e) {
+          ZEnv.Log.Debug("[TYPES] could not load referenced assembly {name}: {msg}", reference.Name, e.Message);
+        }
+      }
+    }
+    return all;
+  }
+
+  /// <summary>The assemblies the schema scan will read; useful when a host generates an empty schema.</summary>
+  public static List<string> ScannedAssemblyNames() => Assemblies.Select(a => a.GetName().Name ?? "?").OrderBy(n => n).ToList();
+
+  /// <summary>Forgets the cached assembly/type scan, so a later generation re-discovers everything.</summary>
+  public static void ResetAssemblyCache() {
+    _assemblies = null;
+    _classes = null;
+  }
 
   private static List<Type> Classes => _classes ??= Assemblies.SelectMany(a => a.GetTypes()).Distinct().ToList();
 
@@ -48,9 +89,35 @@ public class ZApiTypeGenerator : IZTypeMap {
     throw new ArgumentException($"Method {t}");
   }
 
+  /// <summary>
+  /// Regenerates the descriptor sources for <paramref name="dir" /> so that what is on disk is exactly
+  /// what the loaded assemblies describe: every descriptor the emitted type map references exists, and
+  /// nothing else does.
+  ///
+  /// Files are written first and stale ones pruned afterwards, never the reverse. The previous order
+  /// (`Directory.Delete(recursive)` then `CreateDirectory` then write) could lose the first few files
+  /// of a directory — the writes landed in the unlinked inode — leaving a type map that referenced
+  /// descriptors with no source, which only surfaced as a compile error later. It also meant an
+  /// exception part-way through generation left the tree gutted. <see cref="VerifyGenerated" /> then
+  /// fails loudly rather than letting a missing descriptor through.
+  /// </summary>
   public async ZTask GenerateSourceFiles(string typeMapName, string dir, string ns) {
     ZApi.TypeMap = this;
     InferSchema();
+
+    // Every file this run is responsible for, per directory: anything else in those directories is
+    // stale (a renamed or deleted API class) and is removed once all writes have succeeded.
+    var written = new Dictionary<string, HashSet<string>>();
+    var expected = new List<string>();
+
+    async ZTask Emit(string targetDir, string className, string source) {
+      Directory.CreateDirectory(targetDir);
+      string path = Path.Combine(targetDir, $"{className}.cs");
+      await File.WriteAllTextAsync(path, source);
+      if (!written.TryGetValue(targetDir, out var files)) written[targetDir] = files = new HashSet<string>();
+      files.Add(Path.GetFileName(path));
+      expected.Add(path);
+    }
 
     var usings = new HashSet<string>();
     var methodLines = new List<string>();
@@ -60,8 +127,8 @@ public class ZApiTypeGenerator : IZTypeMap {
       var methodsDir = Path.Combine(dir, "Methods", mgs);
       var methodsNs = $"{ns}.Methods.{mgs}";
       usings.Add(methodsNs);
-      if (Directory.Exists(methodsDir)) Directory.Delete(methodsDir, true);
-      Directory.CreateDirectory(methodsDir);
+      // Claim the directory even when this group has no methods, so emptying a group prunes it.
+      if (!written.ContainsKey(methodsDir)) written[methodsDir] = new HashSet<string>();
 
       var typeMap = new List<string>();
       foreach (var qt in ApiMethods[requestType].Keys) {
@@ -71,7 +138,7 @@ public class ZApiTypeGenerator : IZTypeMap {
         foreach (var name in methods.Keys) {
           var method = methods[name];
           var cn = $"{method.Name}{mg}Descriptor";
-          await File.WriteAllTextAsync(Path.Combine(methodsDir, $"{cn}.cs"), method.GetSource(this, cn, qt, methodsNs));
+          await Emit(methodsDir, cn, method.GetSource(this, cn, qt, methodsNs));
           methodMap.Add($"          [\"{name}\"] = new {cn}(this)");
         }
         typeMap.Add($"        [typeof({qt.Name})] = new Dictionary<string, ZMethodDescriptor>() {{\n" + string.Join(",\n", methodMap) + "\n        }");
@@ -80,17 +147,19 @@ public class ZApiTypeGenerator : IZTypeMap {
     }
 
     var objectsDir = Path.Combine(dir, "Objects");
-    if (Directory.Exists(objectsDir)) Directory.Delete(objectsDir, true);
-    Directory.CreateDirectory(objectsDir);
     usings.Add($"{ns}.Objects");
+    if (!written.ContainsKey(objectsDir)) written[objectsDir] = new HashSet<string>();
 
     var types = ZApi.TypeMap.ApiObjects.Values.ToList();
     var objLines = new List<string>();
     foreach (var objectType in types) {
       var cn = $"{objectType.TypeName}ObjectDescriptor";
-      await File.WriteAllTextAsync(Path.Combine(objectsDir, $"{cn}.cs"), objectType.GetSource(this, cn, $"{ns}.Objects"));
+      await Emit(objectsDir, cn, objectType.GetSource(this, cn, $"{ns}.Objects"));
       objLines.Add($"      [\"{objectType.TypeName}\"] = new {cn}(this)");
     }
+
+    PruneStale(written);
+    VerifyGenerated(expected);
 
     await File.WriteAllTextAsync(Path.Combine(dir, $"{typeMapName}.cs"), $@"using System;
 using System.Collections.Generic;
@@ -120,7 +189,44 @@ public class {typeMapName} : IZTypeMap {{
 ");
   }
 
+  /// <summary>
+  /// Deletes descriptor sources this run did not write — the counterpart of an API class being renamed
+  /// or removed. Only `*.cs` directly inside the generated directories is considered, so nothing a
+  /// human put nearby is at risk.
+  /// </summary>
+  private static void PruneStale(Dictionary<string, HashSet<string>> written) {
+    foreach (var (targetDir, keep) in written) {
+      if (!Directory.Exists(targetDir)) continue;
+      foreach (string path in Directory.GetFiles(targetDir, "*.cs", SearchOption.TopDirectoryOnly)) {
+        if (keep.Contains(Path.GetFileName(path))) continue;
+        ZEnv.Log.Information("[TYPES] pruning stale descriptor {path}", path);
+        File.Delete(path);
+      }
+    }
+  }
+
+  /// <summary>
+  /// Re-reads the tree and throws if any descriptor the type map will reference is missing. A silently
+  /// absent descriptor produces a type map that does not compile, which is a much worse signal than a
+  /// generation failure — so generation fails instead.
+  /// </summary>
+  private static void VerifyGenerated(List<string> expected) {
+    var missing = expected.Where(p => !File.Exists(p)).ToList();
+    if (missing.Count <= 0) return;
+    throw new SystemException(
+      $"[TYPES] {missing.Count} descriptor(s) were not written: {string.Join(", ", missing.Select(Path.GetFileName))}. " +
+      "The generated type map would reference sources that do not exist.");
+  }
+
   public void InferSchema() {
+    // Start from empty. Emitting a descriptor's source resolves the types it mentions through
+    // ZApi.TypeMap (which is this instance), so generation itself adds entries — `Object`,
+    // `CancellationToken`, `IZContext`. Left in place, the next InferSchema would treat those as part
+    // of the schema and emit descriptors for them, so the second generation of a process produced a
+    // strictly different — and wrong — answer from the first.
+    ApiMethods.Clear();
+    ApiTypes.Clear();
+    ApiObjects.Clear();
 
     CacheApiMethods<ZQueryBase>();
     CacheApiMethods<ZMutationBase>();

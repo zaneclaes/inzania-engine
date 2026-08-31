@@ -49,21 +49,66 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
   public Fragment LoadRequired(IZContext context, ZObjectDescriptor desc, string? format) =>
     LoadRequired(context, desc, format, new HashSet<string>());
 
+  /// <summary>
+  /// Set while generating so <see cref="LoadRequired" /> can record which files it wrote; anything else
+  /// in the tree afterwards belongs to a type or format that no longer exists.
+  /// </summary>
+  private HashSet<string>? _generatedPaths;
+
+  /// <summary>
+  /// Regenerates the fragment tree so it matches the schema exactly: a fragment for every type/format
+  /// the type map expects, and nothing for types or formats that have gone away.
+  ///
+  /// Written first, pruned second — never `Delete(recursive)` up front. Wiping the tree before
+  /// generating means any exception part-way through (or a killed process, which is normal for the
+  /// dev-server-based regeneration flow) leaves the repository with fragments simply missing.
+  /// </summary>
   public void GenerateSourceFiles(IZContext context, string dir) {
     bool wasGenerate = _generateContents;
     _generateContents = true;
     _graphqlDir = dir;
-    if (Directory.Exists(_graphqlDir)) Directory.Delete(_graphqlDir, true);
     Directory.CreateDirectory(_graphqlDir);
-    var types = TypeMap.ApiObjects.Values.ToList();
-    foreach (var type in types) {
-      if (type.IsScalar) continue;
-      // Log.Information("[FRAGMENT] loading {type}", type);
-      foreach (var format in type.ExpectedFormats) {
-        LoadRequired(context, type, format, new HashSet<string>());
+    _generatedPaths = new HashSet<string>();
+    try {
+      var types = TypeMap.ApiObjects.Values.ToList();
+      foreach (var type in types) {
+        if (type.IsScalar) continue;
+        // Log.Information("[FRAGMENT] loading {type}", type);
+        foreach (var format in type.ExpectedFormats) {
+          LoadRequired(context, type, format, new HashSet<string>());
+        }
       }
+      PruneStaleFragments(_generatedPaths);
+    } finally {
+      _generatedPaths = null;
+      _generateContents = wasGenerate;
     }
-    _generateContents = wasGenerate;
+  }
+
+  /// <summary>
+  /// Removes `.graphql` files this run did not write, then any type folder left empty — that is how a
+  /// deleted API class stops having fragments.
+  /// </summary>
+  private void PruneStaleFragments(HashSet<string> generated) {
+    // Refuse to empty the tree. Generating nothing means the schema scan failed (a host that could not
+    // see the API assemblies, say) — pruning against that answer silently deletes the whole committed
+    // fragment set, which is far worse than generating nothing at all.
+    var existing = Directory.GetFiles(_graphqlDir, "*.graphql", SearchOption.AllDirectories);
+    if (generated.Count <= 0 && existing.Length > 0) {
+      throw new SystemException(
+        $"[FRAGMENT] generated 0 fragments but {existing.Length} exist in {_graphqlDir}; refusing to prune. " +
+        "The schema scan found no API objects — check that every project declaring API surface is loaded.");
+    }
+    foreach (string path in existing) {
+      if (generated.Contains(Path.GetFullPath(path))) continue;
+      Log.Information("[FRAGMENT] pruning stale {path}", path);
+      File.Delete(path);
+    }
+    foreach (string typeDir in Directory.GetDirectories(_graphqlDir)) {
+      if (Directory.EnumerateFileSystemEntries(typeDir).Any()) continue;
+      Log.Information("[FRAGMENT] pruning empty {dir}", typeDir);
+      Directory.Delete(typeDir);
+    }
   }
 
   public void LoadDirectory(string dir) {
@@ -139,7 +184,10 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
       if (generate) {
         context.Log.Debug("[FRAGMENT] creating {desc} {format} at {path}...", desc, format, path);
         contents = GenerateFragmentContents(context, desc, format, breadcrumbs);
-        if (path != null) File.WriteAllText(path, contents);
+        if (path != null) {
+          File.WriteAllText(path, contents);
+          _generatedPaths?.Add(Path.GetFullPath(path));
+        }
       } else if (path != null && File.Exists(path)) {
         contents = File.ReadAllText(path);
       } else {

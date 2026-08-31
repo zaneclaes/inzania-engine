@@ -81,6 +81,22 @@ against an explicit allowlist so every conscious omission is pinned (Chordzy:
 
 ## Conventions and gotchas
 
+- **API-shape rules** (violations of these shipped real security holes and wasted round-trips):
+  1. *No new endpoint when an existing call already carries the context.* Clients call
+     `currentSession`-style restore/auth endpoints on every boot with their `Installation`; data
+     that must arrive "once per install/session" (attribution, registration, capability flags)
+     rides those as an optional argument — a dedicated mutation for it is an extra round-trip, an
+     extra auth surface, and a second code path to secure.
+  2. *Decide the caller before writing the endpoint.* User-called (including pre-signup virtual
+     users) ⇒ `[ApiAuthorize(ZPolicy...)]`, then consume `Context.CurrentIdentity`. Automation ⇒
+     no user identity at all; the caller authenticates with the project's system identity (an
+     `IZIdentity` with a dedicated role) and the endpoint restricts to that role. Never invent a
+     third flow inside the body (e.g. upserting rows for whatever identity is present) — enforced
+     by `ApiAuthGuard` below.
+  3. *Client behaviour lives in the shared client layer* (`ZClient` subclass contexts), not in one
+     platform's UI code — a feature implemented in a Blazor page or a Unity scene silently skips
+     every other client type; the platform layer only *captures* platform-specific inputs into
+     shared state (prefs), and the shared layer transports them.
 - Behaviour via base classes (`ZApp`, `ZHostApp<TDb>`, `ZClientApp`, `ZDbContext`, `RootContext`,
   `ZQueryBase/ZMutationBase/ZSubscriptionBase`, `ZPacket`, `ZTest<T>`), metadata via attributes,
   intent via marker interfaces (`IHaveContext`, `IAmInternal`, `IForeverTask`, `IGetLogged`…).
