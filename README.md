@@ -39,7 +39,17 @@ A fourth hook covers the API surface rather than the data layer: **`ApiRegistrat
 with `IZResult` members that no registration class exposes as a public property — the one line
 that turns a compiling class into a reachable endpoint (Chordzy: `TuneQuery`/`TuneMutation`/
 `TuneSubscription` off `TuneRequest`). The registration class name is discovered structurally, so
-nothing is project-specific. The same check is available to test projects as
+nothing is project-specific.
+
+⚠️ **Why the aggregate is required, and why GraphQL does not prove it.** An API class is invoked two
+ways. Over the wire, HotChocolate resolves it reflectively (`ZApiTypeGenerator.CacheApiMethods` →
+`ZSchema.AddZRequestDescriptors`), so an unregistered class can answer a GraphQL query perfectly
+well. In C# it is invoked through **`Context.BeginRequest<TReq>()`** — the request tree used by
+clients, caches, controllers and tests (`Context.BeginRequest<AuthQuery>().CurrentUser().Execute(…)`)
+— and that tree *is* the aggregate. A class the aggregate never names is unreachable from C#, and on
+a stripped client build the aggregate's public property is also the only static reference keeping the
+type alive against the reflective path. So a live GraphQL endpoint is not evidence the class is
+wired: test the registration, not the schema. The same check is available to test projects as
 `ZTests/ZApiRegistration.FindUnregistered()` (reflection over loaded assemblies) so CI catches
 edits the hooks never saw. Wire it next to `IndexAudit.cs`:
 

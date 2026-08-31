@@ -1,21 +1,24 @@
-// inzania-engine ApiRegistrationGuard — in a project that groups its API surface, every
-// ZQueryBase/ZMutationBase/ZSubscriptionBase subclass is named by its registration class
-// (.NET 10 file-based app).
+// inzania-engine ApiRegistrationGuard — every ZQueryBase/ZMutationBase/ZSubscriptionBase subclass
+// must be reachable from a registration class (.NET 10 file-based app).
 //   dotnet run inzania-engine/.claude/hooks/ApiRegistrationGuard.cs -- <repo-root> [--strict]
 //   dotnet run inzania-engine/.claude/hooks/ApiRegistrationGuard.cs -- --hook   (Claude Code PostToolUse)
 //
-// Why this exists: projects that group their API surface expose each class as a public property of
-// an aggregate "registration" class (Chordzy: TuneQuery / TuneMutation / TuneSubscription, hung off
-// TuneRequest), so its endpoints appear NESTED under that group. A class the aggregate forgets
-// silently lands somewhere else in the schema instead, which clients see.
-// ⚠️ It is NOT unreachable: ZApiTypeGenerator.CacheApiMethods<TRequest>() reflects over
-// GetSubclasses(typeof(TRequest)) and root-registers every ZQueryBase/ZMutationBase subclass's
-// IZResult methods, aggregate or no aggregate (measured: a project with zero registration classes
-// served all 112 of its endpoints). So this guard checks a CONVENTION, and it only runs where the
-// project actually uses one — a repo with no registration class is skipped entirely.
+// Why this exists: an API class is invoked TWO ways, and only one of them is reflective.
+//  1. Over the GraphQL wire, HotChocolate resolves it from the reflected method map
+//     (ZApiTypeGenerator.CacheApiMethods -> ZSchema.AddZRequestDescriptors).
+//  2. **In C#, through `Context.BeginRequest<TReq>()`** — the request tree every non-GraphQL caller
+//     uses (Chordzy: `Context.BeginRequest<AuthQuery>().CurrentUser().Execute(...)` from the client,
+//     caches, controllers and tests). That tree is the aggregate registration class:
+//     TuneRequest -> TuneQuery/TuneMutation/TuneSubscription -> each `*Query`/`*Mutation`.
+// A class the aggregate never names is unreachable through (2): nothing fails to compile and the
+// class looks finished, but no caller can get to it, and on a stripped client build the reflective
+// path of (1) cannot save it either — the aggregate's public property is the only static reference
+// keeping the type alive. Registering it is one line.
 // The registration class name differs per project, so this guard never hard-codes it: the only
 // fixed names are the three engine base classes. A registration class is discovered structurally —
 // any class that is not itself an API class and declares a public property (or field) typed as one.
+// A project with NO registration class at all has not built its request tree yet: that is the
+// finding, not a reason to skip — every API class in it is unreachable through BeginRequest.
 //
 // Advisory by default (exit 0); --strict exits 1 when findings exist.
 // --hook mode: reads PostToolUse JSON from stdin, exits 0 unless the edited file is .cs AND either
@@ -161,23 +164,6 @@ foreach (var (f, text) in fileText) {
 }
 
 // ---- report ----
-// ⚠️ Reachability does NOT come from the aggregate. ZApiTypeGenerator.CacheApiMethods<TRequest>()
-// calls GetSubclasses(typeof(TRequest)) and registers EVERY ZQueryBase/ZMutationBase subclass's
-// IZResult methods onto the root type (ZSchema.AddZRequestDescriptors via ZQueryType/ZMutationType),
-// so an API class is live whether or not any aggregate names it. Verified against a running server:
-// a project with ZERO registration classes served all 112 of its endpoints.
-// The aggregate is therefore a NESTING/organisation convention, and this guard checks that
-// convention — which only exists in projects that actually use it. A project with no registration
-// class at all uses the root-registration shape, where the convention does not apply and every
-// finding would be a false positive on every edit.
-if (registered.Count == 0) {
-  if (!hookMode) Console.WriteLine($"ApiRegistrationGuard: {files.Count} files, {apiClasses.Count} API class(es); " +
-                    "no registration class in this repo, so it uses the engine's ROOT auto-registration " +
-                    "(ZApiTypeGenerator.CacheApiMethods scans every ZQueryBase/ZMutationBase subclass). " +
-                    "Nothing to register — check skipped.");
-  return 0;
-}
-
 var findings = new List<string>();
 foreach (var (cls, kind) in apiClasses.OrderBy(k => k.Key)) {
   if (registered.ContainsKey(cls)) continue;
@@ -188,10 +174,8 @@ foreach (var (cls, kind) in apiClasses.OrderBy(k => k.Key)) {
     ? $" — register it beside {peers[0]} in {string.Join('/', ex)}"
     : "";
   findings.Add($"{rel}: {cls} : {kind} is never exposed as a public property of a registration class{where}. " +
-               "Every peer in this project is, so this one is almost certainly an oversight: its endpoints " +
-               "land at the ROOT instead of nested with the rest, which is a schema-shape change clients see. " +
-               "(They are still reachable — the engine root-registers every subclass — so this is a convention " +
-               "break, not a dead endpoint.)");
+               "Nothing in C# can reach its endpoints: `Context.BeginRequest<" + cls + ">()` resolves through the " +
+               "request tree, and the tree is built out of those properties. Add one line to the aggregate.");
 }
 
 Console.WriteLine($"ApiRegistrationGuard: {files.Count} files, {apiClasses.Count} API class(es), " +

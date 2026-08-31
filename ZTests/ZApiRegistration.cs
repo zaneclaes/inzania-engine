@@ -14,6 +14,12 @@ namespace ZTests;
 /// Forgetting that one line leaves a class that compiles, generates descriptors and looks finished
 /// but is unreachable through the request tree.
 ///
+/// <para>The tree is what `Context.BeginRequest&lt;TReq&gt;()` walks — the way every non-GraphQL
+/// caller invokes an endpoint (`Context.BeginRequest&lt;AuthQuery&gt;().CurrentUser().Execute(...)`
+/// from clients, caches, controllers and tests). GraphQL itself resolves reflectively and so cannot
+/// be used to prove a class is wired: an endpoint can answer over the wire and still be unreachable
+/// from C#, which is exactly the gap this check closes.</para>
+///
 /// The registration class name differs per project, so nothing here is hard-coded: a registration
 /// class is any loaded, non-API class that declares a public property typed as an API class. Call
 /// <see cref="FindUnregistered" /> from a test in the consuming project — reflection only sees
