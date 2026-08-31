@@ -23,39 +23,17 @@ public class ZApiTypeGenerator : IZTypeMap {
   private static List<Assembly>? _assemblies;
   private static List<Type>? _classes;
 
-  private static List<Assembly> Assemblies => _assemblies ??=
-    LoadReferencedAssemblies().Where(a => !IsExternal(a)).ToList();
-
   /// <summary>
-  /// .NET loads a referenced assembly only when something in it is first touched, so
-  /// <c>AppDomain.CurrentDomain.GetAssemblies()</c> answers "what has run so far", not "what this
-  /// program consists of". The schema must not depend on that: a host that happens not to have touched
-  /// a project yet would generate a *smaller* type map and prune the descriptors for everything it
-  /// could not see. Walking the reference graph makes any host — dev server, CLI, tests — scan the
-  /// same closure.
+  /// The *loaded* assemblies, deliberately — not the reference closure. Crawling references drags in
+  /// every third-party library the app merely links against (Stripe, Svg.Skia, WebDriver, …) and
+  /// `ExpandTypeTree` then pulls their types into the schema: measured at +71 object descriptors over
+  /// what the app actually publishes. A host that generates types is instead responsible for loading
+  /// the projects that declare API surface before generating — and, because a bare `typeof(X)` is
+  /// side-effect-free and the Release JIT drops it, it must do so in a way that survives optimisation
+  /// (use `typeof(X).Assembly` and consume the result). See ChordzyCli's `generate-types`.
   /// </summary>
-  private static List<Assembly> LoadReferencedAssemblies() {
-    var seen = new HashSet<string>();
-    var queue = new Queue<Assembly>(AppDomain.CurrentDomain.GetAssemblies());
-    var entry = Assembly.GetEntryAssembly();
-    if (entry != null) queue.Enqueue(entry);
-    var all = new List<Assembly>();
-    while (queue.Count > 0) {
-      var asm = queue.Dequeue();
-      if (!seen.Add(asm.GetName().Name ?? asm.FullName ?? "")) continue;
-      all.Add(asm);
-      if (IsExternal(asm)) continue;   // don't crawl the framework's reference graph
-      foreach (var reference in asm.GetReferencedAssemblies()) {
-        if (seen.Contains(reference.Name ?? "")) continue;
-        try {
-          queue.Enqueue(Assembly.Load(reference));
-        } catch (Exception e) {
-          ZEnv.Log.Debug("[TYPES] could not load referenced assembly {name}: {msg}", reference.Name, e.Message);
-        }
-      }
-    }
-    return all;
-  }
+  private static List<Assembly> Assemblies => _assemblies ??=
+    AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
 
   /// <summary>The assemblies the schema scan will read; useful when a host generates an empty schema.</summary>
   public static List<string> ScannedAssemblyNames() => Assemblies.Select(a => a.GetName().Name ?? "?").OrderBy(n => n).ToList();

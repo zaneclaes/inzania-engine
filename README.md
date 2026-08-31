@@ -34,30 +34,20 @@ the doc's Enforcement section): `DbGuard.cs` (PreToolUse — query/model anti-pa
 fires when a `.cs` edit touches query surface in either direction). Because the hooks block these
 mistakes at the edit, they are deliberately *not* repeated as pre-commit checklist items.
 
-A fourth hook covers the API surface rather than the data layer: **`ApiRegistrationGuard.cs`**
-(PostToolUse, `--hook`) flags any concrete `ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` class
-with `IZResult` members that no registration class exposes as a public property — the one line
-that turns a compiling class into a reachable endpoint (Chordzy: `TuneQuery`/`TuneMutation`/
-`TuneSubscription` off `TuneRequest`). The registration class name is discovered structurally, so
-nothing is project-specific.
+**How an API class becomes callable — no registration step.** An API class (a concrete
+`ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` subclass with `IZResult<>` methods) is invoked two
+ways, and both are reflective. Over the wire, HotChocolate resolves it from the scanned method map
+(`ZApiTypeGenerator.CacheApiMethods` → `ZSchema.AddZRequestDescriptors`, which
+`Activator.CreateInstance`s the class per call). In C# it is invoked through
+**`Context.BeginRequest<TReq>()`** (`Context.BeginRequest<AuthQuery>().CurrentUser().Execute(…)`
+from clients, caches, controllers and tests), which constructs `TReq` the same way — so a class is
+callable as soon as it compiles and the type map is regenerated; there is no aggregate/registration
+class to maintain. IL2CPP stripping on client builds is covered by the generated type map (its
+descriptors statically reference and invoke every API class) plus the project's `link.xml`.
+Test-side surface scan: `ZTests/ZApiSurface.ApiClasses()` (reflection over loaded assemblies) is
+the population type-map-coverage and authorization tests audit.
 
-⚠️ **Why the aggregate is required, and why GraphQL does not prove it.** An API class is invoked two
-ways. Over the wire, HotChocolate resolves it reflectively (`ZApiTypeGenerator.CacheApiMethods` →
-`ZSchema.AddZRequestDescriptors`), so an unregistered class can answer a GraphQL query perfectly
-well. In C# it is invoked through **`Context.BeginRequest<TReq>()`** — the request tree used by
-clients, caches, controllers and tests (`Context.BeginRequest<AuthQuery>().CurrentUser().Execute(…)`)
-— and that tree *is* the aggregate. A class the aggregate never names is unreachable from C#, and on
-a stripped client build the aggregate's public property is also the only static reference keeping the
-type alive against the reflective path. So a live GraphQL endpoint is not evidence the class is
-wired: test the registration, not the schema. The same check is available to test projects as
-`ZTests/ZApiRegistration.FindUnregistered()` (reflection over loaded assemblies) so CI catches
-edits the hooks never saw. Wire it next to `IndexAudit.cs`:
-
-```json
-{ "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/ApiRegistrationGuard.cs\" -- --hook", "timeout": 90 }
-```
-
-A fifth hook guards endpoint **authorization**: **`ApiAuthGuard.cs`** (PreToolUse, next to DbGuard).
+A fourth hook guards endpoint **authorization**: **`ApiAuthGuard.cs`** (PreToolUse, next to DbGuard).
 Auth is opt-in per endpoint — a public `IZResult<>` method with no `[ApiAuthorize]` is served to
 anonymous callers (`ZSchema.AddApiAuthorization` only emits a directive when the descriptor carries
 the attribute) — so the hook blocks an edit that leaves an unauthorized endpoint either
