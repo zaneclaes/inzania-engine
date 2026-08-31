@@ -6,8 +6,8 @@ makes it necessary. Enforcement is layered (see [Enforcement](#enforcement)):
 `.claude/hooks/DbGuard.cs` (per-edit guard), `.claude/hooks/MigrationGuard.cs` (schema-change
 guard) and `.claude/hooks/IndexAudit.cs` (whole-repo audit, also wired as a gated post-edit hook).
 
-Companion deep-dives: `../ZCore/AGENTS.md` (object model, attributes, lazy resolution),
-`../ZData/AGENTS.md` (EF pipeline, query inspection), `../ZSchema/AGENTS.md` (HotChocolate
+Companion deep-dives: `../ZCore/README.md` (object model, attributes, lazy resolution),
+`../ZData/README.md` (EF pipeline, query inspection), `../ZSchema/README.md` (HotChocolate
 binding, batching resolver). File references below use Chordzy (`Tune*`) as the reference
 implementation.
 

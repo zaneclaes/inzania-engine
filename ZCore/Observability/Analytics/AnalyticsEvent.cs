@@ -50,9 +50,16 @@ public class BaseParams : IEventParams {
   [JsonPropertyName("browser")] public string? Browser { get; set; }
   [JsonPropertyName("browser_version")] public string? BrowserVersion { get; set; }
 
+  // GA4 data filters match on traffic_type: "internal" hides Dev/Staging from every report, "app"
+  // separates the game client from the website so web acquisition reports stay clean.
+  public const string TrafficTypeInternal = "internal";
+  public const string TrafficTypeApp = "app";
+
   public void LoadInstallation(Installation installation) {
     if (installation.Context.App.Env <= ZEnvironment.Staging) {
-      TrafficType = "internal";
+      TrafficType = TrafficTypeInternal;
+    } else if (installation.DeviceType != DeviceType.Browser) {
+      TrafficType = TrafficTypeApp;
     }
     Language = installation.Language;
     ScreenResolution = $"{installation.ScreenWidth}x{installation.ScreenHeight}";

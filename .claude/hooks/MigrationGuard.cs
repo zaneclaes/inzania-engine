@@ -9,7 +9,7 @@
 // psql/mysql session, not raw DDL in application code — may change the schema, because anything the
 // snapshot does not know about makes the next generated migration wrong.
 // Rules doc: inzania-engine/Docs/data-design.md §6; per-project workflow: the owning
-// Migrations/AGENTS.md (Chordzy: TuneWeb/Server/Migrations/AGENTS.md).
+// Migrations/README.md (Chordzy: TuneWeb/Server/Migrations/README.md).
 //
 // BLOCK rules:
 //  M1  Hand-written migration file: Write/Edit of any *.cs under a Migrations/ folder, or of a

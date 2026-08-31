@@ -59,11 +59,9 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     return httpClient;
   }
 
-  private string? GetAnalyticsUserId(IZUser? user) {
-    if (user == null) return null;
-    if (user.IsVisitor()) return null;
-    return user.Id;
-  }
+  // Visitors get a user_id too: the visitor TuneUser row already exists, so anonymous -> signed-up
+  // stays one GA journey instead of two unlinkable ones.
+  private string? GetAnalyticsUserId(IZUser? user) => user?.Id;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
   [DllImport("__Internal")]
