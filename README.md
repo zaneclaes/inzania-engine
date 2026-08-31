@@ -36,15 +36,40 @@ mistakes at the edit, they are deliberately *not* repeated as pre-commit checkli
 
 A fourth hook covers the API surface rather than the data layer: **`ApiRegistrationGuard.cs`**
 (PostToolUse, `--hook`) flags any concrete `ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` class
-with `IZResult` members that no registration class exposes as a public property — the one line
-that turns a compiling class into a reachable endpoint (Chordzy: `TuneQuery`/`TuneMutation`/
-`TuneSubscription` off `TuneRequest`). The registration class name is discovered structurally, so
-nothing is project-specific. The same check is available to test projects as
+with `IZResult` members that no registration class exposes as a public property (Chordzy:
+`TuneQuery`/`TuneMutation`/`TuneSubscription` off `TuneRequest`). This guards schema **shape**, not
+reachability: `ZApiTypeGenerator.CacheApiMethods<TRequest>()` root-registers every subclass's
+`IZResult` methods regardless, so a forgotten class still serves — it just lands ungrouped, in a
+different place in the schema than its siblings, which clients see. The registration class name is
+discovered structurally, so nothing is project-specific, and a repo that uses no aggregate at all is
+skipped. The same check is available to test projects as
 `ZTests/ZApiRegistration.FindUnregistered()` (reflection over loaded assemblies) so CI catches
 edits the hooks never saw. Wire it next to `IndexAudit.cs`:
 
 ```json
 { "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/ApiRegistrationGuard.cs\" -- --hook", "timeout": 90 }
+```
+
+A fifth hook guards endpoint **authorization**: **`ApiAuthGuard.cs`** (PreToolUse, next to DbGuard).
+Auth is opt-in per endpoint — a public `IZResult<>` method with no `[ApiAuthorize]` is served to
+anonymous callers (`ZSchema.AddApiAuthorization` only emits a directive when the descriptor carries
+the attribute) — so the hook blocks an edit that leaves an unauthorized endpoint either
+(a) dereferencing `Context.CurrentIdentity` (the identity is only guaranteed by a declared policy;
+anonymous callers make the usual `CurrentIdentity!...` a null-deref or, worse, run the body as a
+visitor/system identity) or (b) performing data writes (`Data.AddAsync/RemoveAsync/SaveAsync`,
+`Upsert*` — an unauthenticated internet-facing write). The sanctioned patterns its messages point
+to: user-called endpoints declare the weakest fitting `[ApiAuthorize(ZPolicy...)]` (virtual users
+included); automation-called endpoints consume no user identity and instead restrict to the
+caller's *system identity* role (an `IZIdentity` with a dedicated role — e.g. Chordzy's
+`TuneSystemIdentity`; nothing project-specific is hard-coded here). Deliberately public endpoints
+(login/signUp, public content reads) append `// api-auth: allow` plus a justification. The edit is
+judged against the prospective file (on-disk + edit applied), so attributes above the edited
+fragment are seen. CI-side twin: `ZTests/ZApiAuthorization.FindAnonymousEndpoints()` — assert it
+against an explicit allowlist so every conscious omission is pinned (Chordzy:
+`TuneTests/Lib/ApiAuthorizationTests`). Wire it beside DbGuard:
+
+```json
+{ "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/ApiAuthGuard.cs\"", "timeout": 60 }
 ```
 
 ## Conventions and gotchas
