@@ -50,11 +50,11 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    pending migrations automatically (two replicas starting together can race — migrations must be
    idempotent/additive), and a bad migration blocks startup for the whole deployment.
 
-## Design rules (canonical set: `../Docs/data-design.md`; enforced by `../.claude/hooks/DbGuard.cs` + `IndexAudit.cs`; see `TuneWeb/Server/Migrations/AGENTS.md`)
+## Design rules (canonical set: `../Docs/data-design.md`; enforced by `../.claude/hooks/`: `DbGuard.cs` + `MigrationGuard.cs` + `IndexAudit.cs`; see `TuneWeb/Server/Migrations/AGENTS.md`)
 
 | Rule | Why here |
 |---|---|
-| Never write or edit files under `Migrations/` by hand; only `dotnet ef migrations add` | the ModelSnapshot must match the model exactly or the next migration diffs garbage |
+| Never hand-roll a schema change — no editing `Migrations/`, no `ALTER TABLE` in a SQL client, no DDL in `ExecuteSqlRaw`; only `dotnet ef migrations add` (`MigrationGuard.cs` blocks every route, shell writes included) | the ModelSnapshot must match the model exactly or the next migration diffs garbage; DDL applied by hand exists in one environment only (`../Docs/data-design.md` §6) |
 | No DB call inside a loop (`Resolve*`, `Load*Async`, `QueryFor`) — batch with `FilterKeyIn`/`Contains`, `Fetch`, or the resolver | outside GraphQL the resolver is `ZDefaultResolver` = one query per call |
 | Filter, sort and page in the query; never `Load…Async()` then `.Where/.OrderBy/.Take` | the full table streams through the app |
 | Every new `[Table]` gets `[ApiIndex]` for its `Filter`/`SortAsc` columns; composite index order = equality columns first, then range/sort | only FK, PK, `CreatedAt`, `UpdatedAt` are indexed by default |

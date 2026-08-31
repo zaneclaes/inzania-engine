@@ -8,11 +8,13 @@
 // cover wire-only ApiObject/TransientObject classes).
 // Advisory by default (exit 0); --strict exits 1 when findings exist.
 // --hook mode: reads the PostToolUse JSON from stdin and exits 0 immediately unless the edited
-// file is .cs AND the edit *introduces* query surface or index-shaping attributes (QueryFor /
-// Filter / Sort / FilterKeyIn / [ApiIndex] / [ApiKey] / [Table] present in the new content and,
-// for Edits, more of them than in the replaced text). Only then does it run the full audit,
-// rooted at $CLAUDE_PROJECT_DIR; NEW (non-baselined) findings are reported on stderr with exit 2
-// so they are fed back to the model. Wire it as PostToolUse (matcher Write|Edit|MultiEdit).
+// file is .cs AND the edit touches query surface or index-shaping attributes (QueryFor / Filter /
+// Sort / FilterKeyIn / [ApiIndex] / [ApiKey] / [Table] present in the new content or in the text it
+// replaced — added, removed or rewritten). Only then does it run the full audit (~3 s), rooted at
+// $CLAUDE_PROJECT_DIR; NEW (non-baselined) findings are reported on stderr with exit 2 so they are
+// fed back to the model. Because the gate is symmetric, every agent edit that can change the audit
+// result is audited, which is why consuming projects do not need a separate pre-commit run.
+// Wire it as PostToolUse (matcher Write|Edit|MultiEdit).
 // Known approximations (by design — this is a linter, not a compiler):
 //  - properties/attributes are associated to the nearest preceding class declaration in the file;
 //  - every property ending in `Id` is assumed FK-auto-indexed;
@@ -49,8 +51,10 @@ if (hookMode) {
       oldText += (e.TryGetProperty("old_string", out var eo) ? eo.GetString() : "") + "\n";
     }
   }
-  // "New query": more gate matches in the new text than in the text it replaced.
-  if (gateRx.Matches(newText).Count <= gateRx.Matches(oldText).Count) return 0;
+  // Gate: audit whenever the edit *touches* query surface on either side — added, removed or
+  // rewritten. A deleted [ApiIndex] or a swapped Filter column changes the answer as much as a new
+  // query does, so counting only net additions would let those through.
+  if (gateRx.Matches(newText).Count == 0 && gateRx.Matches(oldText).Count == 0) return 0;
   string projectDir = Environment.GetEnvironmentVariable("CLAUDE_PROJECT_DIR") ?? Directory.GetCurrentDirectory();
   roots.Clear();
   roots.Add(projectDir);

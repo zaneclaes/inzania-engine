@@ -5,8 +5,9 @@
 // The rules are documented in inzania-engine/Docs/data-design.md; whole-repo checks the per-edit
 // heuristics can't do live in IndexAudit.cs next to this file.
 //
+// Hand-written migrations are a separate rule owned by MigrationGuard.cs (next to this file).
+//
 // BLOCK rules:
-//  B1  Hand-written EF Core migrations: any *.cs under a Migrations/ folder.
 //  B2  DB call (Resolve*/Load*Async/QueryFor) inside a foreach/for/while body => N+1.
 //  B3  Persisted bool column on an entity model — booleans are bits in a [Flags] enum column,
 //      never their own column.
@@ -48,10 +49,6 @@ string norm = path.Replace('\\', '/');
 var blocks = new List<string>();
 var warns = new List<string>();
 const string Doc = "inzania-engine/Docs/data-design.md";
-
-// B1 — migrations
-if (Regex.IsMatch(norm, @"(^|/)Migrations/[^/]*\.cs$", RegexOptions.IgnoreCase))
-  blocks.Add("Hand-written EF Core migrations are not allowed. Run `dotnet ef migrations add <Name>` against the owning server project so EF generates the migration + ModelSnapshot. Never edit files under Migrations/ by hand.");
 
 if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length > 0) {
   string code = Regex.Replace(content, @"//[^\n]*", "");           // strip line comments

@@ -3,7 +3,8 @@
 Canonical data-modeling rules for any project built on `inzania-engine`. They diverge from
 generic EF Core advice in specific, deliberate ways; each rule below states the mechanism that
 makes it necessary. Enforcement is layered (see [Enforcement](#enforcement)):
-`.claude/hooks/DbGuard.cs` (per-edit guard) and `.claude/hooks/IndexAudit.cs` (whole-repo audit).
+`.claude/hooks/DbGuard.cs` (per-edit guard), `.claude/hooks/MigrationGuard.cs` (schema-change
+guard) and `.claude/hooks/IndexAudit.cs` (whole-repo audit, also wired as a gated post-edit hook).
 
 Companion deep-dives: `../ZCore/AGENTS.md` (object model, attributes, lazy resolution),
 `../ZData/AGENTS.md` (EF pipeline, query inspection), `../ZSchema/AGENTS.md` (HotChocolate
@@ -225,39 +226,111 @@ Rules, and why:
   stays ≈ number of resolver waves, not number of rows), and per-statement totals on the
   `<app>-mysql` service.
 
+## 6. Schema changes: `dotnet ef migrations add` is the only producer
+
+The model is the schema's source of truth, and EF's `ModelSnapshot` is its record of what the
+database already looks like. Every migration is generated as the diff between the two. That is why
+a hand-rolled schema change is never a shortcut:
+
+- **A hand-written (or hand-edited) migration** changes the database without changing the
+  snapshot. The next `dotnet ef migrations add` diffs the model against a snapshot that no longer
+  describes reality, so it re-creates columns that exist, drops ones it does not know about, or
+  fails mid-deploy. The damage surfaces one or two migrations later, in the environment you did
+  not test.
+- **DDL typed into a SQL client** (`ALTER TABLE …` in `mysql -e`, a console session, a `.sql`
+  script someone runs) exists in exactly one environment. Nothing replays it into the other
+  environments or into a fresh developer database, and the snapshot never learns about it.
+- **DDL from application code** (`ExecuteSqlRaw("CREATE TABLE …")`) runs on every replica, at an
+  arbitrary point in the request lifecycle, with no ordering or once-only guarantee.
+
+The workflow is therefore always: change the `[Table]` model → `dotnet ef migrations add
+<PascalCaseName>` against the owning server project → review the generated `Up()` (it should
+contain only what you intended; a pile of unrelated `AlterColumn`/`DropIndex` means the snapshot
+was out of sync — stop and reconcile) → commit the model change and its migration **together**.
+`dotnet ef migrations remove --force` undoes the last unapplied one (rewinding the snapshot with
+it); `dotnet ef migrations script` shows the SQL without applying anything.
+
+Migrations are applied by the app itself at start-up (`ZHostApp.PrepareAsync` →
+`DataProvider.MigrateDatabaseAsync`) on every replica, before it serves traffic — there is no
+manual apply step in CI, and a failing migration crash-loops the deployment instead of corrupting
+a schema. Consequences for how you write them: prefer additive and idempotent steps (`AddColumn`
+nullable or with a default, then backfill) over rename/drop in the same deploy, and make any
+`migrationBuilder.Sql` data migration re-runnable, because two replicas can run it concurrently.
+
+This rule is enforced by `.claude/hooks/MigrationGuard.cs` on all four routes (editor, shell,
+SQL client, application code); see [Enforcement](#enforcement).
+
 ## Enforcement
 
-Two reusable checks live in this repo under `.claude/hooks/` so every consuming project gets
-them:
+Three reusable checks live in this repo under `.claude/hooks/` so every consuming project gets
+them. They are hooks, not checklist items: what they cover does not belong in a project's
+pre-commit routine as well.
 
 - **`DbGuard.cs`** — Claude Code `PreToolUse` hook (stdin JSON, exit 2 = block): blocks
-  hand-written migrations, DB calls in loops, and new persisted `bool` columns; warns on
+  DB calls in loops and new persisted `bool` columns; warns on
   in-memory filtering, non-sargable predicates (including bitwise flag filters and string
   concatenation), unbounded loads, missing `[Flags]`/`[OutputIgnore]`/`[InputIgnore]` on
   bitfield enums, `[ApiIndex]` over flags columns, deep include chains, and new tables without
   indexes. Escape hatch: `// db-guard: allow` on the flagged line plus a justifying comment.
+- **`MigrationGuard.cs`** — Claude Code `PreToolUse` hook over `Write|Edit|MultiEdit|Bash`
+  (exit 2 = block), enforcing §6 on every route a schema change can take: a `*.cs` under a
+  `Migrations/` folder or any `*ModelSnapshot.cs` (editor), a mutating shell command aimed at
+  one (`>`, `tee`, `sed -i`, `cp`, `mv`, `rm`, `touch`, `patch`…), DDL passed to a SQL client
+  (`mysql`/`mariadb`/`mysqlsh`/`mycli`/`psql` with `CREATE`/`ALTER`/`DROP`/`RENAME`/`TRUNCATE
+  TABLE|INDEX|DATABASE` or `ADD`/`DROP COLUMN`), DDL inside `ExecuteSqlRaw`/`FromSqlRaw`, and
+  hand-written `.sql` schema files. Warns on `dotnet ef database update|drop` (the app migrates
+  itself at start-up) and on `migrationBuilder.Sql` data migrations (must be re-runnable).
+  Reading migrations is untouched; `dotnet ef migrations add|remove|script|list` is the allowed
+  path. Escape hatch: `migration-guard: allow` in the content or command, with a reason.
+  Anything under `.claude/hooks/` is exempt so the hooks themselves stay editable.
 - **`IndexAudit.cs`** — whole-repo heuristic audit (`dotnet run IndexAudit.cs -- <repo-root>`):
   cross-references every `Filter`/`SortAsc`/`FilterKeyIn`/`ResolveArray` column against
   declared `[ApiIndex]`/`[ApiKey]`/auto-indexes, and re-checks the §1 flags rules with
   cross-file type knowledge. Advisory by default; `--strict` exits non-zero on findings.
+  Accepted debt lives in `<repo-root>/.claude/IndexAudit.baseline` (one finding per line,
+  `#` comments) so the audit stays green until *new* findings appear. `--hook` turns it into a
+  Claude Code **PostToolUse** hook: it reads the tool JSON from stdin, exits instantly unless a
+  `.cs` edit *touches* query surface or index attributes (`QueryFor`/`Filter`/`Sort*`/
+  `FilterKeyIn`/`[ApiIndex]`/`[ApiKey]`/`[Table]` present in the new text or the text it replaced —
+  added, removed or rewritten), and only then runs the full audit (~3 s) rooted at
+  `$CLAUDE_PROJECT_DIR` — new findings come back as exit 2 on stderr.
 
 Wiring into a consuming project (`.claude/settings.json`):
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "matcher": "Write|Edit|MultiEdit",
-      "hooks": [
-        { "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/DbGuard.cs\"", "timeout": 60 }
-      ]
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/DbGuard.cs\"", "timeout": 60 }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/MigrationGuard.cs\"", "timeout": 60 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/IndexAudit.cs\" -- --hook", "timeout": 90 }
+        ]
+      }
+    ]
   }
 }
 ```
 
-and add `dotnet run inzania-engine/.claude/hooks/IndexAudit.cs -- .` to the project's pre-commit
-checklist (Chordzy: the `/commit-changes` skill).
+The `PostToolUse` gate is symmetric (it fires when an edit adds, removes *or* rewrites query
+surface), so every agent edit that could change the audit result is already audited: a project's
+pre-commit checklist should **not** repeat it. Run `dotnet run
+inzania-engine/.claude/hooks/IndexAudit.cs -- .` by hand only for changes the hooks never saw —
+edits made with shell commands instead of the edit tools, a merge, or another person's work.
 
 ## Known exceptions & debt (Chordzy)
 
