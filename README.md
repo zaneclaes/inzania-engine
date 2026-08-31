@@ -34,6 +34,13 @@ the doc's Enforcement section): `DbGuard.cs` (PreToolUse — query/model anti-pa
 fires when a `.cs` edit touches query surface in either direction). Because the hooks block these
 mistakes at the edit, they are deliberately *not* repeated as pre-commit checklist items.
 
+What an edit-time hook cannot see is a change made in an IDE, by a merge, or by a contributor not
+driving Claude — so the one check that must hold for the *whole commit* lives in `ci/hooks/` instead:
+**`PendingMigrations.cs`**, a reusable git `pre-commit` check that refuses a commit where
+`dotnet ef migrations add` would not be a no-op (`dotnet ef migrations
+has-pending-model-changes`; no database needed). Consuming repos call it from their own `pre-commit`
+and configure it with `<repo-root>/ci/migration-check.json`. Details: `ci/README.md`.
+
 **How an API class becomes callable — no registration step.** An API class (a concrete
 `ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` subclass with `IZResult<>` methods) is invoked two
 ways, and both are reflective. Over the wire, HotChocolate resolves it from the scanned method map

@@ -264,7 +264,9 @@ SQL client, application code); see [Enforcement](#enforcement).
 
 Three reusable checks live in this repo under `.claude/hooks/` so every consuming project gets
 them. They are hooks, not checklist items: what they cover does not belong in a project's
-pre-commit routine as well.
+pre-commit routine as well. A fourth, `ci/hooks/PendingMigrations.cs`, runs at commit time
+precisely because it covers what an edit-time hook cannot see — see
+[the commit-time half](#the-commit-time-half-cihookspendingmigrationscs).
 
 - **`DbGuard.cs`** — Claude Code `PreToolUse` hook (stdin JSON, exit 2 = block): blocks
   DB calls in loops and new persisted `bool` columns; warns on
@@ -341,6 +343,24 @@ surface), so every agent edit that could change the audit result is already audi
 pre-commit checklist should **not** repeat it. Run `dotnet run
 inzania-engine/.claude/hooks/IndexAudit.cs -- .` by hand only for changes the hooks never saw —
 edits made with shell commands instead of the edit tools, a merge, or another person's work.
+
+### The commit-time half: `ci/hooks/PendingMigrations.cs`
+
+Those three cover *how* a change is made, which is all a `PreToolUse` hook can see. One thing they
+structurally cannot cover is the state the commit as a whole is in — specifically §6's closing rule,
+that a model change and its migration land **together**. A model edited in an IDE, arriving through a
+merge, or written by anyone not driving Claude reaches `git commit` with nobody having checked it,
+and nothing downstream fails loudly: the build is green, review sees a normal model edit, and the
+first symptom is a pod querying a column the database does not have (migrations are applied by the
+app at start-up, so there is no CI step that would have noticed).
+
+`ci/hooks/PendingMigrations.cs` is that check, at the one point every change passes through. It asks
+exactly "would `dotnet ef migrations add <Name>` be a no-op" — `dotnet ef migrations
+has-pending-model-changes`, which diffs the compiled model against the committed `ModelSnapshot` and
+needs no database — and blocks the commit with the precise `migrations add` command when the answer
+is no. It is a git hook rather than a Claude hook, is configured per repo by
+`<repo-root>/ci/migration-check.json`, and is gated on the staged file list so content-only commits
+skip it. Full contract: `../ci/README.md`.
 
 ## Known exceptions & debt (Chordzy)
 
