@@ -25,6 +25,12 @@ uses HotChocolate's `[UseProjection]`/`[UseFiltering]`/`[UseSorting]` attributes
 - `ZDataTypeInspector` hides `[OutputIgnore]` members and `IAmInternal` types;
   `ZNamingConventions` camel-cases; `GraphqlErrorFilter` maps exceptions to status codes;
   `ApiExecutionEventListener` emits per-operation diagnostics.
+- Enums bind via `ZEnumType<T>` as GraphQL enums whose values are only the *declared* members —
+  a `[Flags]` combination (e.g. `A|B == 3`) has no name: `EnumType.Serialize` throws and variable
+  coercion rejects numbers. Flags enums therefore never cross the wire: `[OutputIgnore] +
+  [InputIgnore]` on the property, numeric `*Val` mirror instead (`../Docs/data-design.md` §1).
+  `options.EnableFlagEnums = true` in `ZSchema.cs` is inert (explicit `ZEnumType` binding
+  bypasses the interceptor).
 
 ## The batching resolver (`Loaders/ZSchemaResolver.cs`) — read before touching relationship code
 

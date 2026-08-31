@@ -72,3 +72,7 @@ Extension verbs — use these, not raw LINQ, so the call stays translatable and 
 - `[ApiParent]` delete behaviour defaults to **Cascade**. Choose `Restrict`/`SetNull`
   deliberately for anything referenced from many places (users, scores) — a cascade from `Users`
   currently reaches ~118 FK edges.
+- Never a persisted `bool`: booleans are bits in one `[Flags]` enum column
+  (`[OutputIgnore] [InputIgnore]` + a `[NotMapped]` numeric `*Val` mirror for the wire, read-only
+  `=> Flags.HasFlag(...)` accessors). Canonical pattern, inheritance and N:M through-join rules:
+  `../Docs/data-design.md`.

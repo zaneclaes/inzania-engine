@@ -23,6 +23,13 @@ Directory prefix `Z*` ↔ assembly/namespace `IZ.*`. net10 / C# 13 / nullable vi
 
 Data layer deep-dives: `ZCore/AGENTS.md` (object model, attributes, lazy resolution), `ZData/AGENTS.md` (EF Core pipeline, design rules, inspecting queries in Datadog), `ZSchema/AGENTS.md` (HotChocolate binding, batching resolver). Migrations workflow: `TuneWeb/Server/Migrations/AGENTS.md`.
 
+**`Docs/data-design.md`** is the canonical database/API design ruleset (flags enums instead of
+bool columns, the numeric `*Val` wire mirror, index tradeoffs, inheritance, N:M through-joins) —
+read it before adding or changing any stored model. It is enforced by two reusable tools in
+`.claude/hooks/`: `DbGuard.cs` (PreToolUse hook — consuming projects wire it in their
+`.claude/settings.json`) and `IndexAudit.cs` (whole-repo audit with a per-project
+`.claude/IndexAudit.baseline` for accepted debt).
+
 ## Conventions and gotchas
 
 - Behaviour via base classes (`ZApp`, `ZHostApp<TDb>`, `ZClientApp`, `ZDbContext`, `RootContext`,

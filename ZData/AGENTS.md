@@ -50,7 +50,7 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    pending migrations automatically (two replicas starting together can race — migrations must be
    idempotent/additive), and a bad migration blocks startup for the whole deployment.
 
-## Design rules (checked by `.claude/hooks/DbGuard.cs`; see `TuneWeb/Server/Migrations/AGENTS.md`)
+## Design rules (canonical set: `../Docs/data-design.md`; enforced by `../.claude/hooks/DbGuard.cs` + `IndexAudit.cs`; see `TuneWeb/Server/Migrations/AGENTS.md`)
 
 | Rule | Why here |
 |---|---|
@@ -65,6 +65,9 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
 | `DataModelTracking.None` for read-only, large result sets | change tracking costs memory per row |
 | `[ApiParent]` delete behaviour is a design choice — cascades are the default | deleting a `TuneUser` today cascades through ~118 FK edges |
 | Text/blob columns never go in an index (`ModelId.MaxIndexableStringLength` = 768 chars) | MySQL InnoDB index prefix limit (3072 bytes utf8mb4) |
+| Never store a raw `bool` column; booleans are bits in one `[Flags]` enum column with a numeric `*Val` wire mirror | one integer column for N booleans, no migration per flag; full pattern + wire rules in `../Docs/data-design.md` §1 |
+| Never index or hot-path-filter a flags column (`Flags & x` / `HasFlag`) | a B-tree cannot serve a bitwise predicate — the query scans and the index is pure write cost |
+| N:M = explicit join entity (`[ApiKey(fkA, fkB)]`, two FK/nav pairs + `Get*()` resolvers), not EF skip navigations | skip-nav joins are invisible to GraphQL and the batching resolver; details in `../Docs/data-design.md` §4 |
 
 ## Known debt
 
