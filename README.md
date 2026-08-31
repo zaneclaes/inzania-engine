@@ -34,6 +34,19 @@ the doc's Enforcement section): `DbGuard.cs` (PreToolUse — query/model anti-pa
 fires when a `.cs` edit touches query surface in either direction). Because the hooks block these
 mistakes at the edit, they are deliberately *not* repeated as pre-commit checklist items.
 
+A fourth hook covers the API surface rather than the data layer: **`ApiRegistrationGuard.cs`**
+(PostToolUse, `--hook`) flags any concrete `ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` class
+with `IZResult` members that no registration class exposes as a public property — the one line
+that turns a compiling class into a reachable endpoint (Chordzy: `TuneQuery`/`TuneMutation`/
+`TuneSubscription` off `TuneRequest`). The registration class name is discovered structurally, so
+nothing is project-specific. The same check is available to test projects as
+`ZTests/ZApiRegistration.FindUnregistered()` (reflection over loaded assemblies) so CI catches
+edits the hooks never saw. Wire it next to `IndexAudit.cs`:
+
+```json
+{ "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/ApiRegistrationGuard.cs\" -- --hook", "timeout": 90 }
+```
+
 ## Conventions and gotchas
 
 - Behaviour via base classes (`ZApp`, `ZHostApp<TDb>`, `ZClientApp`, `ZDbContext`, `RootContext`,
