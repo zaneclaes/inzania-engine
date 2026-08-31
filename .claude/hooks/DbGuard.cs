@@ -63,17 +63,23 @@ if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length >
   var w1Materialize = new Regex(@"(LoadDataModelsAsync\(\)|LoadScalarsAsync\(\)|\.ToListAsync\([^)]*\)|\.ToList\(\)|\.ToArray\(\))\s*\)?\s*\.(Where|Count|First|FirstOrDefault|Any|Single|OrderBy|Skip|Take)\(");
   var w2Count = new Regex(@"\.Count\(\)\s*(>\s*0|!=\s*0|>=\s*1)|\.LoadCountAsync\(\)\s*(>\s*0|!=\s*0|>=\s*1)");
   var w3Wildcard = new Regex(@"(Contains|Like)\(\s*[^)]*""%");
-  var w4Transform = new Regex(@"\.(Filter|Where)\(\s*\w+\s*=>[^;]*?\.(ToLower|ToUpper|Trim)\(\)\s*(==|!=|\.Equals)");
+  // W4/W8/W12 judge what is INSIDE one predicate. They used `[^;]*?` to get there, which runs
+  // past the predicate's own closing paren — a query chain has no `;` until the end — and so read
+  // the following `.Choose(a => a.Id + "|" + a.Spend)` projection as a non-sargable filter. Packing
+  // scalars in a projection is the house idiom and perfectly fine; only the PREDICATE is scanned
+  // now, extracted by balancing parens (which a regex cannot do).
+  var predicateHead = new Regex(@"\.(Filter|Where)\(\s*(\w+)\s*=>");
+  var w4Transform = new Regex(@"\.(ToLower|ToUpper|Trim)\(\)\s*(==|!=|\.Equals)");
   var w5Includes = new Regex(@"(\.(Fetch|Include|ThenInclude|ThenFetch|QueryInclude|QueryThenInclude|QueryThenIncludeMany)\([^;]*?){4,}");
   var w6Unbounded = new Regex(@"QueryFor<\w+>\(\)((?:\s*\.\w+\([^;]*?\))*?)\s*\.LoadDataModelsAsync\(\)", RegexOptions.Singleline);
   var w6Bounded = new Regex(@"\.(Filter|Where|Limit|Take|SortAsc|SortDsc|OrderBy)");
   var w7Table = new Regex(@"\[Table\(""(\w+)""\)\]([^{]*?)\bclass\s+(\w+)", RegexOptions.Singleline);
-  var w8Bitwise = new Regex(@"\.(Filter|Where)\(\s*\w+\s*=>[^;]*?((?<![&=])&(?![&=])|\.HasFlag\()");
+  var w8Bitwise = new Regex(@"(?<![&=])&(?![&=])|\.HasFlag\(");
   var w9FlagIndex = new Regex(@"\[ApiIndex\([^\]]*?(nameof\(\s*[\w.]*Flag\w*\s*\)|""\w*Flag\w*"")");
   var w10Enum = new Regex(@"enum\s+(\w+)[^{]*\{([^}]*)\}", RegexOptions.Singleline);
   var w10FlagsAttr = new Regex(@"\[\s*Flags\s*\]\s*(\[[^\]]*\]\s*)*(public|internal)?\s*$");
   var w11FlagEnumDecl = new Regex(@"\[\s*Flags\s*\][^{;]*?enum\s+(\w+)", RegexOptions.Singleline);
-  var w12Concat = new Regex(@"\.(Filter|Where)\(\s*\w+\s*=>[^;]*?\b\w+\.\w+\s*\+\s*""");
+  var w12Concat = new Regex(@"\b\w+\.\w+\s*\+\s*""");
   string n1Msg(int lineNo, string ln) =>
     $"Line {lineNo}: database call inside a loop (`{ln.Trim()}`). This is an N+1 query. Batch it: load all rows first with one `QueryFor<T>().Filter(x => keys.Contains(x.Key))`, or `.Fetch()`/`QueryInclude`, or use `Context.Resolver.LoadArray/LoadAll` (batched under GraphQL). If it is intentional, append `// db-guard: allow` on that line and justify in a comment.";
   string w1Msg(string frag) =>
@@ -81,17 +87,51 @@ if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length >
   string w6Msg(string frag) =>
     $"Unbounded load of an entire table (`{frag}`): add a `.Filter(...)` and/or `.Limit(n)`; tables grow.";
 
-  // B2 — N+1: a DB call inside a loop body. Track brace depth after a loop header.
-  var loopDepths = new Stack<int>();
-  int depth = 0;
+  // B2 — N+1: a DB call inside a loop BODY. Track brace depth after a loop header.
+  // A call in the header of an OUTERMOST loop runs exactly once —
+  // `foreach (var r in await QueryFor<T>().Filter(...).LoadScalarsAsync()) { ... }` is the
+  // batched shape this rule exists to promote, so flagging it would block the fix and push
+  // authors toward per-row queries. Header spans multiple lines, so track its paren balance and
+  // only exempt it when no enclosing loop already makes it run per-iteration.
+  // A loop over CHUNKS (`foreach (var chunk in Chunk(ids, 100))`, `ids.Chunk(200)`) issues one
+  // query per batch, not one per row — that IS the bounded-memory fix this rule asks for, so its
+  // immediate body is exempt. Only the innermost enclosing loop grants the exemption, so a
+  // per-row loop nested inside a chunk loop is still caught.
+  var chunkLoop = new Regex(@"\b\w*(Chunk|Batch)\w*\s*\(");
+  var loopDepths = new Stack<(int depth, bool chunk)>();
+  int depth = 0, headerParens = 0;
+  bool headerIsNested = false;
   for (int i = 0; i < lines.Length; i++) {
     string ln = lines[i];
     bool allowed = i < rawLines.Length && rawLines[i].Contains("db-guard: allow");
-    if (loopHead.IsMatch(ln)) { loopDepths.Push(depth); }
-    if (loopDepths.Count > 0 && dbCall.IsMatch(ln) && !allowed) { blocks.Add(n1Msg(i + 1, ln)); }
+    var head = loopHead.Match(ln);
+    bool startedInHeader = headerParens > 0;
+    // headerEnd = column at which this loop's header finishes on this line (line length while it
+    // is still open). A call left of it is part of the once-evaluated header expression; a call
+    // right of it is already body code on the same line.
+    int headerEnd = 0, scanFrom = -1;
+    if (head.Success && !startedInHeader) {
+      // Nested inside a PER-ROW loop ⇒ this header runs per outer row and is a real N+1. Nested
+      // inside a CHUNK loop it runs once per batch, which is still the batched shape
+      // (`foreach (var b in ids.Chunk(n)) foreach (var r in await Query(b)…)`).
+      headerIsNested = loopDepths.Count > 0 && !loopDepths.Peek().chunk;
+      loopDepths.Push((depth, chunkLoop.IsMatch(ln)));
+      scanFrom = ln.IndexOf('(', head.Index);
+    } else if (startedInHeader) { scanFrom = 0; }
+    if (scanFrom >= 0) {
+      headerEnd = ln.Length;
+      for (int k = scanFrom; k < ln.Length; k++) {
+        if (ln[k] == '(') { headerParens++; }
+        else if (ln[k] == ')' && --headerParens <= 0) { headerParens = 0; headerEnd = k + 1; break; }
+      }
+    }
+    var call = dbCall.Match(ln);
+    bool exempt = call.Success &&
+      ((call.Index < headerEnd && !headerIsNested) || (loopDepths.Count > 0 && loopDepths.Peek().chunk));
+    if (loopDepths.Count > 0 && !exempt && call.Success && !allowed) { blocks.Add(n1Msg(i + 1, ln)); }
     foreach (char ch in ln) {
       if (ch == '{') { depth++; }
-      else if (ch == '}') { depth--; while (loopDepths.Count > 0 && depth <= loopDepths.Peek()) { loopDepths.Pop(); } }
+      else if (ch == '}') { depth--; while (loopDepths.Count > 0 && depth <= loopDepths.Peek().depth) { loopDepths.Pop(); } }
     }
   }
 
@@ -118,13 +158,27 @@ if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length >
   if (w2Count.IsMatch(code))
     warns.Add("Use `.Any()` / an existence query instead of a materialized count compared to zero — COUNT scans every matching row.");
 
+  // Every Filter/Where predicate's own body, balanced to its closing paren, so W4/W8/W12 cannot
+  // read the projection or paging clauses that follow it in the same chain.
+  var predicates = new List<string>();
+  foreach (Match ph in predicateHead.Matches(code)) {
+    int open = code.IndexOf('(', ph.Index);
+    int depth2 = 0, stop = code.Length;
+    for (int k = open; k < code.Length; k++) {
+      if (code[k] == '(') { depth2++; }
+      else if (code[k] == ')') { depth2--; if (depth2 == 0) { stop = k; break; } }
+    }
+    predicates.Add(code[ph.Index..Math.Min(stop + 1, code.Length)]);
+  }
+
   // W3 — leading wildcard
   foreach (Match m in w3Wildcard.Matches(code)) {
     warns.Add($"Leading-wildcard LIKE (`{Trim(m.Value)}`) cannot use an index; prefer prefix match (StartsWith), a normalized lookup column, or full-text search.");
   }
 
   // W4 — non-sargable transforms inside query lambdas
-  foreach (Match m in w4Transform.Matches(code)) {
+  foreach (string pred in predicates)
+  foreach (Match m in w4Transform.Matches(pred)) {
     warns.Add($"Transforming a column inside a predicate (`{Trim(m.Value)}`) defeats the index; compare against a pre-normalized indexed column (e.g. `UsernameLower`) and normalize the parameter instead.");
   }
 
@@ -148,7 +202,8 @@ if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length >
   }
 
   // W8 — bitwise flag test inside a predicate (single & or .HasFlag, not &&)
-  foreach (Match m in w8Bitwise.Matches(code)) {
+  foreach (string pred in predicates)
+  foreach (Match m in w8Bitwise.Matches(pred)) {
     warns.Add($"Bitwise flag test inside a predicate (`{Trim(m.Value)}`): a B-tree index cannot serve a bit test; on a growing table this is a full scan. Filter on an indexed column, or promote the hot bit to its own column. See {Doc} §1.");
   }
 
@@ -181,7 +236,8 @@ if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length >
   }
 
   // W12 — string concatenation on the column side inside a predicate
-  foreach (Match m in w12Concat.Matches(code)) {
+  foreach (string pred in predicates)
+  foreach (Match m in w12Concat.Matches(pred)) {
     warns.Add($"String concatenation on the column side of a predicate (`{Trim(m.Value)}`): not sargable — filter each component column separately (e.g. per-component key sets with a composite [ApiIndex]). See {Doc} §2.");
   }
 }

@@ -74,10 +74,35 @@ var propRx = new Regex(@"public[ \t]+(?:override[ \t]+|virtual[ \t]+|new[ \t]+|r
 var flagsEnumRx = new Regex(@"\[\s*Flags\s*\]\s*(?:\[[^\]]*\]\s*)*(?:public|internal)?\s*enum\s+(\w+)(?:\s*:\s*(\w+))?");
 var anyEnumRx = new Regex(@"enum\s+(\w+)(?:\s*:\s*\w+)?[^{]*\{([^}]*)\}", RegexOptions.Singleline);
 var queryForRx = new Regex(@"QueryFor<(\w+)>\(\)");
+// Entity registration is the DbSet, NOT [Table]: ZDbContext.OnModelCreating walks
+// modelBuilder.Model.GetEntityTypes(), and [Table] is only an optional table-name override
+// (inzania-engine itself declares none). Keying discovery on [Table] alone finds ~2% of entities.
+var dbSetRx = new Regex(@"DbSet<(\w+)>");
 var filterLambdaRx = new Regex(@"\.(Filter|Where)\(\s*(\w+)\s*=>");
 var sortRx = new Regex(@"\.(SortAsc|SortDsc|OrderBy|OrderByDescending)\(\s*(\w+)\s*=>\s*\2\.(\w+)");
 var filterKeyInRx = new Regex(@"\.FilterKeyIn\(\s*(?:nameof\(\s*(?:\w+\.)?(\w+)\s*\)|""(\w+)"")");
 var navTypeRx = new Regex(@"^(List<|IList<|ICollection<|IEnumerable<|HashSet<)|\[\]$");
+
+// Blank out comments, preserving every offset and newline so reported line numbers stay true.
+// Prose is not code: an XML doc saying "the same class as the BusinessProductVariant read-throughs"
+// otherwise parses as `class as`, and that phantom becomes the boundary that swallows every
+// property declared after it — which is how a real [Flags] leak went unseen on a core entity.
+static string StripComments(string src) {
+  var buf = src.ToCharArray();
+  bool line = false, block = false, str = false, chr = false, verb = false;
+  for (int i = 0; i < buf.Length; i++) {
+    char c = buf[i], n = i + 1 < buf.Length ? buf[i + 1] : '\0';
+    if (line) { if (c == '\n') { line = false; } else { buf[i] = ' '; } continue; }
+    if (block) { if (c == '*' && n == '/') { buf[i] = buf[i + 1] = ' '; i++; block = false; } else if (c != '\n') { buf[i] = ' '; } continue; }
+    if (str) { if (verb && c == '"' && n == '"') { i++; } else if (!verb && c == '\\') { i++; } else if (c == '"') { str = false; } continue; }
+    if (chr) { if (c == '\\') { i++; } else if (c == '\'') { chr = false; } continue; }
+    if (c == '/' && n == '/') { buf[i] = buf[i + 1] = ' '; i++; line = true; }
+    else if (c == '/' && n == '*') { buf[i] = buf[i + 1] = ' '; i++; block = true; }
+    else if (c == '"') { str = true; verb = i > 0 && (buf[i - 1] == '@' || buf[i - 1] == '$'); }
+    else if (c == '\'') { chr = true; }
+  }
+  return new string(buf);
+}
 
 // Attributes for a declaration = text between the previous `;`/`{`/`}` and the declaration start.
 // Handles attributes on their own lines, inline before the keyword, and trailing comments.
@@ -107,10 +132,12 @@ var classes = new Dictionary<string, ModelClass>();                  // name -> 
 var flagsEnums = new Dictionary<string, string>();                   // enum name -> base type ("" unknown)
 var findings = new List<string>();
 
+var dbSetTypes = new HashSet<string>();                              // types registered as DbSet<T> anywhere
 var sources = new Dictionary<string, string>();
 foreach (string file in files) {                                     // pass 2a: all enums first, so
-  string src = File.ReadAllText(file);                               // consumers in earlier files see them
+  string src = StripComments(File.ReadAllText(file));                               // consumers in earlier files see them
   sources[file] = src;
+  foreach (Match ds in dbSetRx.Matches(src)) { dbSetTypes.Add(ds.Groups[1].Value); }
   foreach (Match fe in flagsEnumRx.Matches(src)) { flagsEnums[fe.Groups[1].Value] = fe.Groups[2].Value; }
   foreach (Match em in anyEnumRx.Matches(src)) {
     if (em.Groups[2].Value.Contains("<<") && !flagsEnums.ContainsKey(em.Groups[1].Value) && !AttrsBefore(src, em.Index).Contains("[Flags]"))
@@ -154,7 +181,19 @@ foreach (string file in files) {
         if (missing.Count > 0) mc.FlagLeaks.Add((pName, pType.TrimEnd('?'), string.Join(" + ", missing), lineNo));
       }
     }
-    classes[mc.Name] = mc;
+    // MERGE same-named declarations, never overwrite: a class and its generic form
+    // (`class Shop` + `class Shop<TCustomer, TOrder, TProduct> : Shop`) share a captured name,
+    // and last-one-wins silently discarded the real entity's props and [ApiIndex]es — producing
+    // both false "no-index" findings and missed ones on the biggest tables.
+    if (classes.TryGetValue(mc.Name, out var prev)) {
+      foreach (var ix in mc.Indexes) { prev.Indexes.Add(ix); }
+      foreach (var p in mc.Props) { prev.Props[p.Key] = p.Value; }
+      foreach (var b in mc.Bases.Where(b => b != mc.Name && !prev.Bases.Contains(b))) { prev.Bases.Add(b); }
+      foreach (var bp in mc.BoolProps.Where(bp => !prev.BoolProps.Contains(bp))) { prev.BoolProps.Add(bp); }
+      foreach (var fl in mc.FlagLeaks.Where(fl => !prev.FlagLeaks.Contains(fl))) { prev.FlagLeaks.Add(fl); }
+      prev.Table ??= mc.Table;
+      prev.IsAbstract &= mc.IsAbstract;
+    } else { classes[mc.Name] = mc; }
   }
 }
 
@@ -166,7 +205,8 @@ IEnumerable<ModelClass> Chain(ModelClass c) {
     cur = cur.Bases.Select(b => classes.GetValueOrDefault(b)).FirstOrDefault(b => b != null);
   }
 }
-bool WireVisible(ModelClass c) => Chain(c).Any(l => l.Table != null || l.Bases.Any(b => wireBases.Contains(b)));
+bool IsEntity(ModelClass c) => c.Table != null || dbSetTypes.Contains(c.Name);
+bool WireVisible(ModelClass c) => Chain(c).Any(l => IsEntity(l) || l.Bases.Any(b => wireBases.Contains(b)));
 
 // flags-wire rule applies to every wire-visible class (stored or transient)
 foreach (var c in classes.Values) {
@@ -175,9 +215,10 @@ foreach (var c in classes.Values) {
     findings.Add($"[flags-wire] `{c.Name}.{name}` ({en}) missing {missing} — flags enums must not cross the GraphQL wire; use a numeric *Val mirror ({Rel(c.File)}:{line})");
 }
 
-// effective (inherited + auto) indexes per concrete [Table] entity
+// effective (inherited + auto) indexes per concrete entity
 var entities = new Dictionary<string, EffectiveModel>();
-foreach (var c in classes.Values.Where(c => c.Table != null && !c.IsAbstract)) {
+var boolDecls = new HashSet<(string cls, string prop, string file, int line)>();
+foreach (var c in classes.Values.Where(c => IsEntity(c) && !c.IsAbstract)) {
   var eff = new EffectiveModel();
   foreach (var link in Chain(c)) {
     foreach (var ix in link.Indexes) { eff.Indexes.Add(ix); }
@@ -186,8 +227,9 @@ foreach (var c in classes.Values.Where(c => c.Table != null && !c.IsAbstract)) {
       if (b is "ICreatedAt" or "IUpdatedAt" or "ITimeStampData") eff.TimeStamped = true;
       if (b is "ModelId" or "ModelNumber") eff.Indexes.Add(new List<string> { "Id" });
     }
-    foreach (var bp in link.BoolProps)
-      findings.Add($"[bool-column] `{c.Name}.{bp.name}` is a persisted bool — store it as a bit in the [Flags] enum column ({Rel(link.File)}:{bp.line})");
+    // Report each bool ONCE at its declaring class: a base's bools are inherited by every TPH
+    // leaf, and naming each leaf turns one declaration into N identical findings.
+    foreach (var bp in link.BoolProps) { boolDecls.Add((link.Name, bp.name, link.File, bp.line)); }
   }
   if (eff.Props.ContainsKey("Id")) eff.Indexes.Add(new List<string> { "Id" });
   if (eff.TimeStamped || eff.Props.ContainsKey("CreatedAt")) eff.Indexes.Add(new List<string> { "CreatedAt" });
@@ -198,10 +240,12 @@ foreach (var c in classes.Values.Where(c => c.Table != null && !c.IsAbstract)) {
   foreach (var ix in c.Indexes.Where(ix => ix.Any(col => eff.Props.TryGetValue(col, out var pt) && flagsEnums.ContainsKey(pt.TrimEnd('?')))))
     findings.Add($"[flags-index] `{c.Name}` declares [ApiIndex({string.Join(", ", ix)})] over a flags column — bitwise predicates can't use it ({Rel(c.File)})");
 }
+foreach (var (cls, prop, file, line) in boolDecls)
+  findings.Add($"[bool-column] `{cls}.{prop}` is a persisted bool — store it as a bit in the [Flags] enum column ({Rel(file)}:{line})");
 
 // ---- pass 3: query sites ----
 foreach (string file in files) {
-  string src = File.ReadAllText(file);
+  string src = StripComments(File.ReadAllText(file));
   foreach (Match qm in queryForRx.Matches(src)) {
     string entity = qm.Groups[1].Value;
     if (!entities.TryGetValue(entity, out var eff)) { continue; }
@@ -261,7 +305,7 @@ if (hookMode) {                                                      // PostTool
   Console.Error.WriteLine(Outro);
   return 2;
 }
-Console.WriteLine($"IndexAudit: {files.Count} files, {entities.Count} [Table] entities, {flagsEnums.Count} [Flags] enums scanned; {baselined} known finding(s) baselined.");
+Console.WriteLine($"IndexAudit: {files.Count} files, {entities.Count} entities, {flagsEnums.Count} [Flags] enums scanned; {baselined} known finding(s) baselined.");
 if (fresh.Count == 0) {
   Console.WriteLine("No new findings.");
   return 0;
