@@ -283,6 +283,16 @@ pre-commit routine as well.
   Reading migrations is untouched; `dotnet ef migrations add|remove|script|list` is the allowed
   path. Escape hatch: `migration-guard: allow` in the content or command, with a reason.
   Anything under `.claude/hooks/` is exempt so the hooks themselves stay editable.
+
+  **The rule guards schema SHAPE, not DATA.** Structure is EF's to generate and a hand-written copy
+  desyncs the `ModelSnapshot`; carrying rows across a change is the half EF cannot generate, and
+  **data integrity outranks generated-shape purity** — a column dropped before its values are moved
+  loses them permanently, and no regenerated migration brings them back. So a migration that also
+  moves data (`UPDATE` / `INSERT INTO` / `DELETE FROM`, in a `migrationBuilder.Sql` block or
+  otherwise) is exempt from M1 and may be hand-written and hand-tuned; a purely structural one is
+  not, and a `*ModelSnapshot.cs` is never exempt however much SQL sits beside it. Write the data
+  half so it is idempotent — guard each step on `information_schema` — so an interrupted run
+  resumes instead of half-applying.
 - **`IndexAudit.cs`** — whole-repo heuristic audit (`dotnet run IndexAudit.cs -- <repo-root>`):
   cross-references every `Filter`/`SortAsc`/`FilterKeyIn`/`ResolveArray` column against
   declared `[ApiIndex]`/`[ApiKey]`/auto-indexes, and re-checks the §1 flags rules with

@@ -11,9 +11,19 @@
 // Rules doc: inzania-engine/Docs/data-design.md §6; per-project workflow: the owning
 // Migrations/README.md (Chordzy: TuneWeb/Server/Migrations/README.md).
 //
+// ⚠️ The rule guards schema SHAPE, not DATA. Structure is EF's to generate and a hand-written copy
+// desyncs the ModelSnapshot; carrying rows across a change is the half EF cannot generate, and
+// DATA INTEGRITY OUTRANKS GENERATED-SHAPE PURITY — a column dropped before its values are moved
+// loses them permanently, and no regenerated migration brings them back. So a migration that moves
+// data (M1a) may be hand-written and hand-tuned; a purely structural one may not.
+//
 // BLOCK rules:
 //  M1  Hand-written migration file: Write/Edit of any *.cs under a Migrations/ folder, or of a
 //      *ModelSnapshot.cs anywhere.
+//  M1a EXEMPTION to M1 — the migration also MOVES DATA (UPDATE / INSERT INTO / DELETE FROM, in a
+//      migrationBuilder.Sql block or otherwise). EF generates no data half, so this is authored by
+//      hand by definition and must stay tunable. The exemption is for the data migration itself;
+//      a *ModelSnapshot.cs is never exempt (it is pure generated shape and holds no data).
 //  M2  Shell write to a migration file: a mutating command (>, >>, tee, sed -i, cp, mv, rm, touch,
 //      patch, truncate, install) whose target is a Migrations/*.cs path.
 //  M3  Ad-hoc DDL through a SQL client: mysql/mariadb/mysqlsh/mycli invoked with CREATE/ALTER/DROP/
@@ -49,24 +59,32 @@ else if (ti.TryGetProperty("edits", out var edits) && edits.ValueKind == JsonVal
   content = string.Join("\n", edits.EnumerateArray().Select(e => e.TryGetProperty("new_string", out var s) ? s.GetString() ?? "" : ""));
 string norm = path.Replace('\\', '/');
 
-// Exemptions: the hooks themselves, and an explicitly justified escape hatch.
+// Exemptions: the hooks themselves, and an explicitly justified escape hatch. The marker is looked
+// up in the FILE ON DISK as well as in the edit — an Edit's payload is only the replaced fragment,
+// so a file that already carries the marker must not be blocked because this hunk omits it.
 const string Allow = "migration-guard: allow";
 if (norm.Contains("/.claude/hooks/") || norm.StartsWith(".claude/hooks/")) return 0;
 if (command.Contains(".claude/hooks/")) return 0;
-if (content.Contains(Allow) || command.Contains(Allow)) return 0;
+string onDisk = norm.Length > 0 && File.Exists(path) ? File.ReadAllText(path) : "";
+if (content.Contains(Allow) || onDisk.Contains(Allow) || command.Contains(Allow)) return 0;
 
 const string Ddl = @"\b(CREATE|ALTER|DROP|RENAME|TRUNCATE)\s+(TABLE|INDEX|DATABASE|SCHEMA|COLUMN)\b|\b(ADD|DROP|MODIFY|CHANGE)\s+COLUMN\b";
 const string Fix = "Change the [Table] model instead, then run `dotnet ef migrations add <PascalCaseName> --project <ServerProject> --startup-project <ServerProject> -c Release` so EF regenerates the migration and the ModelSnapshot together.";
+// DML = the data half of a migration, which EF never generates (see M1a in the header).
+const string Dml_ = @"\b(UPDATE|INSERT\s+INTO|DELETE\s+FROM)\b";
 var ddlRx = new Regex(Ddl, RegexOptions.IgnoreCase);
+var Dml = new Regex(Dml_, RegexOptions.IgnoreCase);
 var blocks = new List<string>();
 var warns = new List<string>();
 
 // ---- File edits (Write|Edit|MultiEdit) ----
 if (norm.Length > 0) {
-  // M1 — hand-written migration / snapshot
-  if (Regex.IsMatch(norm, @"(^|/)Migrations/.*\.cs$", RegexOptions.IgnoreCase) ||
-      Regex.IsMatch(norm, @"ModelSnapshot\.cs$", RegexOptions.IgnoreCase))
-    blocks.Add($"`{path}` is EF-generated. Hand-written or hand-edited migrations desync the ModelSnapshot from the model, and every later migration is then generated against a schema that does not exist. {Fix} To undo the last unapplied one use `dotnet ef migrations remove --force`; to inspect the SQL use `dotnet ef migrations script`.");
+  // M1 — hand-written migration / snapshot, unless M1a: it moves data (see the header). A snapshot
+  // is pure generated shape, so it is never exempt however much SQL sits next to it.
+  bool isSnapshot = Regex.IsMatch(norm, @"ModelSnapshot\.cs$", RegexOptions.IgnoreCase);
+  bool movesData = !isSnapshot && Dml.IsMatch(content + onDisk);
+  if ((Regex.IsMatch(norm, @"(^|/)Migrations/.*\.cs$", RegexOptions.IgnoreCase) || isSnapshot) && !movesData)
+    blocks.Add($"`{path}` is EF-generated. Hand-written or hand-edited migrations desync the ModelSnapshot from the model, and every later migration is then generated against a schema that does not exist. {Fix} To undo the last unapplied one use `dotnet ef migrations remove --force`; to inspect the SQL use `dotnet ef migrations script`. This rule guards schema SHAPE only — a migration that also MOVES DATA (a backfill UPDATE, an INSERT carrying rows through a rewrite) may be hand-written, because data integrity outranks generated-shape purity and EF cannot generate the data half. If this one preserves data, say so in its SQL; if the project has no design-time context factory (so the CLI cannot build the context at all), add `{Allow}` with a reason.");
 
   // M4 — DDL in application code / a hand-rolled .sql schema file
   if (norm.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && content.Length > 0) {
