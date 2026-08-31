@@ -97,21 +97,25 @@ MySqlConnector, so every SQL statement is a `mysql.query` span on service **`cho
   command logs exist (see level above); exceptions and `[DB]` warnings do.
 - `<ms>` = epoch milliseconds; the UI accepts `start`/`end` and `paused=true` for a fixed window.
 
-**Database Monitoring (DBM) is NOT enabled** — `https://app.datadoghq.com/databases` lands on
-the setup wizard, so there are no normalized query metrics, explain plans, or wait events from the
-MySQL side. To enable it for the AWS RDS instance (no agent can run on RDS itself):
-1. Run a Datadog Agent in the kops cluster (Helm chart or the existing DaemonSet) with the
-   `mysql` integration: `instances: - host: <rds-endpoint> port: 3306 username: datadog
-   password: <secret> dbm: true` plus `tags: [env:production, service:chordzy-mysql]` so DBM
-   correlates with the APM service (`chordzy-mysql`).
-2. In the RDS parameter group set `performance_schema=1`,
-   `performance-schema-consumer-events-statements-current=ON`,
-   `performance-schema-consumer-events-waits-current=ON`,
-   `performance-schema-consumer-events-statements-history-long=ON`,
-   `performance_schema_max_digest_length=4096`, `performance_schema_max_sql_text_length=4096`
-   (reboot required), and add the `datadog` schema + `explain_statement` procedure from
-   Datadog's MySQL DBM docs.
-3. `CREATE USER datadog@'%'; GRANT REPLICATION CLIENT, PROCESS ON *.* TO datadog@'%'; GRANT
-   SELECT ON performance_schema.* TO datadog@'%';` (+ `EXECUTE` on the datadog schema).
-4. Optionally the `aws` integration with RDS enhanced monitoring for host metrics.
-After that, the DBM query page is `https://app.datadoghq.com/databases/queries?env=production`.
+**Database Monitoring (DBM) was enabled 2026-08-30** for the RDS instance `inzania-sql`
+(MySQL 8.4, hosts production + staging + auth schemas). Setup lives outside this repo, in the
+moongate deployment tree (`$ZSYNC/moongate/datadog/inzania/values.yaml`): the `mysql` check runs
+as a **cluster check** (`dbm: true`, tag `dbinstanceidentifier:inzania-sql`) dispatched by the
+cluster agent to one node agent; the DB password is the Kubernetes Secret `btd/datadog-mysql`
+resolved via the agent secret backend (`ENC[k8s_secret@…]`). On the DB side the `datadog` user
+(REPLICATION CLIENT, PROCESS, SELECT on performance_schema, max 5 connections) plus the
+`datadog` schema and `explain_statement` procedures (in `chordzy_production`, `chordzy_staging`,
+`chordzy_auth`) exist. `options.replication: false` is set because agent 7.57's check still
+issues `SHOW MASTER STATUS`, removed in MySQL 8.4.
+
+- `mysql.*` instance metrics (connections, buffer pool, locks…) flow now; DBM pages:
+  `https://app.datadoghq.com/databases` (instance `inzania-sql`), query metrics at
+  `https://app.datadoghq.com/databases/queries?env=production`.
+- Query metrics / samples / explain plans additionally require `performance_schema=1`, which is
+  OFF until the RDS parameter group `inzania-mysql84-dbm` (performance_schema + 4096 digest/sql
+  text lengths) is attached and the instance **rebooted** — check
+  `SELECT @@performance_schema` before debugging "no query data".
+- MCP route: `find_datadog_database_instances` (tags `dbinstanceidentifier:inzania-sql`) →
+  `get_datadog_database_query_performance` / `..._statement` / `search_datadog_database_samples` /
+  `get_datadog_database_recommendations`.
+- Optionally the `aws` integration with RDS enhanced monitoring for host metrics (not set up).
