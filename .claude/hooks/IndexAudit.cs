@@ -1,23 +1,59 @@
 // inzania-engine IndexAudit — whole-repo database-design audit (.NET 10 file-based app).
 //   dotnet run inzania-engine/.claude/hooks/IndexAudit.cs -- <repo-root> [--strict]
+//   dotnet run inzania-engine/.claude/hooks/IndexAudit.cs -- --hook   (Claude Code PostToolUse)
 // Heuristic, regex-based cross-reference of the rules in inzania-engine/Docs/data-design.md that a
 // per-edit hook cannot check: it builds the model map ([Table] classes, their properties, declared
 // [ApiIndex]/[ApiKey], inherited indexes, auto-indexed columns) and then verifies every
 // Filter/SortAsc/FilterKeyIn query site against it, plus the cross-file [Flags] rules (which also
 // cover wire-only ApiObject/TransientObject classes).
 // Advisory by default (exit 0); --strict exits 1 when findings exist.
+// --hook mode: reads the PostToolUse JSON from stdin and exits 0 immediately unless the edited
+// file is .cs AND the edit *introduces* query surface or index-shaping attributes (QueryFor /
+// Filter / Sort / FilterKeyIn / [ApiIndex] / [ApiKey] / [Table] present in the new content and,
+// for Edits, more of them than in the replaced text). Only then does it run the full audit,
+// rooted at $CLAUDE_PROJECT_DIR; NEW (non-baselined) findings are reported on stderr with exit 2
+// so they are fed back to the model. Wire it as PostToolUse (matcher Write|Edit|MultiEdit).
 // Known approximations (by design — this is a linter, not a compiler):
 //  - properties/attributes are associated to the nearest preceding class declaration in the file;
 //  - every property ending in `Id` is assumed FK-auto-indexed;
 //  - a query is "covered" when ANY declared/auto index leads with one of its filter columns
 //    (or its sort column when there is no filter) — column order quality is not verified;
 //  - navigation/collection properties inside predicates are ignored (they become SQL joins).
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 var roots = new List<string>();
-bool strict = false;
+bool strict = false, hookMode = false;
 foreach (string a in args) {
-  if (a == "--strict") { strict = true; } else { roots.Add(a); }
+  if (a == "--strict") { strict = true; } else if (a == "--hook") { hookMode = true; } else { roots.Add(a); }
+}
+
+// Gate patterns: an edit is audit-worthy when it adds query surface or index-shaping attributes.
+var gateRx = new Regex(@"QueryFor<|\.Filter\(|\.Where\(|\.SortAsc\(|\.SortDsc\(|\.FilterKeyIn\(|\[ApiIndex|\[ApiKey|\[Table\(");
+if (hookMode) {
+  string stdin = Console.In.ReadToEnd();
+  if (string.IsNullOrWhiteSpace(stdin)) return 0;
+  JsonDocument hookDoc;
+  try { hookDoc = JsonDocument.Parse(stdin); } catch { return 0; }
+  if (!hookDoc.RootElement.TryGetProperty("tool_input", out var hti)) return 0;
+  string hookPath = hti.TryGetProperty("file_path", out var hfp) ? hfp.GetString() ?? "" : "";
+  if (!hookPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) return 0;
+  string newText = "", oldText = "";
+  if (hti.TryGetProperty("content", out var hc)) { newText = hc.GetString() ?? ""; }
+  else if (hti.TryGetProperty("new_string", out var hns)) {
+    newText = hns.GetString() ?? "";
+    if (hti.TryGetProperty("old_string", out var hos)) oldText = hos.GetString() ?? "";
+  } else if (hti.TryGetProperty("edits", out var hEdits) && hEdits.ValueKind == JsonValueKind.Array) {
+    foreach (var e in hEdits.EnumerateArray()) {
+      newText += (e.TryGetProperty("new_string", out var en) ? en.GetString() : "") + "\n";
+      oldText += (e.TryGetProperty("old_string", out var eo) ? eo.GetString() : "") + "\n";
+    }
+  }
+  // "New query": more gate matches in the new text than in the text it replaced.
+  if (gateRx.Matches(newText).Count <= gateRx.Matches(oldText).Count) return 0;
+  string projectDir = Environment.GetEnvironmentVariable("CLAUDE_PROJECT_DIR") ?? Directory.GetCurrentDirectory();
+  roots.Clear();
+  roots.Add(projectDir);
 }
 if (roots.Count == 0) roots.Add(Directory.GetCurrentDirectory());
 
@@ -213,6 +249,14 @@ static string StripLoc(string f) {                                   // drop onl
 var ordered = findings.Distinct().OrderBy(f => f).ToList();
 var fresh = ordered.Where(f => !baseline.Contains(StripLoc(f))).ToList();
 int baselined = ordered.Count - fresh.Count;
+const string Outro = "Findings are heuristic: verify against real query traffic (Datadog APM `<app>-mysql` service / DBM) before adding or removing an index. Genuinely-accepted findings go in .claude/IndexAudit.baseline with a justifying comment.";
+if (hookMode) {                                                      // PostToolUse: silent unless NEW findings
+  if (fresh.Count == 0) return 0;
+  Console.Error.WriteLine($"index-audit: the edit introduced query/index surface and the repo-wide audit now has {fresh.Count} new finding(s):");
+  foreach (string f in fresh) { Console.Error.WriteLine("  " + f); }
+  Console.Error.WriteLine(Outro);
+  return 2;
+}
 Console.WriteLine($"IndexAudit: {files.Count} files, {entities.Count} [Table] entities, {flagsEnums.Count} [Flags] enums scanned; {baselined} known finding(s) baselined.");
 if (fresh.Count == 0) {
   Console.WriteLine("No new findings.");
@@ -220,7 +264,7 @@ if (fresh.Count == 0) {
 }
 Console.WriteLine($"{fresh.Count} new finding(s):");
 foreach (string f in fresh) { Console.WriteLine("  " + f); }
-Console.WriteLine("Findings are heuristic: verify against real query traffic (Datadog APM `<app>-mysql` service / DBM) before adding or removing an index. Genuinely-accepted findings go in .claude/IndexAudit.baseline with a justifying comment.");
+Console.WriteLine(Outro);
 return strict ? 1 : 0;
 
 string Rel(string p) {
