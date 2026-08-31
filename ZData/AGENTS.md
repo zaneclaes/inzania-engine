@@ -108,13 +108,11 @@ resolved via the agent secret backend (`ENC[k8s_secret@…]`). On the DB side th
 `chordzy_auth`) exist. `options.replication: false` is set because agent 7.57's check still
 issues `SHOW MASTER STATUS`, removed in MySQL 8.4.
 
-- `mysql.*` instance metrics (connections, buffer pool, locks…) flow now; DBM pages:
-  `https://app.datadoghq.com/databases` (instance `inzania-sql`), query metrics at
-  `https://app.datadoghq.com/databases/queries?env=production`.
-- Query metrics / samples / explain plans additionally require `performance_schema=1`, which is
-  OFF until the RDS parameter group `inzania-mysql84-dbm` (performance_schema + 4096 digest/sql
-  text lengths) is attached and the instance **rebooted** — check
-  `SELECT @@performance_schema` before debugging "no query data".
+- Fully live since 2026-08-31: the RDS parameter group `inzania-mysql84-dbm`
+  (`performance_schema=1` + 4096 digest/sql-text lengths) is attached and the instance was
+  rebooted; query metrics, query/activity samples (wait events, lock time, index usage) and
+  explain plans all flow. DBM pages: `https://app.datadoghq.com/databases` (instance
+  `inzania-sql`), query metrics at `https://app.datadoghq.com/databases/queries?env=production`.
 - MCP route: `find_datadog_database_instances` (tags `dbinstanceidentifier:inzania-sql`) →
   `get_datadog_database_query_performance` / `..._statement` / `search_datadog_database_samples` /
   `get_datadog_database_recommendations`.
