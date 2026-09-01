@@ -15,6 +15,11 @@ public static class DependencyInjection {
     this IServiceCollection sc, TApp app, TRoot? rootSingleton = null
   ) where TApp : ZApp where TRoot : class, IZRootContext {
     if (rootSingleton != null) sc.AddSingleton<IZRootContext>(rootSingleton);
+    // ⚠️ NOT the way to make `dotnet ef` work — derive from ZDesignTimeDbContextFactory in the
+    // startup project instead. This variable changes the app's real context lifetime: every caller
+    // gets its OWN root context rather than sharing the request's, and a shell that exports it once
+    // keeps doing so for the server it later runs. The factory opens a scope instead and leaves
+    // every registration alone.
     else if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZTRANSIENT"))) sc.AddTransient<IZRootContext, TRoot>();
     else if (app.IsRootSingleton) sc.AddSingletons<IZRootContext, TRoot>();
     else sc.AddScoped<IZRootContext, TRoot>(); // lives for an entire HTTP request

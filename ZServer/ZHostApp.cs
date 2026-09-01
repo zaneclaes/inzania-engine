@@ -68,6 +68,20 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     _builder.Services.AddZServerCore(this);
   }
 
+  /// <summary>
+  /// Builds the application's DI container and NOTHING else — no migrations, no seeds, no workers,
+  /// no HTTP listener, no database connection (all of which live in the host's own start-up path).
+  ///
+  /// <para>This exists for tooling that needs the app's REAL registrations without running the app:
+  /// <see cref="Design.ZDesignTimeDbContextFactory{TApp,TDb}" /> (so `dotnet ef` can construct a
+  /// context whose dependencies only this container can supply) and any snapshot/codegen tool a
+  /// consuming project writes. The caller owns the returned provider and must dispose it.</para>
+  /// </summary>
+  public async Task<ServiceProvider> BuildServicesAsync() {
+    await BuildAsync();
+    return _builder.Services.BuildServiceProvider();
+  }
+
   protected WebApplication? WebApp { get; private set; }
 
   protected abstract IDataSeed[] DataSeeds { get; }

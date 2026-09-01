@@ -41,6 +41,18 @@ driving Claude — so the one check that must hold for the *whole commit* lives 
 has-pending-model-changes`; no database needed). Consuming repos call it from their own `pre-commit`
 and configure it with `<repo-root>/ci/migration-check.json`. Details: `ci/README.md`.
 
+⚠️ That check — and every other `dotnet ef` command — needs the CLI to be able to CONSTRUCT the
+context, which it cannot do unaided: a `ZDbContext` takes an `IZContext`, which resolves through the
+SCOPED `IZRootContext` (`DependencyInjection.AddZApp`), and EF asks the ROOT provider, failing with
+`Cannot resolve 'IZ.Core.Contexts.IZContext' from root provider because it requires scoped service
+'IZ.Core.Contexts.IZRootContext'`. The fix is one class in the startup project deriving from
+**`ZServer/Design/ZDesignTimeDbContextFactory.cs`** (`ZDesignTimeDbContextFactory<TApp,TDb>`), which
+builds the app's own container via `ZHostApp.BuildServicesAsync()` and resolves the context inside a
+scope. Do NOT reach for the `ZTRANSIENT` environment variable: it makes `IZRootContext` transient so
+the root provider can serve it, which changes the app's real context lifetime — every caller gets
+its own root context instead of sharing the request's — and it persists in any shell that exported
+it.
+
 **How an API class becomes callable — no registration step.** An API class (a concrete
 `ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` subclass with `IZResult<>` methods) is invoked two
 ways, and both are reflective. Over the wire, HotChocolate resolves it from the scanned method map
