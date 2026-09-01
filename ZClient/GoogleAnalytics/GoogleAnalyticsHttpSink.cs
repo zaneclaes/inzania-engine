@@ -71,6 +71,12 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   public ZTask SendEvent(AnalyticsEvent e) {
 #if UNITY_WEBGL && !UNITY_EDITOR
       try {
+        // Stamped like the HTTP branch below, so engine-direct events from the WebGL runtime carry the
+        // same install/session params as everything else.
+        e.EventParams ??= new BaseParams();
+        if (_installation != null) e.EventParams.LoadInstallation(_installation);
+        if (e.EventParams.SessionId == 0) e.EventParams.SessionId = SessionId;
+        e.EventParams.SessionNumber = _installation?.LaunchNumber ?? 0;
         GAEvent(e.Name, ZJson.SerializeObject(e.EventParams));
         return ZTask.CompletedTask;
       } catch (Exception ex) {
@@ -83,7 +89,9 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     var req = new GaParams(_clientId, GetAnalyticsUserId(_userIdentity?.IZUser), _userProps);
     e.EventParams ??= new BaseParams();
     if (_installation != null) e.EventParams.LoadInstallation(_installation);
-    e.EventParams.SessionId = SessionId;
+    // An emitter that already stamped a session id (TuneAnalytics, which mirrors the same event into
+    // UserEvent) keeps it — overwriting it here gave GA and the database different ids for one run.
+    if (e.EventParams.SessionId == 0) e.EventParams.SessionId = SessionId;
     e.EventParams.SessionNumber = _installation?.LaunchNumber ?? 0;
     req.Events.Add(e);
     string json = ZJson.SerializeObject(req);

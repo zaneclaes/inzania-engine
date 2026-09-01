@@ -67,8 +67,14 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     ProcessQueue();
   }
 
-  public ZTask SetUserProperties(IZIdentity? identity, Dictionary<string, object>? props = null) =>
-    _sink?.SetIdentity(identity, MergeUserProps(props)) ?? ZTask.CompletedTask;
+  public ZTask SetUserProperties(IZIdentity? identity, Dictionary<string, object>? props = null) {
+    // A new user starts with no properties, as in Configure: merging onto the previous user's set
+    // would re-send their tier, streak and lesson under the new user_id (logout → visitor is the
+    // common case, since a visitor's own set is nearly empty).
+    if (_identity?.IZUser?.Id != identity?.IZUser?.Id) _userProps.Clear();
+    _identity = identity;
+    return _sink?.SetIdentity(identity, MergeUserProps(props)) ?? ZTask.CompletedTask;
+  }
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
     if (_sink == null) {
