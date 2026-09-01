@@ -74,7 +74,9 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
         GAEvent(e.Name, ZJson.SerializeObject(e.EventParams));
         return ZTask.CompletedTask;
       } catch (Exception ex) {
-        Log.Error(ex, "Failed to send event {name} {@params}", e.Name, e.EventParams);
+        // Warning, not Error: an Error log re-enters the app's error->analytics handler, so a
+        // persistently failing GA endpoint would otherwise storm itself with exception events.
+        Log.Warning(ex, "Failed to send event {name} {@params}", e.Name, e.EventParams);
         return ZTask.CompletedTask;
       }
 #else

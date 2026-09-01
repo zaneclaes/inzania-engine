@@ -16,5 +16,19 @@ namespace IZ.Core.Navigation;
 public static class PageViews {
   public static Action<string, string?>? OnPageView { get; set; }
 
-  public static void Raise(string path, string? title) => OnPageView?.Invoke(path, title);
+  public static bool HasSubscribers => OnPageView != null;
+
+  /// <summary>
+  /// One human navigation can reach <see cref="Raise" /> twice: once on the route change and again
+  /// when async content arrives and refines the title (<c>CurrentPage.SetContent</c>). The dedup
+  /// lives here — the one funnel both call sites share — so a title-only refinement of the same path
+  /// never counts as a second view, while a real path change (A → B → A included) always raises.
+  /// </summary>
+  private static string? _lastPath;
+
+  public static void Raise(string path, string? title) {
+    if (path == _lastPath) return;
+    _lastPath = path;
+    OnPageView?.Invoke(path, title);
+  }
 }

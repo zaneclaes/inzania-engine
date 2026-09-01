@@ -116,6 +116,11 @@ public abstract class ZApp : IGetLogged, IDisposable {
 
   public string Url => $"{HttpProtocol}://{Fqdn}";
 
+  // The URL search engines should index. Unlike Url this never points at staging.<domain> or
+  // localhost — sitemap <loc>s and canonical tags must always advertise the production host,
+  // whichever environment happens to render them.
+  public string CanonicalUrl => $"https://{ProductDomainName}";
+
   public string Cdn => $"https://{(Env == ZEnvironment.Production ? "assets" : "assets-staging")}.{ProductDomainName}";
 
   private string ApiFqdn => Env == ZEnvironment.Production ? $"production.{DomainName}" : Fqdn;

@@ -58,8 +58,11 @@ public class CurrentPage<TPage, TLink, TMap> : TransientObject
   }
 
   public void SendPageView() {
-    // Context.Log.Information("[GA] {path} => {page}", Path, Title);
-    Context.Analytics?.PageView(Path, Title);
+    // The PageViews hook is the single analytics path: the consuming app's subscriber forwards each
+    // view to GA *and* to its own store (Chordzy: TuneAnalytics -> GA + UserEvent). Also sending the
+    // engine GA event here double-counted every view, so the direct send is only a fallback for apps
+    // with no subscriber (ZGoogleAnalytics.PageView dedupes repeats of the same path itself).
+    if (!PageViews.HasSubscribers) Context.Analytics?.PageView(Path, Title);
     PageViews.Raise(Path, Title);
   }
 

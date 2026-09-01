@@ -44,7 +44,9 @@ public interface ISitemapImage {
 public static class SitemapPageExtensions {
 
   public static XElement ToSitemapXml(this ISitemapPage page, IZContext context) {
-    var url = new XElement(Sitemap.XmlNs + "url", new XElement(Sitemap.XmlNs + "loc", context.App.Url + "/" + page.CanonicalPath));
+    // CanonicalUrl, not Url: a sitemap must list canonical (production) locations even when the
+    // staging or dev server generates it.
+    var url = new XElement(Sitemap.XmlNs + "url", new XElement(Sitemap.XmlNs + "loc", context.App.CanonicalUrl + "/" + page.CanonicalPath));
 
     // if (ChangeFrequency != null) url.Add(new XElement("changefreq", ChangeFrequency));
     // if (Priority != null) url.Add(new XElement("priority", Priority.Value.ToString("0.0")));
