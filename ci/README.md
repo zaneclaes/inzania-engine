@@ -11,6 +11,10 @@ actually about to land.
 | `PendingMigrations.cs` | `pre-commit` | A commit whose EF model is ahead of its migrations — i.e. `dotnet ef migrations add <Name>` would *not* be a no-op. |
 | `SubmodulesPushed.cs` | `pre-push` | A push whose commits point a submodule at an object that submodule's own remote does not have. |
 
+**`install.cs` is how a repo picks all of this up** — git hooks *and* the engine's Claude guards, in one
+idempotent command. See [`install.cs`](#installcs--the-one-command-a-consuming-repo-runs) below; the
+Claude side is declared in `claude-hooks.json`.
+
 ## `PendingMigrations.cs`
 
 `data-design.md` §6 makes `dotnet ef migrations add` the only producer of schema changes, and the app
@@ -118,3 +122,37 @@ Run it by hand (or in CI) with `--all`, which ignores stdin and checks the gitli
 - **Warn only** — uncommitted changes in a submodule. The recorded gitlink is what CI checks out, so
   local edits cannot break the build; they just mean the push carries less than it looks like it does.
 - Bypass one push with `SKIP_SUBMODULE_CHECK=1 git push …`.
+
+## `install.cs` — the one command a consuming repo runs
+
+```sh
+dotnet run inzania-engine/ci/install.cs             # install / update
+dotnet run inzania-engine/ci/install.cs -- --check  # report drift, write nothing (exit 1 if drifted)
+```
+
+Installs **both** hook systems, because they are complementary and forgetting either is silent:
+
+1. **Git hooks** — symlinks the *consuming repo's* own `ci/hooks/*` scripts into `.git/hooks/`
+   (skipping the `.cs` files there, which are the reusable checks those scripts call, not hooks).
+   Symlinks rather than `core.hooksPath`, because git-lfs owns
+   `.git/hooks/{post-checkout,post-commit,post-merge,pre-push}` and redirecting the path would
+   disable them with no error. A repo hook that takes over one of those four must chain to lfs
+   itself; the installer refuses to install one that does not, since silently stopping large-file
+   uploads is worse than a failed install.
+2. **Claude hooks** — merges this directory's `claude-hooks.json` into the repo's
+   `.claude/settings.json`.
+
+`claude-hooks.json` is the single source of truth for the engine's Claude guards (`DbGuard`,
+`ApiAuthGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every repo picks it up on its next
+`install`; drop one and every repo loses it. `$ENGINE` in a command expands to the engine's path
+relative to the consuming repo root, so vendoring it under a different name needs no configuration.
+
+**How the merge stays safe.** Engine-owned entries are recognized by their command pointing into the
+engine's `.claude/hooks/` folder. The installer strips exactly those and re-adds them from the
+manifest, so one pass converges on additions, command/timeout edits, matcher moves and deletions
+alike — while every hook the repo declares for itself (Chordzy's `RepoGuard.cs`) is left untouched.
+Nothing is written into `settings.json` to mark ownership, so this does not depend on Claude Code
+tolerating unknown fields, and other top-level settings keys are preserved. It is idempotent: a
+second run reports "everything already current" and rewrites nothing.
+
+An invalid `settings.json` is reported and left alone rather than overwritten.

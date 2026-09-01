@@ -1,0 +1,44 @@
+// Claude Code hooks the engine owns, installed into a consuming repo's .claude/settings.json by
+// ci/install.cs. This file is the single source of truth: add a guard here and every repo picks it up
+// on its next `install`; remove one here and every repo drops it. Entries the repo itself declares are
+// left alone — the installer only touches entries whose command points into the engine's hooks folder.
+//
+// $ENGINE expands to the engine's path relative to the consuming repo root (e.g. "inzania-engine"),
+// so a repo that vendors it somewhere else still gets working commands.
+//
+// JSON with // comments and trailing commas allowed.
+{
+  "hooks": [
+    {
+      // Query and model anti-patterns: DB calls inside loops, persisted bool columns, missing indexes.
+      // Canonical rules: Docs/data-design.md.
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit",
+      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/DbGuard.cs\"",
+      "timeout": 60,
+    },
+    {
+      // An unauthorized endpoint that dereferences the current identity or writes data.
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit",
+      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/ApiAuthGuard.cs\"",
+      "timeout": 60,
+    },
+    {
+      // Hand-rolled schema changes. Matches Bash too, since DDL can arrive through a mysql client or
+      // ExecuteSqlRaw rather than an editor tool (data-design.md §6).
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit|Bash",
+      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/MigrationGuard.cs\"",
+      "timeout": 60,
+    },
+    {
+      // Whole-repo index audit, gated to edits that touch query surface. Accepted debt is pinned in
+      // the repo's own .claude/IndexAudit.baseline.
+      "event": "PostToolUse",
+      "matcher": "Write|Edit|MultiEdit",
+      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/IndexAudit.cs\" -- --hook",
+      "timeout": 90,
+    },
+  ],
+}
