@@ -218,6 +218,10 @@ public class {className} : ZObjectDescriptor {{
     if (t == typeof(decimal)) return decimal.Parse(val);
     if (t == typeof(byte)) return byte.Parse(val);
     if (t == typeof(bool)) return bool.Parse(val);
+    // The mirror of HotChocolateParameterConverter: these scalars cross the wire as strings.
+    if (t == typeof(DateTime)) return DateTimeUtils.ParseApiString(val);
+    if (t == typeof(Guid)) return Guid.TryParse(val, out var guid) ? guid : (object?) null;
+    if (t == typeof(char)) return val.Length > 0 ? val[0] : (object?) null;
     if (t.IsEnum) return val.IsNumeric() ? int.Parse(val) : Enum.Parse(t, val, true);
     ZEnv.Log.Warning("[TYPE] {type} unknown from {val} ({scalar})", t.Name, val, t.IsScalar() ? "scalar" : "non-scalar");
     return val;

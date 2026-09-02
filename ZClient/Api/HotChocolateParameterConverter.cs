@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
+using IZ.Core.Utils;
 
 #if !Z_UNITY
 using HotChocolate.Language;
@@ -40,6 +41,12 @@ public class HotChocolateParameterConverter : LogicBase, IParameterConverter {
       if (arg is double doubleVal) return new FloatValueNode(doubleVal);
       if (arg is decimal decVal) return new FloatValueNode(decVal);
       if (arg is Enum e) return new EnumValueNode(e.ToString());
+      // DateTime/Guid/char are scalars per TypeUtils but have no GraphQL literal of their own; they
+      // travel as strings, in the exact format ZObjectDescriptor.ConvertValue parses on the far end.
+      if (arg is DateTime dateVal) return new StringValueNode(dateVal.ToApiString());
+      if (arg is DateTimeOffset offsetVal) return new StringValueNode(offsetVal.UtcDateTime.ToApiString());
+      if (arg is Guid guidVal) return new StringValueNode(guidVal.ToString());
+      if (arg is char charVal) return new StringValueNode(charVal.ToString());
       throw new ArgumentException($"{arg.GetType().Name} cannot be translated into a value node");
     }
     // if (!(arg is ApiObject obj)) return arg;

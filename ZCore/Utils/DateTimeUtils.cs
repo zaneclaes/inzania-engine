@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 #endregion
 
@@ -121,5 +122,31 @@ public static class DateTimeUtils {
   public static string ToAgeHoursDays(this DateTime utcDateTime) {
     var age = DateTime.UtcNow - utcDateTime;
     return age.ToAgeHoursDays();
+  }
+
+  /// <summary>
+  /// The wire form of a <see cref="DateTime" /> crossing the API: ISO-8601, milliseconds, explicit
+  /// `Z`. GraphQL has no date literal, so these travel as strings — and HotChocolate's DateTime
+  /// scalar rejects a string with no offset, which is what a plain `ToString("s")` or a
+  /// <see cref="DateTimeKind.Unspecified" /> round-trip produces. Kind is normalized to UTC first
+  /// (the engine keeps every stored instant in UTC via <c>ZEnv.Now</c>), so a local-kind value from
+  /// a client is converted rather than silently relabelled.
+  /// </summary>
+  public static string ToApiString(this DateTime dt) {
+    var utc = dt.Kind == DateTimeKind.Local ? dt.ToUniversalTime() :
+      DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+    return utc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
+  }
+
+  /// <summary>
+  /// Parses what <see cref="ToApiString" /> writes back into a UTC <see cref="DateTime" />, and
+  /// tolerates any other ISO-8601 form a client might send. Returns null when the value is unusable
+  /// — callers on the server treat that as "absent" rather than trusting a garbage instant.
+  /// </summary>
+  public static DateTime? ParseApiString(string? value) {
+    if (string.IsNullOrWhiteSpace(value)) return null;
+    if (!DateTime.TryParse(value, CultureInfo.InvariantCulture,
+          DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)) return null;
+    return DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
   }
 }

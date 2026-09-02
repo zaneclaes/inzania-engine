@@ -144,9 +144,37 @@ public static class ZSchema {
     List<ZObjectDescriptor> types = ZApi.TypeMap.ApiObjects.Values.ToList();
     foreach (var t in types) {
       if (t.ObjectType == typeof(IFileUpload)) continue;
+      // The map is not the API surface: ZJson adds a descriptor for any ApiObject it serializes, so
+      // JSON-only DTOs land here too — and a JSON-LD one names its fields `@type`/`@id`, which is not
+      // a legal GraphQL name. HotChocolate answers that by refusing to build the schema at all, i.e.
+      // every request 500s because of a type no query can even return. Leave such a type out (it was
+      // never reachable) instead of losing the whole API to it.
+      var illegal = GetIllegalGraphQlName(t);
+      if (illegal != null) {
+        ZEnv.Log.Warning("[TYPE] {type} is not exposed: `{name}` is not a valid GraphQL name",
+          t.ObjectType.FullName, illegal);
+        continue;
+      }
       descriptor = descriptor.AddType(GetZSchemaType(t.ObjectType, typeof(ZObjectType<>)));
     }
     return descriptor;
+  }
+
+  /// <summary>The type's own name or a field name that GraphQL cannot spell, or null if all are fine.</summary>
+  private static string? GetIllegalGraphQlName(ZObjectDescriptor type) {
+    if (!IsValidGraphQlName(type.TypeName)) return type.TypeName;
+    foreach (string fieldName in type.FieldMap.Keys)
+      if (!IsValidGraphQlName(fieldName)) return fieldName;
+    return null;
+  }
+
+  /// <summary>https://spec.graphql.org/October2021/#sec-Names — `/[_A-Za-z][_0-9A-Za-z]*/`.</summary>
+  private static bool IsValidGraphQlName(string name) {
+    if (string.IsNullOrEmpty(name)) return false;
+    if (!char.IsLetter(name[0]) && name[0] != '_') return false;
+    for (int i = 1; i < name.Length; i++)
+      if (!char.IsLetterOrDigit(name[i]) && name[i] != '_') return false;
+    return true;
   }
 
   public static void AddZRequestProperty(

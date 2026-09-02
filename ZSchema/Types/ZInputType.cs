@@ -24,6 +24,13 @@ public class ZInputType<TData> : InputObjectType<TData> where TData : ApiObject 
   protected override void Configure(IInputObjectTypeDescriptor<TData> descriptor) {
     ZEnv.Log.Verbose("[IN] {type}", typeof(TData));
     var zTypeDescriptor = ZApi.LoadTypeDescriptor(typeof(TData));
+    // Name the input type from the descriptor rather than letting HotChocolate's convention pick.
+    // The convention appends "Input" only when the CLR name does not already end in it, so a class
+    // called `FooInput` would be named `FooInput` as an input *and* as an object — a schema-wide
+    // "already registered by another type" failure that takes the entire API down. It is also the
+    // name the client emits: ExecutionPlan writes variable types via ObjectDescriptor.InputTypeName
+    // (always TypeName + "Input"), so anything else desyncs the two ends.
+    descriptor.Name(zTypeDescriptor.ObjectDescriptor.InputTypeName);
     foreach (string inputName in zTypeDescriptor.ObjectDescriptor.Inputs.Keys) {
       var prop = zTypeDescriptor.ObjectDescriptor.Inputs[inputName];
       ZEnv.Log.Verbose("[IN] [{type}] {arg} = {type}", typeof(TData), inputName, prop.FieldType);
