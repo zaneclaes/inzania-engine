@@ -67,22 +67,25 @@ public class ZObjectDescriptor : IAmInternal {
   public string GetSource(IZTypeMap typeMap, string className, string ns) {
     var inits = new List<string>();
     var usings = new HashSet<string>() {ObjectType.Namespace!, "System.Collections.Generic", "IZ.Core.Api", "IZ.Core.Api.Types"};
+    // TypeName is the SCHEMA's name for this type; the generated casts and `typeof`s need the C# one,
+    // which differs for every nested type (`FoldResult` cannot be resolved, `X.FoldResult` can).
+    string csName = ZTypeDescriptor.CSharpName(ObjectType);
     if (PolymorphicDiscriminatorName != null) {
       inits.Add($"PolymorphicDiscriminatorName = \"{PolymorphicDiscriminatorName}\";");
-      inits.Add($"PolymorphicTypes = new List<Type>() {{ typeof({string.Join("), typeof(", PolymorphicTypes.Select(t => t.Name))}) }};");
+      inits.Add($"PolymorphicTypes = new List<Type>() {{ typeof({string.Join("), typeof(", PolymorphicTypes.Select(ZTypeDescriptor.CSharpName))}) }};");
       foreach (var pt in PolymorphicTypes) usings.Add(pt.Namespace!);
     }
     var classes = new List<string>();
     foreach (var propName in _properties.Keys) {
       var prop = _properties[propName];
       var propClass = $"{className}_{prop.Name}_Property";
-      classes.Add(prop.GetClassSource(typeMap, propClass, TypeName, usings));
+      classes.Add(prop.GetClassSource(typeMap, propClass, csName, usings));
       inits.Add($"LoadProperty(new {propClass}(typeMap));");
     }
     foreach (var methodName in Methods.Keys) {
       var method = Methods[methodName];
       var methodClass = $"{className}_{method.Name}_Method";
-      classes.Add(method.GetClassSource(typeMap, methodClass, TypeName, usings));
+      classes.Add(method.GetClassSource(typeMap, methodClass, csName, usings));
       inits.Add($"LoadMethod(new {methodClass}(typeMap));");
     }
     return $@"using {string.Join(";\nusing ", usings)};
@@ -94,7 +97,7 @@ public class {className} : ZObjectDescriptor {{
     typeMap,
     ""{TypeName}"", 
     ""{InputTypeName}"",
-    typeof({ObjectType.Name}),
+    typeof({csName}),
     {IsFile.ToString().ToLowerInvariant()},
     {IsScalar.ToString().ToLowerInvariant()},
     {PacketDiscriminator}

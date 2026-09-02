@@ -104,7 +104,9 @@ public class ZApiTypeGenerator : IZTypeMap {
       var mgs = mg == "Query" ? "Queries" : $"{mg}s";
       var methodsDir = Path.Combine(dir, "Methods", mgs);
       var methodsNs = $"{ns}.Methods.{mgs}";
-      usings.Add(methodsNs);
+      // Only if the group actually emits a descriptor: a `using` of a namespace no file declares is
+      // CS0234, so a host with (say) no subscriptions could not compile its own generated type map.
+      if (ApiMethods[requestType].Values.Any(m => m.Count > 0)) usings.Add(methodsNs);
       // Claim the directory even when this group has no methods, so emptying a group prunes it.
       if (!written.ContainsKey(methodsDir)) written[methodsDir] = new HashSet<string>();
 

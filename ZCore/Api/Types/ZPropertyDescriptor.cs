@@ -125,8 +125,26 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     }
     var auth = Auth == null ? "null" : Auth.GetSource();
 
+    // The reflective descriptor reaches every property through PropertyInfo, so two shapes that are
+    // perfectly legal there are not expressible as the direct field access the generator emits:
+    //  - a STATIC property cannot be read or written off an instance (CS0176), and
+    //  - an `init` setter can only be assigned from an initializer or a constructor (CS8852).
+    // Both keep their descriptor — dropping them would change the schema — and fall back to exactly
+    // what the reflective path does. The generated descriptor carries no PropertyInfo of its own, so
+    // the fallback names the property on the type rather than deferring to the base implementation.
+    bool isStatic = PropertyInfo?.GetMethod?.IsStatic ?? PropertyInfo?.SetMethod?.IsStatic ?? false;
+    bool isInitOnly = PropertyInfo?.SetMethod?.ReturnParameter.GetRequiredCustomModifiers()
+      .Any(m => m.Name == "IsExternalInit") ?? false;
+    string instance = $"(o as {objectName} ?? throw new NullReferenceException($\"{{o.GetType()}} is not a {objectName}\"))";
+
+    var getter = isStatic
+      ? $"\n\n  public override object? GetValue(object o) =>\n    {objectName}.{Name};"
+      : $"\n\n  public override object? GetValue(object o) =>\n    {instance}.{Name};";
+
     var setter = !IsSettable ? "" :
-      $"\n\n  public override void SetValue(object o, object? val) =>\n    (o as {objectName} ?? throw new NullReferenceException($\"{{o.GetType()}} is not a {objectName}\")).{Name} = {rt.ToCast("val")};";
+      isInitOnly ? $"\n\n  public override void SetValue(object o, object? val) =>\n    typeof({objectName}).GetProperty(\"{Name}\")!.SetValue(o, val);" :
+      isStatic ? $"\n\n  public override void SetValue(object o, object? val) =>\n    {objectName}.{Name} = {rt.ToCast("val")};" :
+      $"\n\n  public override void SetValue(object o, object? val) =>\n    {instance}.{Name} = {rt.ToCast("val")};";
 
     List<string> inits = new List<string>();
     if (Order != -1) inits.Add($"Order = {Order};");
@@ -139,7 +157,9 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     if (ChildPropertyName != null) inits.Add($"ChildPropertyName = \"{ChildPropertyName}\";");
     if (ThroughPropertyType != null) {
       usings.Add(ThroughPropertyType.Namespace!);
-      inits.Add($"ThroughModelType = typeof({ThroughPropertyType.Name});");
+      // The property is ThroughPropertyType; `ThroughModelType` names nothing and was a CS0103 in
+      // every generated descriptor for a many-to-many navigation.
+      inits.Add($"ThroughPropertyType = typeof({ZTypeDescriptor.CSharpName(ThroughPropertyType)});");
     }
     if (ChildDeleteBehavior != ApiDeleteBehavior.SetNull) {
       usings.Add(typeof(ApiDeleteBehavior).Namespace!);
@@ -156,12 +176,9 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     {fm},
     {auth},
     {EnforceOptional.ToString().ToLower()}
-  ) {{ 
+  ) {{
     {string.Join("\n    ", inits)}
-  }}
-
-  public override object? GetValue(object o) =>
-    (o as {objectName} ?? throw new NullReferenceException($""{{o.GetType()}} is not a {objectName}"")).{Name};{setter}
+  }}{getter}{setter}
 }}";
   }
 

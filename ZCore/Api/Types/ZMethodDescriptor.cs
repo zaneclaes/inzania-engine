@@ -104,7 +104,16 @@ namespace {ns};
   }
 
   public string GetClassSource(IZTypeMap typeMap, string className, string objectName, HashSet<string> usings) {
-    var rt = typeMap.LoadTypeDescriptor(FieldType.GenericTypeArguments[0]);
+    // A root query/mutation method always returns IZResult<T>, but an [ApiFormat] method ON an API
+    // object (ZObjectDescriptor.Methods) returns Task<T> — or a bare T — so unwrapping one generic
+    // argument unconditionally threw IndexOutOfRange for every host whose objects carry execution
+    // methods. StripIgnoredOuterFunctionTypes peels Task<>/IZResult<> and leaves anything else alone.
+    //
+    // The stripped type is also what the emitted `typeof(...)` names, rather than re-wrapping it in
+    // IZResult<> : the only consumer of a method's FieldType is ExecutionPlan, which strips those
+    // wrappers again, and IZResult<TData> is constrained to reference types — so an object method
+    // returning Task<bool> or Task<int> could not have been named that way at all.
+    var rt = typeMap.LoadTypeDescriptor(StripIgnoredOuterFunctionTypes(FieldType));
     var p = "new List<ZParameterDescriptor>()";
     usings.Add("System");
     usings.Add("System.Collections.Generic");
@@ -135,7 +144,7 @@ namespace {ns};
     ""{Name}"", 
     ApiExecutionType.{ExecutionType}, 
     {p}, 
-    typeof(IZResult<{rt.ToSystemTypeName()}>),
+    typeof({rt.ToSystemTypeName()}),
     {fm},
     {auth},
     {EnforceOptional.ToString().ToLower()}
