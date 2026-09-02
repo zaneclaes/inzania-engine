@@ -12,14 +12,19 @@ using IZ.Core.Utils;
 
 namespace IZ.Core.Json.System;
 
+/// <summary>
+/// Enums cross the wire SCREAMING_SNAKE (<see cref="ZEnv.SerializeZEnum{T}" />). Reading is delegated
+/// to <see cref="ZEnums" />, which is built from that same policy and degrades an unrecognized value to
+/// the type's `Unknown` rather than throwing — see the note there for why the alternative makes every
+/// added enum value a breaking change for every client already in the wild.
+/// </summary>
 public class EnumConverter<TEnum> : JsonConverter<TEnum> where TEnum : struct, Enum {
 
   public override TEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-    if (reader.TokenType == JsonTokenType.Number) return (TEnum) (object) reader.GetInt32();
+    if (reader.TokenType == JsonTokenType.Number) return (TEnum) ZEnums.FromNumber(typeof(TEnum), reader.GetInt64());
+    if (reader.TokenType == JsonTokenType.Null) return ZEnums.Fallback<TEnum>();
     if (reader.TokenType != JsonTokenType.String) throw new ArgumentException($"Convert {reader.TokenType} to enum");
-    string? val = reader.GetString();
-    return val == null ? throw new NullReferenceException(nameof(val)) :
-      Enum.Parse<TEnum>(string.Join("", val.Split("_").Select(s => s[0] + s.Substring(1).ToLower())));
+    return ZEnums.Parse<TEnum>(reader.GetString());
   }
 
   public static string Get(TEnum value) => value.ToString().ToSnakeCase().ToUpper();
@@ -49,12 +54,17 @@ public class ListEnumConverter<TEnum> : JsonConverter<List<TEnum>> where TEnum :
 }
 
 public class NullableEnumConverter<TEnum> : JsonConverter<TEnum?> where TEnum : struct, Enum {
+  // A nullable enum has somewhere better than `Unknown` to put a value this build does not know, so
+  // both an unrecognized name and an unrecognized ordinal read back as null rather than as a value
+  // the caller would mistake for a real one.
   public override TEnum? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-    if (reader.TokenType == JsonTokenType.Number) return (TEnum) (object) reader.GetInt32();
+    if (reader.TokenType == JsonTokenType.Null) return null;
+    if (reader.TokenType == JsonTokenType.Number)
+      return ZEnums.TryParse(reader.GetInt64().ToString(), out TEnum num) ? num : (TEnum?) null;
     if (reader.TokenType != JsonTokenType.String) throw new ArgumentException($"Convert {reader.TokenType} to enum");
     string? val = reader.GetString();
     return string.IsNullOrWhiteSpace(val) ? null :
-      Enum.Parse<TEnum>(string.Join("", val.Split("_").Select(s => s[0] + s.Substring(1).ToLower())));
+      ZEnums.TryParse(val, out TEnum parsed) ? parsed : (TEnum?) null;
   }
 
   public override void Write(Utf8JsonWriter writer, TEnum? value, JsonSerializerOptions options) {

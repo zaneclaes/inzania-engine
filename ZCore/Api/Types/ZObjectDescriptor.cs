@@ -225,7 +225,10 @@ public class {className} : ZObjectDescriptor {{
     if (t == typeof(DateTime)) return DateTimeUtils.ParseApiString(val);
     if (t == typeof(Guid)) return Guid.TryParse(val, out var guid) ? guid : (object?) null;
     if (t == typeof(char)) return val.Length > 0 ? val[0] : (object?) null;
-    if (t.IsEnum) return val.IsNumeric() ? int.Parse(val) : Enum.Parse(t, val, true);
+    // HotChocolate hands us the SCHEMA name (`DOWNLOAD_MIDI`), which `Enum.Parse` cannot match against
+    // the C# one — every multi-word enum was unusable as an argument. ZEnums knows both spellings, and
+    // returns a value of the enum type rather than a boxed int, which `ConvertValue<T>` cannot cast.
+    if (t.IsEnum) return ZEnums.Parse(t, val);
     ZEnv.Log.Warning("[TYPE] {type} unknown from {val} ({scalar})", t.Name, val, t.IsScalar() ? "scalar" : "non-scalar");
     return val;
   }

@@ -119,6 +119,16 @@ against an explicit allowlist so every conscious omission is pinned (Chordzy:
   pre-generated map wasn't supplied.
 - Packet discriminators are a hand-managed global byte space; duplicates surface only as a
   runtime `Log.Error`. Changing `[ApiOrder]` breaks wire compatibility with deployed clients.
+- **Enums cross the wire SCREAMING_SNAKE, and only `ZCore/Utils/ZEnums.cs` reads them back.** It
+  builds its name map FROM `ZEnv.SerializeZEnum`, so the two spellings of the naming policy cannot
+  drift, and it degrades an unrecognized value to the type's `Unknown`/`None`/0 with one warning
+  instead of throwing. Both halves were real bugs: hand-rolled parsing could not match the schema
+  name at all in `ZObjectDescriptor.ConvertValue`, so every *multi-word* enum was unusable as a
+  GraphQL argument; and throwing made ADDING an enum value a breaking change for every client
+  already in the wild — one new `WebPageActionType` value killed the whole `webPage` query on a
+  WebGL build one deploy behind. So: **give every wire enum a `0` member that is safe to mistake an
+  unknown value for**, and never parse an enum off the wire with `Enum.Parse` (Chordzy pins the
+  whole population in `TuneTests/Lib/EnumWireTests.cs`).
 - Global statics (`ZEnv.App/Log/SpanBuilder`, `ZApi.TypeMap`) are set by `ZApp`'s constructor;
   two apps per process clobber each other. `ZApp.Settings/Auth/Storage` throw until `BuildAsync()`.
 - Unity-safe code only in ZCore/ZClient/ZP2P/ZSerilog: `Z_UNITY` swaps `ZTask` onto UniTask and
