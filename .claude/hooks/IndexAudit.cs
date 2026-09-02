@@ -8,9 +8,12 @@
 // cover wire-only ApiObject/TransientObject classes).
 // Advisory by default (exit 0); --strict exits 1 when findings exist.
 // --hook mode: reads the PostToolUse JSON from stdin and exits 0 immediately unless the edited
-// file is .cs AND the edit touches query surface or index-shaping attributes (QueryFor / Filter /
-// Sort / FilterKeyIn / [ApiIndex] / [ApiKey] / [Table] present in the new content or in the text it
-// replaced — added, removed or rewritten). Only then does it run the full audit (~3 s), rooted at
+// file is .cs AND the edit touches surface some rule below reads — query sites and index-shaping
+// attributes (QueryFor / Filter / Sort / FilterKeyIn / [ApiIndex] / [ApiKey] / [Table]) OR the
+// stored-shape declarations the flags rules judge (a bool property, an enum / bit-shifted member,
+// a `Flags` token) — in the new content or in the text it replaced (added, removed or rewritten;
+// see gateRx for why the declaration half is not optional). Only then does it run the full audit
+// (~3 s), rooted at
 // $CLAUDE_PROJECT_DIR; NEW (non-baselined) findings are reported on stderr with exit 2 so they are
 // fed back to the model. Because the gate is symmetric, every agent edit that can change the audit
 // result is audited, which is why consuming projects do not need a separate pre-commit run.
@@ -30,8 +33,27 @@ foreach (string a in args) {
   if (a == "--strict") { strict = true; } else if (a == "--hook") { hookMode = true; } else { roots.Add(a); }
 }
 
-// Gate patterns: an edit is audit-worthy when it adds query surface or index-shaping attributes.
-var gateRx = new Regex(@"QueryFor<|\.Filter\(|\.Where\(|\.SortAsc\(|\.SortDsc\(|\.FilterKeyIn\(|\[ApiIndex|\[ApiKey|\[Table\(");
+// Gate patterns: an edit is audit-worthy when it touches ANY surface a rule below reads.
+//
+// ⚠️ Every rule needs a spelling here, and half of them are DECLARATIONS, not queries. `bool-column`
+// fires on a persisted bool property, `flags` on an enum whose members are bit-shifted, `flags-wire`
+// on a flags-typed property crossing the wire — and none of those texts contains a query call or an
+// index attribute. A query-only gate therefore lets exactly the mistakes that are cheapest to fix at
+// the edit through: `public bool Paid { get; set; }` was added to an entity, sailed past this gate
+// unaudited, got a migration written for it and applied to the database, and only surfaced days
+// later when an unrelated edit happened to touch `.Filter(` — by which point the fix was a second
+// migration and a backfill instead of one line. Gate on the declaration, not on the query.
+var gateRx = new Regex(
+  @"QueryFor<|\.Filter\(|\.Where\(|\.SortAsc\(|\.SortDsc\(|\.FilterKeyIn\(|\[ApiIndex|\[ApiKey|\[Table\("
+  // A bool property declaration (`bool X { get`, `bool? X =>`) — the bool-column rule's own input.
+  + @"|\bbool\??[ \t]+\w+[ \t]*(\{|=>)"
+  // An enum declaration and bit-shifted members — the [Flags]-attribute rule's input. `1 <<` also
+  // catches a member appended to an existing enum, where the `enum` keyword is nowhere in the diff.
+  + @"|\benum[ \t]+\w+|\b1[ \t]*<<"
+  // A standalone `Flags` token: the flags-wire and flags-index rules read a property named/typed
+  // for the bitfield. Word-bounded, so `ShopFlags`/`HasFlag` do not match on their own — but
+  // `[Flags]`, `public CustomerFlags Flags { get; set; }` and `o.Flags` all do.
+  + @"|\bFlags\b");
 if (hookMode) {
   string stdin = Console.In.ReadToEnd();
   if (string.IsNullOrWhiteSpace(stdin)) return 0;
