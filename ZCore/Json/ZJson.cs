@@ -32,10 +32,21 @@ public static class ZJson {
   public static string SerializeObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) =>
     Converter.SerializeObject(obj, opts);
 
+  /// <summary>
+  /// Pretty-prints without touching the caller's options — or, worse, the shared ones. This used to
+  /// do `opts ??= DefaultOptions; opts.PrettyPrint = true;`, so a single pretty-print anywhere in the
+  /// process turned indentation on for every later `SerializeObject` that fell through to the
+  /// defaults. That is invisible until something writes a committed file, at which point whether the
+  /// artifact is indented depends on what ran before it.
+  /// </summary>
   public static string PrettyPrintObject<TObj>(TObj obj, ZJsonSerializationOpts? opts = null) {
-    opts ??= DefaultOptions;
-    opts.PrettyPrint = true;
-    return SerializeObject(obj, opts);
+    var src = opts ?? DefaultOptions;
+    return SerializeObject(obj, new ZJsonSerializationOpts {
+      PrettyPrint = true,
+      IgnoreDefaults = src.IgnoreDefaults,
+      IgnoreNull = src.IgnoreNull,
+      ApiFormat = src.ApiFormat,
+    });
   }
 
   public static TObj? DeserializeObject<TObj>(IZContext? context, string str) =>
