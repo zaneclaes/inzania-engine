@@ -32,8 +32,28 @@ public class SemVersion : TransientObject {
 
   public override string ToString() => Full;
 
+  /// <summary>
+  /// Parses, or returns false. Callers that are recording a version rather than depending on it
+  /// should use this: a client that did not send one is not a reason to fail whatever the caller was
+  /// actually doing (see `UserInstall.UpsertUserInstall`, where a null version aborted sign-in).
+  /// </summary>
+  public static bool TryParse(string? version, out SemVersion parsed) {
+    try {
+      parsed = Parse(version!);
+      return true;
+    } catch (Exception) {
+      parsed = new SemVersion(0, 0, 0);
+      return false;
+    }
+  }
+
   public static SemVersion Parse(string version) {
     string? prerelease = null, metadata = null;
+
+    // Every other malformed input here gets a FormatException naming the value; null used to get a
+    // bare NullReferenceException from Split, which is how a missing client version surfaced as
+    // "login returned null (NullReferenceException)" with nothing pointing at the version.
+    if (string.IsNullOrWhiteSpace(version)) throw new FormatException("SemVersion is empty");
 
     var parts = version.Split('.').ToList();
     if (parts.Count < 3) throw new FormatException($"SemVersion must have 3 parts: {version}");
