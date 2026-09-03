@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using IZ.Client.GoogleAnalytics;
+using IZ.Client.Queries;
 using IZ.Core.Api;
 using IZ.Core.Auth;
 using IZ.Core.Auth.Args;
@@ -118,13 +119,24 @@ public abstract class ClientContext : RootContext {
       if (existing != null) IdentityStore.UpdateUserSession(existing);
       IdentityStore.UpdateUserSession(await RestoreUserSession());
     } catch (Exception e) {
-      Log.Warning(e, "Restoring session failed");
-      if (logoutOnException) await Logout();
+      // Only a server that ANSWERED and rejected the identity justifies throwing the session away.
+      // This used to log out on any exception at all, so a 504 from `currentSession` — one slow
+      // request — logged a visitor out and (on web) redirected them to the login page mid-interaction.
+      // Observed on staging: a 60 s gateway timeout took someone off a scale page they were playing.
+      // A transport failure says nothing about whether the stored session is valid, and it was
+      // already applied above, so the right move is to keep it and let the next call try again.
+      bool rejected = IsIdentityRejection(e);
+      Log.Warning(e, "Restoring session failed ({disposition})",
+        rejected ? "identity rejected" : "transport failure; keeping the stored session");
+      if (logoutOnException && rejected) await Logout();
     } finally {
       IsSessionRestored = true;
       StopTaskTimer(nameof(RestoreSession));
     }
   }
+
+  /// <summary>See <see cref="GraphErrors.IsIdentityRejection" /> — the whole distinction lives there.</summary>
+  private static bool IsIdentityRejection(Exception? e) => GraphErrors.IsIdentityRejection(e);
 
   protected abstract ZTask<IZSession?> RestoreUserSession();
 
