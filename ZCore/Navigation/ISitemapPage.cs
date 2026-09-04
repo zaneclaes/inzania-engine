@@ -53,7 +53,12 @@ public static class SitemapPageExtensions {
     if (page.LastModified != null) url.Add(new XElement(Sitemap.XmlNs + "lastmod", page.LastModified.Value.ToString(Sitemap.LastModFormat)));
 
     if (page.SitemapImage != null) {
-      var img = new XElement(Sitemap.XmlNsImg + "image", new XElement(Sitemap.XmlNsImg + "loc", page.SitemapImage.Url));
+      // The image URL is built from `App.Url`, which is `http://localhost:5292` in Development and
+      // the staging host on staging — so a sitemap generated anywhere but production listed image
+      // locations nothing could fetch. Same rule as `loc` above: a sitemap names canonical locations
+      // whoever generated it.
+      var img = new XElement(Sitemap.XmlNsImg + "image",
+        new XElement(Sitemap.XmlNsImg + "loc", Canonical(context, page.SitemapImage.Url)));
       if (page.SitemapImage.Title != null) img.Add(new XElement(Sitemap.XmlNsImg + "title", page.SitemapImage.Title));
       if (page.SitemapImage.Caption != null) img.Add(new XElement(Sitemap.XmlNsImg + "caption", page.SitemapImage.Caption));
       url.Add(img);
@@ -63,4 +68,11 @@ public static class SitemapPageExtensions {
     //   <xhtml:link   rel="alternate" hreflang="es" href="https://example.com/es/exercises/scales/major-octave-in-g"/>
     return url;
   }
+
+  /// <summary>Swaps this environment's origin for the canonical one, leaving an already-absolute
+  /// foreign URL (a CDN, someone else's image) alone.</summary>
+  private static string Canonical(IZContext context, string url) =>
+    url.StartsWith(context.App.Url, StringComparison.OrdinalIgnoreCase)
+      ? context.App.CanonicalUrl + url.Substring(context.App.Url.Length)
+      : url;
 }
