@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
+using IZ.Core.Json;
 
 namespace IZ.Core.Navigation.SchemaOrg;
 
@@ -27,8 +29,89 @@ public class SchemaItemJson : TransientObject {
 
   [JsonPropertyName("genres")] public List<string>? Genres { get; set; }
 
-  [JsonPropertyName("mainEntity")] [ApiFormat] public SchemaIdJson? MainEntity { get; set; }
+  [JsonIgnore] public SchemaIdJson? MainEntity { get; set; }
+
+  /// <summary>The `Question` list of an `FAQPage`.</summary>
+  [JsonIgnore] public List<SchemaQuestionJson>? Questions { get; set; }
+
+  /// <summary>
+  /// `mainEntity`, which schema.org lets be either a reference or a list: a `WebPage` points at the
+  /// one thing it is about, an `FAQPage` carries its questions inline. Two properties cannot share a
+  /// JSON name, so the union is expressed here — the list when there is one, the reference otherwise.
+  /// </summary>
+  /// <remarks>
+  /// Hidden from the API surface. `object` has no fields, and `ZApiTypeGenerator` scanning it emits
+  /// a `ZObjectType&lt;System.Object&gt;` that HotChocolate refuses to build — "the object type
+  /// `Object` has to at least define one field". These items only ever cross the wire as serialized
+  /// JSON inside a string column, so nothing is lost by excluding them.
+  /// </remarks>
+  [JsonPropertyName("mainEntity")] [OutputIgnore] [InputIgnore]
+  public object? MainEntityValue {
+    get => Questions != null && Questions.Count > 0 ? Questions : (object?) MainEntity;
+    set {
+      Questions = null;
+      MainEntity = null;
+      switch (value) {
+        case List<SchemaQuestionJson> questions:
+          Questions = questions;
+          return;
+        case SchemaIdJson id:
+          MainEntity = id;
+          return;
+        case JsonElement element when element.ValueKind == JsonValueKind.Array:
+          Questions = ZJson.DeserializeObject<List<SchemaQuestionJson>>(Context, element.GetRawText());
+          return;
+        case JsonElement element when element.ValueKind == JsonValueKind.Object:
+          MainEntity = ZJson.DeserializeObject<SchemaIdJson>(Context, element.GetRawText());
+          return;
+      }
+    }
+  }
+
   [JsonPropertyName("isPartOf")] [ApiFormat] public SchemaWebSiteJson? IsPartOf { get; set; }
+
+  // --- Article and anything else with a date and a byline ---
+
+  [JsonPropertyName("headline")] public string? Headline { get; set; }
+
+  /// <summary>ISO 8601. A date Google cannot parse is worse than no date.</summary>
+  [JsonPropertyName("datePublished")] public string? DatePublished { get; set; }
+
+  [JsonPropertyName("dateModified")] public string? DateModified { get; set; }
+
+  [JsonPropertyName("author")] [ApiFormat] public SchemaEntityJson? Author { get; set; }
+
+  [JsonPropertyName("publisher")] [ApiFormat] public SchemaEntityJson? Publisher { get; set; }
+
+  /// <summary>`BreadcrumbList` entries, 1-based and in order.</summary>
+  [JsonPropertyName("itemListElement")] [ApiFormat]
+  public List<SchemaListItemJson>? ItemListElement { get; set; }
+
+  /// <summary>`HowTo` steps. Without them a `HowTo` is not eligible for the rich result.</summary>
+  [JsonPropertyName("step")] [ApiFormat] public List<SchemaStepJson>? Steps { get; set; }
+
+  /// <summary>ISO 8601 duration, e.g. `PT15M`.</summary>
+  [JsonPropertyName("totalTime")] public string? TotalTime { get; set; }
+
+  // --- VideoObject ---
+
+  [JsonPropertyName("embedUrl")] public string? EmbedUrl { get; set; }
+
+  [JsonPropertyName("contentUrl")] public string? ContentUrl { get; set; }
+
+  [JsonPropertyName("uploadDate")] public string? UploadDate { get; set; }
+
+  // --- Course and LearningResource ---
+
+  [JsonPropertyName("provider")] [ApiFormat] public SchemaEntityJson? Provider { get; set; }
+
+  [JsonPropertyName("learningResourceType")] public string? LearningResourceType { get; set; }
+
+  [JsonPropertyName("educationalLevel")] public string? EducationalLevel { get; set; }
+
+  [JsonPropertyName("teaches")] public List<string>? Teaches { get; set; }
+
+  [JsonPropertyName("hasPart")] [ApiFormat] public List<SchemaIdJson>? HasPart { get; set; }
 
   // MusicComposition
   [JsonPropertyName("composer")] [ApiFormat] public SchemaEntityJson? Composer { get; set; }
