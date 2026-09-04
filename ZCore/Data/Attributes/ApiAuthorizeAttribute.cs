@@ -19,7 +19,8 @@ public interface IApiAuthorize {
   public string GetSource() {
     var zp = Policy.HasValue ? $"ZPolicy.{Policy}" : "ZPolicy.None";
     var roles = !Roles.Any() ? "" : $", IZ.Core.Auth.ZUserRole." + string.Join(", IZ.Core.Auth.ZUserRole.", Roles);
-    return $"new ApiAuthorizeAttribute({zp}{roles})";
+    // Fully qualified: the generated descriptor files do not necessarily import IZ.Core.Data.Attributes.
+    return $"new IZ.Core.Data.Attributes.ApiAuthorizeAttribute(IZ.Core.Auth.{zp}{roles})";
   }
 }
 
