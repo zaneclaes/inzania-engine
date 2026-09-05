@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Mime;
 using System.Xml.Linq;
 using IZ.Core.Contexts;
@@ -11,6 +12,16 @@ public interface ISitemapPage {
   public ISitemapImage? SitemapImage { get; }
 
   public DateTime? LastModified { get; }
+}
+
+/// <summary>
+/// A page with versions in other languages. Language code → canonical path (no leading slash), the
+/// page itself included; `x-default` is allowed. A separate interface rather than a member with a
+/// default body, because this compiles under Unity (netstandard2.0), which has no default interface
+/// members.
+/// </summary>
+public interface ILocalizedSitemapPage : ISitemapPage {
+  public IReadOnlyDictionary<string, string> Alternates { get; }
 }
 
 public class SiteImage : ISitemapImage {
@@ -64,8 +75,15 @@ public static class SitemapPageExtensions {
       url.Add(img);
     }
 
-    // localization??
-    //   <xhtml:link   rel="alternate" hreflang="es" href="https://example.com/es/exercises/scales/major-octave-in-g"/>
+    // hreflang: every language version of the page, itself included, as Google specifies.
+    if (page is ILocalizedSitemapPage localized && localized.Alternates.Count > 0) {
+      foreach (var alternate in localized.Alternates) {
+        url.Add(new XElement(Sitemap.XmlNsXhtml + "link",
+          new XAttribute("rel", "alternate"),
+          new XAttribute("hreflang", alternate.Key),
+          new XAttribute("href", context.App.CanonicalUrl + "/" + alternate.Value.TrimStart('/'))));
+      }
+    }
     return url;
   }
 

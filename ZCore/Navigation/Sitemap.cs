@@ -31,6 +31,7 @@ public abstract class Sitemap : LogicBase {
   public const int MaxSitemapsPerPage = 50000;
   public static readonly XNamespace XmlNs = "http://www.sitemaps.org/schemas/sitemap/0.9";
   public static XNamespace XmlNsImg = "http://www.google.com/schemas/sitemap-image/1.1";
+  public static XNamespace XmlNsXhtml = "http://www.w3.org/1999/xhtml";
   public const string LastModFormat = "yyyy-MM-ddTHH:mm:ssZ";
 
   private async Task<string> EnsureSitemaps(IZContext context) {
@@ -50,7 +51,7 @@ public abstract class Sitemap : LogicBase {
     curSitemapEntry.Add(new XElement(XmlNs + "loc", $"{context.App.CanonicalUrl}/sitemap-{curSitemapNum}.xml"));
     index.Add(curSitemapEntry);
 
-    var curSitemapPage = new XElement(XmlNs + "urlset", new XAttribute(XNamespace.Xmlns + "image", XmlNsImg));
+    var curSitemapPage = new XElement(XmlNs + "urlset", new XAttribute(XNamespace.Xmlns + "image", XmlNsImg), new XAttribute(XNamespace.Xmlns + "xhtml", XmlNsXhtml));
     var pages = await GetSitemapPages(context);
     foreach (var page in pages) {
       if (curSitemapCnt >= MaxSitemapsPerPage) {
