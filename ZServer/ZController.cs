@@ -23,16 +23,22 @@ public abstract class ZController : Controller, IHaveContext {
   public IZContext Context { get; }
   public IZLogger Log => _logger ??= Context.Log.ForContext(GetType());
 
+  // Helpers, not endpoints. Without [NonAction] every derived [Route("")] controller exposed these as
+  // method-less actions at "/", and a HEAD or OPTIONS on the site root died in AmbiguousMatchException
+  // (GET was saved only by the Blazor page outranking them).
+  [NonAction]
   public Task<FileStreamResult> ServeFile(string fp, string? mimeType = null) {
     var fileStream = new FileStream(fp, FileMode.Open, FileAccess.Read);
     return Task.FromResult(File(fileStream, mimeType ?? MimeTypeMap.GetMimeType(fp)));
   }
 
+  [NonAction]
   public async Task<IActionResult> ServeCachedFile(string fp, string? mimeType = null) {
     var fi = new FileInfo(fp);
     return await ServeCachedObject(fi.LastWriteTimeUtc, fi.Length, async () => await ServeFile(fp, mimeType));
   }
 
+  [NonAction]
   public async Task<IActionResult> ServeCachedObject(DateTime lastModUtc, long contentSize, Func<Task<IActionResult>> action) {
     var etag = $"\"{lastModUtc.Ticks:x}-{contentSize:x}\"";
 
