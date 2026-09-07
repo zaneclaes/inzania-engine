@@ -37,10 +37,8 @@ public abstract class ZTest<TA> : LogicBase where TA : ZTestApp {
 
   protected override string ContextualObjectGroup => "Test";
 
-  ~ZTest() {
-    // Root.Log.Information("[TEST] shutting down...");
-    // TuneConfig.DatadogLogSink!.DisposeAsync().ConfigureAwait(true);
-    Task.Delay(15000).Wait();
-    // Root.Log.Information("[TEST] done");
-  }
+  // No finalizer. One used to block 15 s (a leftover from letting a Datadog batching sink drain
+  // before a test process ended): .NET Core never runs finalizers at exit, so it drained nothing,
+  // and it parked the finalizer thread for 15 s per test instance — a crash dump from the Shpkpr
+  // CI test host showed the finalizer thread sitting in it.
 }
