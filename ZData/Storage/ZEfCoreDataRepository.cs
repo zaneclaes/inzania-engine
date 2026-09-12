@@ -14,6 +14,7 @@ using IZ.Core.Data;
 using IZ.Core.Exceptions;
 using IZ.Data.Resolvers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query;
 using Type = System.Type;
 
@@ -88,6 +89,36 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     // await Db.SaveChangesAsync(ct);
     // _changed.Clear();
   }
+
+
+  /// <summary>
+  /// The seed's save (<see cref="DataRepositoryBase.SaveTolerantAsync" />). Saves; and if the store
+  /// refuses an insert because another writer got there first with the same key, gives up **that
+  /// insert only** and saves the rest.
+  ///
+  /// Detaching is the right answer rather than a loss: the conflicting row is a seed row with a
+  /// deterministic id, so the other replica wrote byte-identical content, and the database ends in
+  /// exactly the state this pod was trying to produce. What is saved is the alternative — an
+  /// exception here aborts the whole seed and every seed registered after it, which on a two-replica
+  /// rollout is half a production deployment serving content nobody asked for.
+  ///
+  /// It retries once. A second failure is not the race — it is a genuine conflict — and is thrown.
+  /// </summary>
+  public override async Task SaveTolerantAsync(CancellationToken ct = new CancellationToken()) {
+    try {
+      await SaveAsync(ct);
+      return;
+    } catch (DbUpdateException e) when (IsDuplicateKey(e) && e.Entries.Any(x => x.State == EntityState.Added)) {
+      var conceded = e.Entries.Where(x => x.State == EntityState.Added).ToList();
+      foreach (var entry in conceded) entry.State = EntityState.Detached;
+      Context.Log.Warning(
+        "[SEED] {count} row(s) were inserted by another replica first; keeping theirs and saving the rest ({types})",
+        conceded.Count,
+        string.Join(", ", conceded.Select(x => x.Entity.GetType().Name).Distinct()));
+    }
+    await SaveAsync(ct);
+  }
+
 
   public Task AddAsync<TData>(params TData[] data) where TData : DataObject =>
     ExecuteLocked(() => {

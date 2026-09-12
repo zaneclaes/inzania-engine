@@ -41,7 +41,7 @@ public abstract class DataSeed : IDataSeed {
     Log = context.Log.ForContext(GetType());
     try {
       await Exec();
-      await Context.Data.SaveIfNeededAsync();
+      await Context.Data.SaveSeedAsync();
       context.IncrementMetric($"{ZMetrics.SysGroup}.seed.{GetType().Name}");
     } catch (Exception e) {
       Log.Error(e, "[SEED] {type} failed", GetType().Name);
@@ -105,7 +105,7 @@ public abstract class DataSeed<TD, TS> : DataSeed, IDataSeed<TD> where TD : Mode
     Context = context;
     Clear();
     await Exec();
-    await Context.Data.SaveAsync();
+    await Context.Data.SaveSeedAsync();
   }
 
   private async Task SeedModelIds(List<TS> stubs, List<TD>? existing = null) {
@@ -119,7 +119,7 @@ public abstract class DataSeed<TD, TS> : DataSeed, IDataSeed<TD> where TD : Mode
       dbModel = await stub.Upsert(Context, dbModel);
       SetModel(dbModel);
     }
-    await Context.Data.SaveIfNeededAsync();
+    await Context.Data.SaveSeedAsync();
     IsSeeded = true;
   }
 
