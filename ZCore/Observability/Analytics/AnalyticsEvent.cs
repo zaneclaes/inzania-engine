@@ -56,7 +56,12 @@ public class BaseParams : IEventParams {
   public const string TrafficTypeApp = "app";
 
   public void LoadInstallation(Installation installation) {
-    if (installation.Context.App.Env <= ZEnvironment.Staging) {
+    // "internal" is sticky: an emitter that has already decided this process is the product's own
+    // traffic (its owner's machine, a smoke test) must not have that decision downgraded to "app" or
+    // to nothing by the per-event defaults below, which know only the environment and the device.
+    if (TrafficType == TrafficTypeInternal) {
+      // keep
+    } else if (installation.Context.App.Env <= ZEnvironment.Staging) {
       TrafficType = TrafficTypeInternal;
     } else if (installation.DeviceType != DeviceType.Browser) {
       TrafficType = TrafficTypeApp;
