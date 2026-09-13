@@ -106,7 +106,8 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   /// </summary>
   public override async Task SaveTolerantAsync(CancellationToken ct = new CancellationToken()) {
     try {
-      await SaveAsync(ct);
+      // EF logs the failure at Error before this catch sees it; the scope marks that line as the conceded race.
+      using (TolerateDuplicateKeys()) await SaveAsync(ct);
       return;
     } catch (DbUpdateException e) when (IsDuplicateKey(e) && e.Entries.Any(x => x.State == EntityState.Added)) {
       var conceded = e.Entries.Where(x => x.State == EntityState.Added).ToList();

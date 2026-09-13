@@ -23,8 +23,8 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    **`QuerySplittingBehavior.SplitQuery`** (each `Include` becomes its own SELECT — no cartesian
    joins, but N round-trips per include level), `EnablePrimitiveCollectionsSupport`,
    `TranslateParameterizedCollectionsToConstants` (`Contains(list)` inlines values → plan cache
-   churn for big lists), `EnableSensitiveDataLogging` + `EnableDetailedErrors` (**always on, incl.
-   production** — parameter values reach logs). `MySqlOptions` reads `MySQL:Version` and
+   churn for big lists), `EnableDetailedErrors`, and `EnableSensitiveDataLogging` only when the caller passes `logSensitiveData`
+   (Chordzy: Development and tests; on a deployed environment parameter values would reach the logs). `MySqlOptions` reads `MySQL:Version` and
    `MySQL:Connection:*` from configuration; `Connection:UtcIntercept=true` would prepend
    `SET time_zone='+00:00';` to every command (`Providers/Interceptors/UtcTimeInterceptor`) — not
    enabled in Chordzy. SQLite bits (`Providers/Sqlite`) are commented-out leftovers.
