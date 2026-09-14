@@ -19,22 +19,18 @@
 //     four it must chain to lfs itself, so this refuses to install one that does not — a silent stop to
 //     large-file uploads is worse than a failed install.
 //
-//  2. CLAUDE HOOKS — merges the engine's `ci/claude-hooks.json` into the repo's `.claude/settings.json`.
-//     Engine-owned entries are recognized by their command pointing into the engine's `.claude/hooks/`
-//     folder, so the merge is a clean replace of exactly those: a hook the engine dropped disappears, a
-//     changed command or timeout is rewritten, and everything the repo declares for itself is untouched.
-//     No marker keys are written into settings.json, so nothing here depends on Claude Code tolerating
-//     unknown fields.
+//  2. AGENT HOOKS — renders `ci/agent-hooks.json` into Claude's `.claude/settings.json` and Codex's
+//     `.codex/hooks.json`. The manifest is the one definition of each guard; the runtime files are
+//     generated adapters and are checked for drift by `--check`.
 //
 //  3. PRE-BUILD — every engine hook is a file-based script referencing ZCore (`#:project`), and several run
 //     at once on each edit. Cold, they would all build ZCore at the same moment, and concurrent builds of one
 //     project fail at random. Building them one at a time here means the hooks start warm.
 //
-// JSON goes through ZJson like everywhere else (`.claude/hooks/JsonGuard.cs`): the manifest into a typed model,
+// JSON goes through ZJson like everywhere else (`.agents/hooks/JsonGuard.cs`): the manifest into a typed model,
 // settings.json as plain dictionaries so keys this file knows nothing about survive untouched.
 // Exit 0 = installed (or already current), 1 = failed, or under --check, drift found.
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
 
@@ -54,8 +50,8 @@ if (root.Length <= 0) {
 // app runs out of a build cache, nowhere near its source — so the path comes from [CallerFilePath],
 // with a search from the repo root as the fallback for a repo moved since that path was baked in.
 string engine = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(ScriptPath()) ?? ".", ".."));
-if (!File.Exists(Path.Combine(engine, "ci", "claude-hooks.json"))) {
-  engine = Directory.EnumerateFiles(root, "claude-hooks.json", SearchOption.AllDirectories)
+if (!File.Exists(Path.Combine(engine, "ci", "agent-hooks.json"))) {
+  engine = Directory.EnumerateFiles(root, "agent-hooks.json", SearchOption.AllDirectories)
              .Where(f => Path.GetFileName(Path.GetDirectoryName(f)) == "ci")
              .Select(f => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(f)!, "..")))
              .FirstOrDefault()
@@ -68,7 +64,8 @@ Console.WriteLine($"[install] repo {root}");
 Console.WriteLine($"[install] engine {(engineIsRoot ? "(this repo)" : engineRel)}");
 
 if (!InstallGitHooks()) return 1;
-if (!InstallClaudeHooks(out var hookScripts)) return 1;
+if (!InstallAgentHooks(out var hookScripts)) return 1;
+if (!InstallCodexMcp()) return 1;
 if (!check) PrebuildHookScripts(hookScripts);
 
 if (changes.Count <= 0) {
@@ -131,32 +128,43 @@ bool InstallGitHooks() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// 2. Claude hooks
+// 2. Agent hooks
 // ---------------------------------------------------------------------------------------------
-bool InstallClaudeHooks(out List<string> scripts) {
+bool InstallAgentHooks(out List<string> scripts) {
   scripts = new List<string>();
-  string manifestPath = Path.Combine(engine, "ci", "claude-hooks.json");
+  string manifestPath = Path.Combine(engine, "ci", "agent-hooks.json");
   if (!File.Exists(manifestPath)) {
-    Console.WriteLine("[install] no ci/claude-hooks.json in the engine; no Claude hooks to install.");
+    Console.WriteLine("[install] no ci/agent-hooks.json in the engine; no agent hooks to install.");
     return true;
   }
+
+  if (!InstallHookManifest(manifestPath, engine, engineRel, engineIsRoot, scripts)) return false;
+  string repoManifest = Path.Combine(root, "ci", "agent-hooks.json");
+  if (File.Exists(repoManifest) && !InstallHookManifest(repoManifest, root, ".", true, scripts)) return false;
+  return InstallCodexHooks();
+}
+
+bool InstallHookManifest(string manifestPath, string manifestRoot, string manifestRootRel, bool manifestIsRoot, List<string> scripts) {
 
   HookManifest? manifest;
   try {
     manifest = ZJson.DeserializeObject<HookManifest>(null, File.ReadAllText(manifestPath), Lenient());
   } catch (Exception e) {
-    Console.Error.WriteLine($"[install] {engineRel}/ci/claude-hooks.json is not valid JSON: {e.Message}");
+    Console.Error.WriteLine($"[install] {Path.GetRelativePath(root, manifestPath)}/ is not valid JSON: {e.Message}");
     return false;
   }
   var declared = manifest?.Hooks;
   if (declared == null) {
-    Console.Error.WriteLine($"[install] {engineRel}/ci/claude-hooks.json has no hooks array.");
+    Console.Error.WriteLine($"[install] {Path.GetRelativePath(root, manifestPath)} has no hooks array.");
     return false;
   }
 
   // The marker that says "the engine put this here". Path-based, so no bookkeeping field has to survive
   // in settings.json and a repo-declared hook can never be mistaken for one of ours.
-  string owned = (engineIsRoot ? "" : engineRel + "/") + ".claude/hooks/";
+  string rootPrefix = manifestIsRoot ? "" : manifestRootRel + "/";
+  string ownershipPrefix = "\"$CLAUDE_PROJECT_DIR/" + rootPrefix;
+  string ownedClaude = ownershipPrefix + ".claude/hooks/";
+  string ownedAgents = ownershipPrefix + ".agents/hooks/";
 
   string settingsPath = Path.Combine(root, ".claude", "settings.json");
   string before = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "";
@@ -178,19 +186,23 @@ bool InstallClaudeHooks(out List<string> scripts) {
     if (events[evt] is not List<object?> groups) continue;
     for (int g = groups.Count - 1; g >= 0; g--) {
       if (groups[g] is not Dictionary<string, object?> group || group.GetValueOrDefault("hooks") is not List<object?> entries) continue;
-      entries.RemoveAll(e => Command(e).Contains(owned));
+      entries.RemoveAll(e => Command(e).Contains(ownedClaude) || Command(e).Contains(ownedAgents));
       if (entries.Count <= 0) groups.RemoveAt(g);   // a group that only ever held engine hooks.
     }
     if (groups.Count <= 0) events.Remove(evt);
   }
 
   foreach (var entry in declared) {
-    string command = (entry.Command ?? "").Replace("$ENGINE/", engineIsRoot ? "" : engineRel + "/");
-    if (string.IsNullOrEmpty(entry.Event) || command.Length <= 0) {
-      Console.Error.WriteLine("[install] claude-hooks.json: an entry is missing its event or command.");
+    string script = entry.Script ?? "";
+    if (string.IsNullOrEmpty(entry.Event) || script.Length <= 0) {
+      Console.Error.WriteLine("[install] agent-hooks.json: an entry is missing its event or script.");
       return false;
     }
-    if (Regex.Match(command, @"\$CLAUDE_PROJECT_DIR/([^""]+\.cs)") is { Success: true } script) scripts.Add(script.Groups[1].Value);
+    string adapter = (engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs";
+    string guard = rootPrefix + script;
+    scripts.Add(adapter);
+    scripts.Add(guard);
+    string command = ClaudeCommand(adapter, guard, entry.Arguments);
 
     if (events.GetValueOrDefault(entry.Event) is not List<object?> groups) events[entry.Event] = groups = new List<object?>();
     string matcher = entry.Matcher ?? "";
@@ -203,24 +215,144 @@ bool InstallClaudeHooks(out List<string> scripts) {
 
     var node = new Dictionary<string, object?> { ["type"] = "command", ["command"] = command };
     if (entry.Timeout is int t) node["timeout"] = t;
-    // Engine guards run first within their group: they are the shared invariants, and a repo-specific
-    // hook is cheaper to reach after the general ones have already rejected an edit.
-    hooks.Insert(hooks.Count(e => Command(e).Contains(owned)), node);
+    hooks.Add(node);
+  }
+
+  // Several manifests contribute to one Claude settings file. Canonical ordering makes their
+  // independent remove-and-readd passes converge without one manifest creating churn for another.
+  foreach (List<object?>? groups in events.Values) {
+    if (groups == null) continue;
+    foreach (object? group in groups) {
+      if (group is Dictionary<string, object?> { } d && d.GetValueOrDefault("hooks") is List<object?> hooks)
+        hooks.Sort((left, right) => StringComparer.Ordinal.Compare(Command(left), Command(right)));
+    }
   }
 
   string after = Write(settings) + "\n";
   if (Normalize(before) == Normalize(after)) {
-    Console.WriteLine($"[install] claude hooks current ({declared.Count} from the engine).");
+    Console.WriteLine($"[install] Claude hooks current ({declared.Count} from {Path.GetRelativePath(root, manifestPath)}).");
     return true;
   }
 
-  changes.Add($".claude/settings.json ({declared.Count} engine hook(s))");
+  changes.Add($".claude/settings.json ({declared.Count} hook(s) from {Path.GetRelativePath(root, manifestPath)})");
   if (check) return true;
   Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
   File.WriteAllText(settingsPath, after);
-  Console.WriteLine($"[install] claude hooks written to .claude/settings.json ({declared.Count} from the engine).");
+  Console.WriteLine($"[install] Claude hooks written to .claude/settings.json ({declared.Count} from {Path.GetRelativePath(root, manifestPath)}).");
   return true;
 }
+
+bool InstallCodexHooks() {
+  var entries = new List<(ManifestHook Hook, string Prefix)>();
+  if (!ReadManifest(Path.Combine(engine, "ci", "agent-hooks.json"), engineIsRoot ? "" : engineRel + "/", entries)) return false;
+  string repoManifest = Path.Combine(root, "ci", "agent-hooks.json");
+  if (File.Exists(repoManifest) && !ReadManifest(repoManifest, "", entries)) return false;
+  string adapter = (engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs";
+
+  string codexPath = Path.Combine(root, ".codex", "hooks.json");
+  var events = new Dictionary<string, List<object?>>();
+  foreach (var (entry, prefix) in entries) {
+    if (string.IsNullOrEmpty(entry.Event) || string.IsNullOrEmpty(entry.Script)) continue;
+    if (!events.TryGetValue(entry.Event, out var groups)) events[entry.Event] = groups = new List<object?>();
+    string matcher = entry.Matcher ?? "";
+    var group = groups.OfType<Dictionary<string, object?>>().FirstOrDefault(g => (g.GetValueOrDefault("matcher") as string ?? "") == matcher);
+    if (group == null) {
+      group = new Dictionary<string, object?> { ["matcher"] = matcher, ["hooks"] = new List<object?>() };
+      groups.Add(group);
+    }
+    var hooks = (List<object?>)group["hooks"]!;
+    var node = new Dictionary<string, object?> {
+      ["type"] = "command",
+      ["command"] = CodexCommand(adapter, prefix + entry.Script, entry.Arguments),
+    };
+    if (entry.Timeout is int timeout) node["timeout"] = timeout;
+    hooks.Add(node);
+  }
+  var document = new Dictionary<string, object?> {
+    ["description"] = "Generated by ci/install-hooks.sh from ci/agent-hooks.json. Do not edit.",
+    ["hooks"] = events,
+  };
+  string after = Write(document) + "\n";
+  string before = File.Exists(codexPath) ? File.ReadAllText(codexPath) : "";
+  if (Normalize(before) == Normalize(after)) {
+    Console.WriteLine($"[install] Codex hooks current ({entries.Count}).");
+    return true;
+  }
+  changes.Add($".codex/hooks.json ({entries.Count} hook(s))");
+  if (check) return true;
+  Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+  File.WriteAllText(codexPath, after);
+  Console.WriteLine($"[install] Codex hooks written to .codex/hooks.json ({entries.Count}).");
+  return true;
+}
+
+bool InstallCodexMcp() {
+  string source = Path.Combine(root, ".mcp.json");
+  if (!File.Exists(source)) return true;
+  McpManifest? manifest;
+  try {
+    manifest = ZJson.DeserializeObject<McpManifest>(null, File.ReadAllText(source), Lenient());
+  } catch (Exception e) {
+    Console.Error.WriteLine($"[install] .mcp.json is not valid JSON: {e.Message}");
+    return false;
+  }
+  if (manifest?.McpServers == null) return true;
+
+  var toml = new List<string> {
+    "# Generated by ci/install-hooks.sh from .mcp.json. Do not edit; run the installer after changing .mcp.json.",
+    "",
+  };
+  foreach (var (name, server) in manifest.McpServers.OrderBy(x => x.Key, StringComparer.Ordinal)) {
+    toml.Add($"[mcp_servers.{TomlKey(name)}]");
+    if (server.Type == "http") {
+      toml.Add("url = " + TomlString(server.Url ?? ""));
+    } else {
+      string script = string.Join(" ", (server.Env ?? new Dictionary<string, string>()).OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Key + "=" + x.Value))
+        + (server.Env is { Count: > 0 } ? " " : "")
+        + "exec " + ShellWord(server.Command ?? "")
+        + string.Concat((server.Args ?? []).Select(arg => " " + ShellWord(arg)));
+      toml.Add("command = \"sh\"");
+      toml.Add("args = [\"-lc\", " + TomlString(script) + "]");
+    }
+    toml.Add("");
+  }
+  string after = string.Join("\n", toml).TrimEnd() + "\n";
+  string path = Path.Combine(root, ".codex", "config.toml");
+  string before = File.Exists(path) ? File.ReadAllText(path) : "";
+  if (before == after) {
+    Console.WriteLine($"[install] Codex MCP configuration current ({manifest.McpServers.Count}).");
+    return true;
+  }
+  changes.Add($".codex/config.toml ({manifest.McpServers.Count} MCP server(s))");
+  if (check) return true;
+  Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+  File.WriteAllText(path, after);
+  Console.WriteLine($"[install] Codex MCP configuration written to .codex/config.toml ({manifest.McpServers.Count}).");
+  return true;
+}
+
+bool ReadManifest(string path, string prefix, List<(ManifestHook Hook, string Prefix)> entries) {
+  try {
+    HookManifest? manifest = ZJson.DeserializeObject<HookManifest>(null, File.ReadAllText(path), Lenient());
+    foreach (ManifestHook hook in manifest?.Hooks ?? []) entries.Add((hook, prefix));
+    return true;
+  } catch (Exception e) {
+    Console.Error.WriteLine($"[install] {Path.GetRelativePath(root, path)} is not valid JSON: {e.Message}");
+    return false;
+  }
+}
+
+static string ClaudeCommand(string adapter, string guard, IEnumerable<string>? arguments) =>
+  "dotnet run \"$CLAUDE_PROJECT_DIR/" + adapter + "\" -- --guard \"$CLAUDE_PROJECT_DIR/" + guard + "\"" + Arguments(arguments);
+
+static string CodexCommand(string adapter, string guard, IEnumerable<string>? arguments) =>
+  "dotnet run \"$(git rev-parse --show-toplevel)/" + adapter + "\" -- --guard \"$(git rev-parse --show-toplevel)/" + guard + "\"" + Arguments(arguments);
+
+static string Arguments(IEnumerable<string>? arguments) => string.Concat((arguments ?? []).Select(arg => " \"" + arg.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\""));
+
+static string TomlKey(string key) => "\"" + key.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+static string TomlString(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n") + "\"";
+static string ShellWord(string value) => "'" + value.Replace("'", "'\"'\"'") + "'";
 
 // ---------------------------------------------------------------------------------------------
 // 3. Pre-build the hook scripts, one at a time
@@ -274,7 +406,7 @@ static (int Code, string Output) Run(string file, IEnumerable<string> args) {
   return (p.ExitCode, stdout.Result + stderr.Result);
 }
 
-/// <summary>`ci/claude-hooks.json`.</summary>
+/// <summary>`ci/agent-hooks.json`.</summary>
 class HookManifest {
   public List<ManifestHook>? Hooks { get; set; }
 }
@@ -282,6 +414,19 @@ class HookManifest {
 class ManifestHook {
   public string? Event { get; set; }
   public string? Matcher { get; set; }
-  public string? Command { get; set; }
+  public string? Script { get; set; }
+  public List<string>? Arguments { get; set; }
   public int? Timeout { get; set; }
+}
+
+class McpManifest {
+  public Dictionary<string, McpServer>? McpServers { get; set; }
+}
+
+class McpServer {
+  public string? Type { get; set; }
+  public string? Url { get; set; }
+  public string? Command { get; set; }
+  public List<string>? Args { get; set; }
+  public Dictionary<string, string>? Env { get; set; }
 }

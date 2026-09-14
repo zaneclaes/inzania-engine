@@ -1,7 +1,7 @@
 # `inzania-engine/ci` — reusable git hooks
 
 Checks that belong at *commit* or *push* time rather than at edit time, shared by every repo that
-vendors the engine. They are the counterpart to `.claude/hooks/` (see `../Docs/data-design.md` →
+vendors the engine. They are the counterpart to `.agents/hooks/` (see `../Docs/data-design.md` →
 Enforcement): those guard an agent's individual edits and cannot see a change made in an IDE, by a
 merge, or by a contributor not driving Claude. These run once per commit or push, on whatever is
 actually about to land.
@@ -11,9 +11,9 @@ actually about to land.
 | `PendingMigrations.cs` | `pre-commit` | A commit whose EF model is ahead of its migrations — i.e. `dotnet ef migrations add <Name>` would *not* be a no-op. |
 | `SubmodulesPushed.cs` | `pre-push` | A push whose commits point a submodule at an object that submodule's own remote does not have. |
 
-**`install.cs` is how a repo picks all of this up** — git hooks *and* the engine's Claude guards, in one
+**`install.cs` is how a repo picks all of this up** — git hooks and the engine's shared agent guards, in one
 idempotent command. See [`install.cs`](#installcs--the-one-command-a-consuming-repo-runs) below; the
-Claude side is declared in `claude-hooks.json`.
+agent-neutral declarations live in `agent-hooks.json`.
 
 ## `PendingMigrations.cs`
 
@@ -130,8 +130,7 @@ dotnet run inzania-engine/ci/install.cs             # install / update
 dotnet run inzania-engine/ci/install.cs -- --check  # report drift, write nothing (exit 1 if drifted)
 ```
 
-Installs **both** hook systems, because they are complementary and forgetting either is silent, then warms the
-Claude hooks:
+Installs the complementary git hooks and shared agent hooks, then warms the hook scripts:
 
 1. **Git hooks** — symlinks the *consuming repo's* own `ci/hooks/*` scripts into `.git/hooks/`
    (skipping the `.cs` files there, which are the reusable checks those scripts call, not hooks).
@@ -140,28 +139,28 @@ Claude hooks:
    disable them with no error. A repo hook that takes over one of those four must chain to lfs
    itself; the installer refuses to install one that does not, since silently stopping large-file
    uploads is worse than a failed install.
-2. **Claude hooks** — merges this directory's `claude-hooks.json` into the repo's
-   `.claude/settings.json`.
+2. **Agent hooks** — renders this directory's `agent-hooks.json`, plus an optional consuming-repo
+   `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json` and Codex's
+   `.codex/hooks.json`. The two runtimes call the same guard files through `ci/RunAgentHook.cs`.
 3. **Pre-build** — builds each engine hook script once, one at a time. Every hook references `ZCore`
    (`#:project`, so it can use `ZJson`), and several run at once on each edit. Cold, they would all build
    `ZCore` at the same moment, and concurrent builds of one project fail at random (1 in 5 when measured).
    Warm, they start in about a second.
 
-The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`claude-hooks.json`, `settings.json`,
-`migration-check.json`, all with `//` comments and trailing commas) through `ZJson` like any other code.
-`settings.json` is read as plain dictionaries, so keys the installer knows nothing about round-trip untouched.
+The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.json`, `settings.json`,
+`hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
+`ZJson` like any other code. Claude settings are read as plain dictionaries, so keys the installer knows
+nothing about round-trip untouched.
 
-`claude-hooks.json` is the single source of truth for the engine's Claude guards (`DbGuard`,
-`ApiAuthGuard`, `JsonGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every repo picks it up on its next
-`install`; drop one and every repo loses it. `$ENGINE` in a command expands to the engine's path
-relative to the consuming repo root, so vendoring it under a different name needs no configuration.
+`agent-hooks.json` is the single source of truth for the engine guards (`DbGuard`, `ApiAuthGuard`,
+`JsonGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every agent in every consuming repo picks it up on
+its next `install`; drop one and every agent loses it. A product-only hook belongs in that repo's own
+`ci/agent-hooks.json`, so it is rendered alongside the reusable engine hooks without copying either.
 
-**How the merge stays safe.** Engine-owned entries are recognized by their command pointing into the
-engine's `.claude/hooks/` folder. The installer strips exactly those and re-adds them from the
-manifest, so one pass converges on additions, command/timeout edits, matcher moves and deletions
-alike — while every hook the repo declares for itself (Chordzy's `RepoGuard.cs`) is left untouched.
-Nothing is written into `settings.json` to mark ownership, so this does not depend on Claude Code
-tolerating unknown fields, and other top-level settings keys are preserved. It is idempotent: a
-second run reports "everything already current" and rewrites nothing.
+**How rendering stays safe.** The installer recognizes its generated commands by their path into
+`.agents/hooks/` or `ci/RunAgentHook.cs`, removes only those entries, and re-renders both manifests.
+One pass therefore converges on additions, command/timeout edits, matcher moves and deletions while
+preserving unrelated Claude settings. It is idempotent: a second run reports "everything already
+current" and rewrites nothing.
 
 An invalid `settings.json` is reported and left alone rather than overwritten.

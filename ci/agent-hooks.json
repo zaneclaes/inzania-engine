@@ -1,10 +1,9 @@
-// Claude Code hooks the engine owns, installed into a consuming repo's .claude/settings.json by
-// ci/install.cs. This file is the single source of truth: add a guard here and every repo picks it up
-// on its next `install`; remove one here and every repo drops it. Entries the repo itself declares are
-// left alone — the installer only touches entries whose command points into the engine's hooks folder.
+// Agent-neutral engine guards. `ci/install.cs` is the only renderer: it translates these entries
+// into Claude's settings.json and Codex's hooks.json. Add, remove or change a guard here; never
+// hand-edit either generated runtime configuration.
 //
-// $ENGINE expands to the engine's path relative to the consuming repo root (e.g. "inzania-engine"),
-// so a repo that vendors it somewhere else still gets working commands.
+// `script` is relative to the engine root. The scripts themselves live in `.agents/hooks`, with
+// `.claude/hooks` retained as a symlink for older links and external documentation.
 //
 // JSON with // comments and trailing commas allowed.
 {
@@ -14,14 +13,14 @@
       // Canonical rules: Docs/data-design.md.
       "event": "PreToolUse",
       "matcher": "Write|Edit|MultiEdit",
-      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/DbGuard.cs\"",
+      "script": ".agents/hooks/DbGuard.cs",
       "timeout": 60,
     },
     {
       // An unauthorized endpoint that dereferences the current identity or writes data.
       "event": "PreToolUse",
       "matcher": "Write|Edit|MultiEdit",
-      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/ApiAuthGuard.cs\"",
+      "script": ".agents/hooks/ApiAuthGuard.cs",
       "timeout": 60,
     },
     {
@@ -29,7 +28,7 @@
       // edit adds; `-- --audit <dir>` lists everything.
       "event": "PreToolUse",
       "matcher": "Write|Edit|MultiEdit",
-      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/JsonGuard.cs\"",
+      "script": ".agents/hooks/JsonGuard.cs",
       "timeout": 60,
     },
     {
@@ -37,7 +36,7 @@
       // ExecuteSqlRaw rather than an editor tool (data-design.md §6).
       "event": "PreToolUse",
       "matcher": "Write|Edit|MultiEdit|Bash",
-      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/MigrationGuard.cs\"",
+      "script": ".agents/hooks/MigrationGuard.cs",
       "timeout": 60,
     },
     {
@@ -45,7 +44,8 @@
       // the repo's own .claude/IndexAudit.baseline.
       "event": "PostToolUse",
       "matcher": "Write|Edit|MultiEdit",
-      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/IndexAudit.cs\" -- --hook",
+      "script": ".agents/hooks/IndexAudit.cs",
+      "arguments": ["--hook"],
       "timeout": 90,
     },
   ],

@@ -26,8 +26,8 @@ Data layer deep-dives: `ZCore/README.md` (object model, attributes, lazy resolut
 **`Docs/data-design.md`** is the canonical database/API design ruleset (flags enums instead of
 bool columns, the numeric `*Val` wire mirror, index tradeoffs, inheritance, N:M through-joins) —
 read it before adding or changing any stored model. It is enforced by three reusable tools in
-`.claude/hooks/`, which consuming projects wire into their own `.claude/settings.json` (JSON in
-the doc's Enforcement section): `DbGuard.cs` (PreToolUse — query/model anti-patterns),
+`.agents/hooks/`, which consuming projects wire into Claude Code and Codex through
+`ci/agent-hooks.json` (JSON in the doc's Enforcement section): `DbGuard.cs` (PreToolUse — query/model anti-patterns),
 `MigrationGuard.cs` (PreToolUse over edits *and* Bash — schema changes may only come from
 `dotnet ef migrations add`; §6) and `IndexAudit.cs` (whole-repo audit with a per-project
 `.claude/IndexAudit.baseline` for accepted debt; `--hook` makes it a gated PostToolUse hook that
