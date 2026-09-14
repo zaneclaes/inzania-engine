@@ -93,8 +93,8 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
 
   /// <summary>
   /// The seed's save (<see cref="DataRepositoryBase.SaveTolerantAsync" />). Saves; and if the store
-  /// refuses an insert because another writer got there first with the same key, gives up **that
-  /// insert only** and saves the rest.
+  /// refuses an insert because another writer got there first with the same key, gives up **the
+  /// inserts whose rows already exist** and saves the rest.
   ///
   /// Detaching is the right answer rather than a loss: the conflicting row is a seed row with a
   /// deterministic id, so the other replica wrote byte-identical content, and the database ends in
@@ -102,22 +102,50 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   /// exception here aborts the whole seed and every seed registered after it, which on a two-replica
   /// rollout is half a production deployment serving content nobody asked for.
   ///
-  /// It retries once. A second failure is not the race — it is a genuine conflict — and is thrown.
+  /// The store names only the first row it refused, but the other replica commits a seed's inserts in
+  /// one transaction, so by then every row the two saves share exists. Each round therefore concedes
+  /// every pending insert the database already holds, not only the one named: production build 1229
+  /// conceded one `DataFile`, retried, and failed on the next of that seed's new files. A few rounds
+  /// cover a replica that is still committing; a duplicate on the last attempt is a genuine conflict,
+  /// logged and thrown.
   /// </summary>
   public override async Task SaveTolerantAsync(CancellationToken ct = new CancellationToken()) {
-    try {
-      // EF logs the failure at Error before this catch sees it; the scope marks that line as the conceded race.
-      using (TolerateDuplicateKeys()) await SaveAsync(ct);
-      return;
-    } catch (DbUpdateException e) when (IsDuplicateKey(e) && e.Entries.Any(x => x.State == EntityState.Added)) {
-      var conceded = e.Entries.Where(x => x.State == EntityState.Added).ToList();
-      foreach (var entry in conceded) entry.State = EntityState.Detached;
-      Context.Log.Warning(
-        "[SEED] {count} row(s) were inserted by another replica first; keeping theirs and saving the rest ({types})",
-        conceded.Count,
-        string.Join(", ", conceded.Select(x => x.Entity.GetType().Name).Distinct()));
+    for (int attempt = 1; ; attempt++) {
+      bool last = attempt == MaxTolerantSaveAttempts;
+      try {
+        // EF logs the failure at Error before this catch sees it; the scope marks that line as the conceded race.
+        using (last ? null : TolerateDuplicateKeys()) await SaveAsync(ct);
+        return;
+      } catch (DbUpdateException e) when (!last && IsDuplicateKey(e) && e.Entries.Any(x => x.State == EntityState.Added)) {
+        var conceded = await ExecuteLocked(() => ConcedeExistingInsertsAsync(e.Entries, ct));
+        Context.Log.Warning(
+          "[SEED] {count} row(s) were inserted by another replica first; keeping theirs and saving the rest ({types})",
+          conceded.Count,
+          string.Join(", ", conceded.Distinct()));
+      }
     }
-    await SaveAsync(ct);
+  }
+
+  private const int MaxTolerantSaveAttempts = 4;
+
+  /// <summary>
+  /// Detaches the inserts the store refused and every other pending insert whose row it already holds,
+  /// and returns their entity type names.
+  /// </summary>
+  private async Task<List<string>> ConcedeExistingInsertsAsync(IReadOnlyList<EntityEntry> refused, CancellationToken ct) {
+    var conceded = refused.Where(x => x.State == EntityState.Added).ToList();
+    var pending = Db.ChangeTracker.Entries()
+      .Where(x => x.State == EntityState.Added && !x.Metadata.IsOwned() && !conceded.Contains(x))
+      .ToList();
+    foreach (var entry in pending) {
+      // One lookup per pending insert, and only on the replica race, over this save's own inserts (a
+      // rollout's new seed rows). The tracked entities span many types and key types, so one batched
+      // query would need a reflective query per type for a path that runs once per deploy.
+      if (await entry.GetDatabaseValuesAsync(ct) != null) conceded.Add(entry); // db-guard: allow
+    }
+    var names = conceded.Select(x => x.Entity.GetType().Name).ToList();
+    foreach (var entry in conceded) entry.State = EntityState.Detached;
+    return names;
   }
 
 

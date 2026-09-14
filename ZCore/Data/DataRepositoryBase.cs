@@ -74,11 +74,11 @@ public class DataRepositoryBase : LogicBase {
   /// every failed `SaveChanges` at Error before the exception reaches <see cref="SaveTolerantAsync" />;
   /// inside that save's first attempt a duplicate key is the replica race it recovers from and reports
   /// once as a warning, so the log pipeline drops EF's Error line for it (`SerilogZLogBuilder`). The
-  /// retry and every ordinary save are outside the scope, and their duplicate keys stay errors.
+  /// last attempt and every ordinary save are outside the scope, and their duplicate keys stay errors.
   /// </summary>
   public static bool IsConcededDuplicateKey(Exception? e) => ToleratingDuplicateKeys.Value && IsDuplicateKey(e);
 
-  /// <summary>Marks the current async flow as a tolerant save's first attempt, until disposed.</summary>
+  /// <summary>Marks the current async flow as a tolerant save's attempt that may still concede, until disposed.</summary>
   protected static IDisposable TolerateDuplicateKeys() {
     bool previous = ToleratingDuplicateKeys.Value;
     ToleratingDuplicateKeys.Value = true;
