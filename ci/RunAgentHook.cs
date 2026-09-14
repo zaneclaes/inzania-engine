@@ -77,12 +77,13 @@ static IEnumerable<PatchFile> ParsePatch(string patch) {
 }
 
 static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guardArgs, string input) {
-  var start = new ProcessStartInfo("dotnet") {
+  bool csharp = Path.GetExtension(guard).Equals(".cs", StringComparison.OrdinalIgnoreCase);
+  var start = new ProcessStartInfo(csharp ? "dotnet" : "sh") {
     RedirectStandardInput = true,
     RedirectStandardOutput = true,
     RedirectStandardError = true,
   };
-  start.ArgumentList.Add("run");
+  if (csharp) start.ArgumentList.Add("run");
   start.ArgumentList.Add(guard);
   start.ArgumentList.Add("--");
   foreach (string arg in guardArgs) start.ArgumentList.Add(arg);
