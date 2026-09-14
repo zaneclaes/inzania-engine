@@ -295,6 +295,10 @@ precisely because it covers what an edit-time hook cannot see — see
   not, and a `*ModelSnapshot.cs` is never exempt however much SQL sits beside it. Write the data
   half so it is idempotent — guard each step on `information_schema` — so an interrupted run
   resumes instead of half-applying.
+- **`JsonGuard.cs`** — Claude Code `PreToolUse` hook (exit 2 = block) for the API layer's wire format: `ZJson` is
+  the only JSON reader and writer, so every surface shares one naming policy and one enum spelling (§5's wire
+  checklist assumes it). It blocks any other JSON API, and JSON assembled by hand in a string, that an edit adds.
+  Rule and escape hatch: `../README.md` → Conventions.
 - **`IndexAudit.cs`** — whole-repo heuristic audit (`dotnet run IndexAudit.cs -- <repo-root>`):
   cross-references every `Filter`/`SortAsc`/`FilterKeyIn`/`ResolveArray` column against
   declared `[ApiIndex]`/`[ApiKey]`/auto-indexes, and re-checks the §1 flags rules with

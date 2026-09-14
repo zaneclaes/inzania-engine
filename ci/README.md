@@ -130,7 +130,8 @@ dotnet run inzania-engine/ci/install.cs             # install / update
 dotnet run inzania-engine/ci/install.cs -- --check  # report drift, write nothing (exit 1 if drifted)
 ```
 
-Installs **both** hook systems, because they are complementary and forgetting either is silent:
+Installs **both** hook systems, because they are complementary and forgetting either is silent, then warms the
+Claude hooks:
 
 1. **Git hooks** — symlinks the *consuming repo's* own `ci/hooks/*` scripts into `.git/hooks/`
    (skipping the `.cs` files there, which are the reusable checks those scripts call, not hooks).
@@ -141,9 +142,17 @@ Installs **both** hook systems, because they are complementary and forgetting ei
    uploads is worse than a failed install.
 2. **Claude hooks** — merges this directory's `claude-hooks.json` into the repo's
    `.claude/settings.json`.
+3. **Pre-build** — builds each engine hook script once, one at a time. Every hook references `ZCore`
+   (`#:project`, so it can use `ZJson`), and several run at once on each edit. Cold, they would all build
+   `ZCore` at the same moment, and concurrent builds of one project fail at random (1 in 5 when measured).
+   Warm, they start in about a second.
+
+The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`claude-hooks.json`, `settings.json`,
+`migration-check.json`, all with `//` comments and trailing commas) through `ZJson` like any other code.
+`settings.json` is read as plain dictionaries, so keys the installer knows nothing about round-trip untouched.
 
 `claude-hooks.json` is the single source of truth for the engine's Claude guards (`DbGuard`,
-`ApiAuthGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every repo picks it up on its next
+`ApiAuthGuard`, `JsonGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every repo picks it up on its next
 `install`; drop one and every repo loses it. `$ENGINE` in a command expands to the engine's path
 relative to the consuming repo root, so vendoring it under a different name needs no configuration.
 

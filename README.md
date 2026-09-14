@@ -88,7 +88,32 @@ against an explicit allowlist so every conscious omission is pinned (Chordzy:
 { "type": "command", "command": "dotnet run \"$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/ApiAuthGuard.cs\"", "timeout": 60 }
 ```
 
+A fifth hook holds **the one-serializer rule**: **`JsonGuard.cs`** (PreToolUse). `ZJson` is the only way code
+reads or writes JSON (the convention below says why). It blocks what an edit *adds*:
+- **J1:** any other JSON API. That covers System.Text.Json's serializer, DOM, readers/writers, options and custom
+  converters; Newtonsoft; Unity's `JsonUtility`; `HttpClient`'s `*AsJsonAsync` helpers; `JsonContent`;
+  `Results.Json`/`JsonResult`.
+- **J2:** JSON assembled by hand in a string (a quoted key followed by a colon).
+
+Violations already in the file are subtracted, so older code is not blocked until someone writes more of it.
+The serialization *attributes* (`[JsonPropertyName]`, `[JsonIgnore]`…) stay allowed, because `ZJson` reads them.
+`ZCore/Json/` (the implementation), generated code, vendored plugins and build output are exempt.
+- **Escape hatch:** `// json-guard: allow` plus the reason, for a byte-exact third-party wire sample that
+  cannot be built from objects.
+- **Whole tree:** `dotnet run inzania-engine/.claude/hooks/JsonGuard.cs -- --audit <dir>` lists every violation.
+
+Every engine hook and CI script is itself a file-based script that follows the rule. Each references `ZCore`
+with `#:project` and starts a `ZScriptApp` before touching JSON (`ZCore/README.md` → JSON).
+
 ## Conventions and gotchas
+
+- **JSON: only `ZJson`.** One serializer means one naming policy (camelCase), one enum wire format (`ZEnums`,
+  below), one null policy and one set of converters on every surface: server, WebAssembly, Unity, tests and
+  scripts. A second serializer, or a string with JSON typed into it, drifts from `ZJson` silently: a key cased
+  differently, an enum spelled differently, a quote left unescaped. The fix is always a typed object (a DTO, with
+  `[JsonPropertyName]` for a wire name camelCase would not produce) through `ZJson.SerializeObject` /
+  `ZJson.DeserializeObject<T>`. For JSON of unknown shape, use `ObjectsAsDictionaries`. A standalone script calls
+  `ZScriptApp.Start(...)` first. API and options: `ZCore/README.md` → JSON. Enforced by `JsonGuard.cs` above.
 
 - **API-shape rules** (violations of these shipped real security holes and wasted round-trips):
   1. *No new endpoint when an existing call already carries the context.* Clients call

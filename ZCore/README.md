@@ -59,6 +59,48 @@ Extension verbs — use these, not raw LINQ, so the call stays translatable and 
 `UpsertId`, `UpsertModel`, `Context.Data.AddAsync/RemoveAsync/SaveAsync`.
 `Context.LoadModelId<T>(id)` checks the change tracker (`GetMemoryModels`) before querying.
 
+## JSON: `ZJson` only (`Json/`)
+
+`ZJson` is the only JSON reader and writer in any code built on the engine (`../README.md` → Conventions; enforced
+by `.claude/hooks/JsonGuard.cs`). It wraps System.Text.Json, in `Json/System/`, the one place allowed to name it,
+with the engine's policy:
+- camelCase names, case-insensitive reads, numbers accepted as strings;
+- enums SCREAMING_SNAKE through `ZEnums`;
+- nulls dropped;
+- empty collections dropped on .NET;
+- `ContextualObject`s bound to their context.
+
+| Call | Use |
+|---|---|
+| `ZJson.SerializeObject(obj, opts?)` | Write. |
+| `ZJson.DeserializeObject<T>(str)` / `(context, str)` / `(context, str, opts)` | Read into a typed object. |
+
+| `ZJsonSerializationOpts` | Effect |
+|---|---|
+| `PrettyPrint` | Indented output. |
+| `IgnoreNull = false` | Keep nulls; a null can be an answer. |
+| `AllowCommentsAndTrailingCommas` | Read hand-maintained config (`claude-hooks.json`, `migration-check.json`). |
+| `UnsafeRelaxedEscaping` | Write `"` and `+` as themselves, for files people review (`.claude/settings.json`); never for HTML. |
+| `ObjectsAsDictionaries` | Read anything typed `object` as `Dictionary<string, object?>` / `List<object?>` / `string` / `long` / `double` / `bool`, for JSON whose shape the code does not know (a JSON-LD graph, a partly-read third-party payload). |
+
+A wire name camelCase would not produce (`snake_case`, `@type`) takes `[JsonPropertyName]`. Use plain `string`s for a
+third party's enum-like values, since `ZJson` writes enums SCREAMING_SNAKE. Anonymous objects serialize as `{}`,
+because read-only properties are skipped, so write a small DTO instead.
+
+**Scripts.** `ZJson` needs `ZEnv.App` for its context. A standalone .NET file-based script (a Claude hook, an
+installer, a CI step) references this project and starts `Contexts/ZScriptApp.cs` first:
+
+```csharp
+#:project ../../ZCore/ZCore.csproj      // relative to the script
+using IZ.Core.Contexts;
+ZScriptApp.Start("MyScript");            // ZEnv.App, and the engine log on stderr at Warning+
+```
+
+The script's stdout stays its own output. A Claude Code hook reads its stdin with `Tooling/ClaudeHookInput.cs`:
+`ClaudeHookInput.Read(stdin)` gives `ToolName`, `ToolInput.{FilePath, Content, NewString, Edits, Command}`,
+`NewText`/`OldText`, and `ProspectiveContent(existing)`, the file as it will read after the edit. Every engine hook
+is built on it.
+
 ## Rules of thumb
 
 - Never enumerate an `IZQueryable` synchronously (`foreach`, `.ToList()`) — it runs the query on

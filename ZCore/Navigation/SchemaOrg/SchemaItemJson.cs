@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
@@ -58,11 +57,12 @@ public class SchemaItemJson : TransientObject {
         case SchemaIdJson id:
           MainEntity = id;
           return;
-        case JsonElement element when element.ValueKind == JsonValueKind.Array:
-          Questions = ZJson.DeserializeObject<List<SchemaQuestionJson>>(Context, element.GetRawText());
+        // The plain values ZJson reads an `object` into (`ZJsonSerializationOpts.ObjectsAsDictionaries`).
+        case List<object?> array:
+          Questions = ZJson.DeserializeObject<List<SchemaQuestionJson>>(Context, ZJson.SerializeObject(array));
           return;
-        case JsonElement element when element.ValueKind == JsonValueKind.Object:
-          MainEntity = ZJson.DeserializeObject<SchemaIdJson>(Context, element.GetRawText());
+        case Dictionary<string, object?> obj:
+          MainEntity = ZJson.DeserializeObject<SchemaIdJson>(Context, ZJson.SerializeObject(obj));
           return;
       }
     }

@@ -1,3 +1,4 @@
+#:project ../../ZCore/ZCore.csproj
 // inzania-engine ApiAuthGuard — reusable Claude Code PreToolUse hook (Write|Edit|MultiEdit).
 // .NET 10 file-based app. Wire it in a consuming project's .claude/settings.json:
 //   dotnet run "$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/ApiAuthGuard.cs"
@@ -38,31 +39,22 @@
 // NOTE for editors of this file: keep literals naming guarded APIs out of loop bodies (in the
 // consts/locals below) so sibling hooks scanning this file do not misread them.
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using IZ.Core.Contexts;
+using IZ.Core.Tooling;
 
-string input = Console.In.ReadToEnd();
-if (string.IsNullOrWhiteSpace(input)) return 0;
-JsonDocument doc;
-try { doc = JsonDocument.Parse(input); } catch { return 0; }
-var root = doc.RootElement;
-string tool = root.TryGetProperty("tool_name", out var tn) ? tn.GetString() ?? "" : "";
-if (!root.TryGetProperty("tool_input", out var ti)) return 0;
-string path = ti.TryGetProperty("file_path", out var fp) ? fp.GetString() ?? "" : "";
+ZScriptApp.Start("ApiAuthGuard");
+var hook = ClaudeHookInput.Read(Console.In.ReadToEnd());
+var ti = hook?.ToolInput;
+if (ti == null || !ti.WritesText) return 0;
+string tool = hook!.ToolName;
+string path = ti.FilePath ?? "";
 if (!path.Replace('\\', '/').EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) return 0;
 
 // ---- prospective content: the file as it will look AFTER this edit ----
 string existing = "";
 try { if (File.Exists(path)) existing = File.ReadAllText(path); } catch { }
-string content;
-if (ti.TryGetProperty("content", out var c)) {                        // Write: full replacement
-  content = c.GetString() ?? "";
-} else if (ti.TryGetProperty("new_string", out var ns)) {             // Edit
-  content = ApplyEdit(existing, ti);
-} else if (ti.TryGetProperty("edits", out var edits) && edits.ValueKind == JsonValueKind.Array) {
-  content = existing;                                                 // MultiEdit: sequential
-  foreach (var e in edits.EnumerateArray()) content = ApplyEdit(content, e);
-} else { return 0; }
+string content = ti.ProspectiveContent(existing);
 if (!content.Contains("IZResult<")) return 0;
 
 // scan = content with comments and string-literal contents blanked, length-preserving, so offsets
@@ -113,16 +105,6 @@ if (blocks.Count > 0) {
   return 2;
 }
 return 0;
-
-static string ApplyEdit(string text, JsonElement edit) {
-  string oldS = edit.TryGetProperty("old_string", out var os) ? os.GetString() ?? "" : "";
-  string newS = edit.TryGetProperty("new_string", out var nsv) ? nsv.GetString() ?? "" : "";
-  if (oldS.Length == 0) return text + "\n" + newS;                    // creation-style edit
-  bool all = edit.TryGetProperty("replace_all", out var ra) && ra.ValueKind == JsonValueKind.True;
-  int idx = text.IndexOf(oldS, StringComparison.Ordinal);
-  if (idx < 0) return text + "\n" + newS;                             // stale edit: still scan the fragment
-  return all ? text.Replace(oldS, newS) : text[..idx] + newS + text[(idx + oldS.Length)..];
-}
 
 // Blank comments and string-literal contents with spaces (newlines preserved) so brace/paren
 // balancing and attribute scans cannot be fooled by text, while offsets stay aligned with the raw.

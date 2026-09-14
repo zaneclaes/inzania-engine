@@ -1,3 +1,4 @@
+#:project ../../ZCore/ZCore.csproj
 // inzania-engine MigrationGuard — reusable Claude Code PreToolUse hook (Write|Edit|MultiEdit|Bash).
 // .NET 10 file-based app. Wire it in a consuming project's .claude/settings.json:
 //   dotnet run "$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/MigrationGuard.cs"
@@ -40,23 +41,17 @@
 // saying why. Anything under `.claude/hooks/` is exempt so these hooks can be edited and tested.
 // NOTE for editors of this file: the DDL/verb literals below live in consts near the top on purpose —
 // the Bash rules match the *command being run*, so keep example commands out of shell one-liners.
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using IZ.Core.Contexts;
+using IZ.Core.Tooling;
 
-string input = Console.In.ReadToEnd();
-if (string.IsNullOrWhiteSpace(input)) return 0;
-JsonDocument doc;
-try { doc = JsonDocument.Parse(input); } catch { return 0; }
-var root = doc.RootElement;
-string tool = root.TryGetProperty("tool_name", out var tn) ? tn.GetString() ?? "" : "";
-if (!root.TryGetProperty("tool_input", out var ti)) return 0;
-string path = ti.TryGetProperty("file_path", out var fp) ? fp.GetString() ?? "" : "";
-string command = ti.TryGetProperty("command", out var cm) ? cm.GetString() ?? "" : "";
-string content = "";
-if (ti.TryGetProperty("content", out var c)) content = c.GetString() ?? "";
-else if (ti.TryGetProperty("new_string", out var ns)) content = ns.GetString() ?? "";
-else if (ti.TryGetProperty("edits", out var edits) && edits.ValueKind == JsonValueKind.Array)
-  content = string.Join("\n", edits.EnumerateArray().Select(e => e.TryGetProperty("new_string", out var s) ? s.GetString() ?? "" : ""));
+ZScriptApp.Start("MigrationGuard");
+var hook = ClaudeHookInput.Read(Console.In.ReadToEnd());
+if (hook?.ToolInput == null) return 0;
+string tool = hook.ToolName;
+string path = hook.ToolInput.FilePath ?? "";
+string command = hook.ToolInput.Command ?? "";
+string content = hook.ToolInput.NewText;
 string norm = path.Replace('\\', '/');
 
 // Exemptions: the hooks themselves, and an explicitly justified escape hatch. The marker is looked

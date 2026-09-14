@@ -1,3 +1,4 @@
+#:project ../../ZCore/ZCore.csproj
 // inzania-engine IndexAudit — whole-repo database-design audit (.NET 10 file-based app).
 //   dotnet run inzania-engine/.claude/hooks/IndexAudit.cs -- <repo-root> [--strict]
 //   dotnet run inzania-engine/.claude/hooks/IndexAudit.cs -- --hook   (Claude Code PostToolUse)
@@ -24,8 +25,9 @@
 //  - a query is "covered" when ANY declared/auto index leads with one of its filter columns
 //    (or its sort column when there is no filter) — column order quality is not verified;
 //  - navigation/collection properties inside predicates are ignored (they become SQL joins).
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using IZ.Core.Contexts;
+using IZ.Core.Tooling;
 
 var roots = new List<string>();
 bool strict = false, hookMode = false;
@@ -55,24 +57,12 @@ var gateRx = new Regex(
   // `[Flags]`, `public CustomerFlags Flags { get; set; }` and `o.Flags` all do.
   + @"|\bFlags\b");
 if (hookMode) {
-  string stdin = Console.In.ReadToEnd();
-  if (string.IsNullOrWhiteSpace(stdin)) return 0;
-  JsonDocument hookDoc;
-  try { hookDoc = JsonDocument.Parse(stdin); } catch { return 0; }
-  if (!hookDoc.RootElement.TryGetProperty("tool_input", out var hti)) return 0;
-  string hookPath = hti.TryGetProperty("file_path", out var hfp) ? hfp.GetString() ?? "" : "";
+  ZScriptApp.Start("IndexAudit");
+  var hti = ClaudeHookInput.Read(Console.In.ReadToEnd())?.ToolInput;
+  if (hti == null) return 0;
+  string hookPath = hti.FilePath ?? "";
   if (!hookPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) return 0;
-  string newText = "", oldText = "";
-  if (hti.TryGetProperty("content", out var hc)) { newText = hc.GetString() ?? ""; }
-  else if (hti.TryGetProperty("new_string", out var hns)) {
-    newText = hns.GetString() ?? "";
-    if (hti.TryGetProperty("old_string", out var hos)) oldText = hos.GetString() ?? "";
-  } else if (hti.TryGetProperty("edits", out var hEdits) && hEdits.ValueKind == JsonValueKind.Array) {
-    foreach (var e in hEdits.EnumerateArray()) {
-      newText += (e.TryGetProperty("new_string", out var en) ? en.GetString() : "") + "\n";
-      oldText += (e.TryGetProperty("old_string", out var eo) ? eo.GetString() : "") + "\n";
-    }
-  }
+  string newText = hti.NewText, oldText = hti.OldText;
   // Gate: audit whenever the edit *touches* query surface on either side — added, removed or
   // rewritten. A deleted [ApiIndex] or a swapped Filter column changes the answer as much as a new
   // query does, so counting only net additions would let those through.

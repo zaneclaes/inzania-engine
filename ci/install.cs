@@ -1,4 +1,5 @@
 #!/usr/bin/env dotnet
+#:project ../ZCore/ZCore.csproj
 // inzania-engine install — wires a consuming repo up to the engine's tooling. Run it after cloning,
 // after pulling a submodule bump, or any time the engine's hook set changes:
 //
@@ -10,8 +11,7 @@
 // that vendor the engine should pick up a new guard by re-running one command, not by hand-editing
 // their own settings.json and drifting apart.
 //
-// TWO INSTALLERS IN ONE, because the two hook systems are complementary and forgetting either one is
-// silent:
+// THREE STEPS, because the hook systems are complementary and forgetting either one is silent:
 //
 //  1. GIT HOOKS — symlinks the repo's own `ci/hooks/*` scripts into `.git/hooks/`. Symlinks rather
 //     than core.hooksPath: git-lfs owns .git/hooks/{post-checkout,post-commit,post-merge,pre-push} and
@@ -26,12 +26,19 @@
 //     No marker keys are written into settings.json, so nothing here depends on Claude Code tolerating
 //     unknown fields.
 //
+//  3. PRE-BUILD — every engine hook is a file-based script referencing ZCore (`#:project`), and several run
+//     at once on each edit. Cold, they would all build ZCore at the same moment, and concurrent builds of one
+//     project fail at random. Building them one at a time here means the hooks start warm.
+//
+// JSON goes through ZJson like everywhere else (`.claude/hooks/JsonGuard.cs`): the manifest into a typed model,
+// settings.json as plain dictionaries so keys this file knows nothing about survive untouched.
 // Exit 0 = installed (or already current), 1 = failed, or under --check, drift found.
 using System.Diagnostics;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using IZ.Core.Contexts;
+using IZ.Core.Json;
 
+ZScriptApp.Start("install");
 bool check = Args().Contains("--check");
 var changes = new List<string>();
 
@@ -61,7 +68,8 @@ Console.WriteLine($"[install] repo {root}");
 Console.WriteLine($"[install] engine {(engineIsRoot ? "(this repo)" : engineRel)}");
 
 if (!InstallGitHooks()) return 1;
-if (!InstallClaudeHooks()) return 1;
+if (!InstallClaudeHooks(out var hookScripts)) return 1;
+if (!check) PrebuildHookScripts(hookScripts);
 
 if (changes.Count <= 0) {
   Console.WriteLine("[install] everything already current.");
@@ -125,26 +133,24 @@ bool InstallGitHooks() {
 // ---------------------------------------------------------------------------------------------
 // 2. Claude hooks
 // ---------------------------------------------------------------------------------------------
-bool InstallClaudeHooks() {
+bool InstallClaudeHooks(out List<string> scripts) {
+  scripts = new List<string>();
   string manifestPath = Path.Combine(engine, "ci", "claude-hooks.json");
   if (!File.Exists(manifestPath)) {
     Console.WriteLine("[install] no ci/claude-hooks.json in the engine; no Claude hooks to install.");
     return true;
   }
 
-  JsonNode? manifest;
+  HookManifest? manifest;
   try {
-    manifest = JsonNode.Parse(File.ReadAllText(manifestPath), null, new JsonDocumentOptions {
-      CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true,
-    });
-  } catch (JsonException e) {
+    manifest = ZJson.DeserializeObject<HookManifest>(null, File.ReadAllText(manifestPath), Lenient());
+  } catch (Exception e) {
     Console.Error.WriteLine($"[install] {engineRel}/ci/claude-hooks.json is not valid JSON: {e.Message}");
     return false;
   }
-
-  var declared = manifest?["hooks"]?.AsArray();
+  var declared = manifest?.Hooks;
   if (declared == null) {
-    Console.Error.WriteLine($"[install] {engineRel}/ci/claude-hooks.json has no \"hooks\" array.");
+    Console.Error.WriteLine($"[install] {engineRel}/ci/claude-hooks.json has no hooks array.");
     return false;
   }
 
@@ -153,62 +159,56 @@ bool InstallClaudeHooks() {
   string owned = (engineIsRoot ? "" : engineRel + "/") + ".claude/hooks/";
 
   string settingsPath = Path.Combine(root, ".claude", "settings.json");
-  JsonObject settings;
   string before = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "";
-  if (before.Trim().Length > 0) {
-    try {
-      settings = JsonNode.Parse(before, null, new JsonDocumentOptions {
-        CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true,
-      })!.AsObject();
-    } catch (JsonException e) {
-      Console.Error.WriteLine($"[install] .claude/settings.json is not valid JSON: {e.Message}");
-      return false;
-    }
-  } else {
-    settings = new JsonObject();
+  Dictionary<string, object?> settings;
+  try {
+    settings = before.Trim().Length > 0
+      ? ZJson.DeserializeObject<Dictionary<string, object?>>(null, before, Lenient()) ?? new Dictionary<string, object?>()
+      : new Dictionary<string, object?>();
+  } catch (Exception e) {
+    Console.Error.WriteLine($"[install] .claude/settings.json is not valid JSON: {e.Message}");
+    return false;
   }
 
-  if (settings["hooks"] is not JsonObject events) settings["hooks"] = events = new JsonObject();
+  if (settings.GetValueOrDefault("hooks") is not Dictionary<string, object?> events) settings["hooks"] = events = new Dictionary<string, object?>();
 
   // Strip every engine-owned entry first, then re-add from the manifest: one pass handles additions,
   // command/timeout edits, matcher moves and deletions alike, and converges however far behind the repo was.
-  foreach (string evt in events.Select(p => p.Key).ToList()) {
-    if (events[evt] is not JsonArray groups) continue;
+  foreach (string evt in events.Keys.ToList()) {
+    if (events[evt] is not List<object?> groups) continue;
     for (int g = groups.Count - 1; g >= 0; g--) {
-      if (groups[g] is not JsonObject group || group["hooks"] is not JsonArray entries) continue;
-      for (int h = entries.Count - 1; h >= 0; h--)
-        if (entries[h]?["command"]?.GetValue<string>()?.Contains(owned) == true)
-          entries.RemoveAt(h);
+      if (groups[g] is not Dictionary<string, object?> group || group.GetValueOrDefault("hooks") is not List<object?> entries) continue;
+      entries.RemoveAll(e => Command(e).Contains(owned));
       if (entries.Count <= 0) groups.RemoveAt(g);   // a group that only ever held engine hooks.
     }
     if (groups.Count <= 0) events.Remove(evt);
   }
 
   foreach (var entry in declared) {
-    string evt = entry?["event"]?.GetValue<string>() ?? "";
-    string matcher = entry?["matcher"]?.GetValue<string>() ?? "";
-    string command = (entry?["command"]?.GetValue<string>() ?? "").Replace("$ENGINE/", engineIsRoot ? "" : engineRel + "/");
-    if (evt.Length <= 0 || command.Length <= 0) {
-      Console.Error.WriteLine("[install] claude-hooks.json: an entry is missing \"event\" or \"command\".");
+    string command = (entry.Command ?? "").Replace("$ENGINE/", engineIsRoot ? "" : engineRel + "/");
+    if (string.IsNullOrEmpty(entry.Event) || command.Length <= 0) {
+      Console.Error.WriteLine("[install] claude-hooks.json: an entry is missing its event or command.");
       return false;
     }
+    if (Regex.Match(command, @"\$CLAUDE_PROJECT_DIR/([^""]+\.cs)") is { Success: true } script) scripts.Add(script.Groups[1].Value);
 
-    if (events[evt] is not JsonArray groups) events[evt] = groups = new JsonArray();
-    var group = groups.FirstOrDefault(g => (g?["matcher"]?.GetValue<string>() ?? "") == matcher) as JsonObject;
+    if (events.GetValueOrDefault(entry.Event) is not List<object?> groups) events[entry.Event] = groups = new List<object?>();
+    string matcher = entry.Matcher ?? "";
+    var group = groups.OfType<Dictionary<string, object?>>().FirstOrDefault(g => (g.GetValueOrDefault("matcher") as string ?? "") == matcher);
     if (group == null) {
-      group = new JsonObject { ["matcher"] = matcher, ["hooks"] = new JsonArray() };
-      groups.Add((JsonNode) group);   // the generic Add<T> is the trim/AOT-unsafe one.
+      group = new Dictionary<string, object?> { ["matcher"] = matcher, ["hooks"] = new List<object?>() };
+      groups.Add(group);
     }
-    if (group["hooks"] is not JsonArray entries) group["hooks"] = entries = new JsonArray();
+    if (group.GetValueOrDefault("hooks") is not List<object?> hooks) group["hooks"] = hooks = new List<object?>();
 
-    var node = new JsonObject { ["type"] = "command", ["command"] = command };
-    if (entry?["timeout"] is { } t) node["timeout"] = t.DeepClone();
+    var node = new Dictionary<string, object?> { ["type"] = "command", ["command"] = command };
+    if (entry.Timeout is int t) node["timeout"] = t;
     // Engine guards run first within their group: they are the shared invariants, and a repo-specific
     // hook is cheaper to reach after the general ones have already rejected an edit.
-    entries.Insert(CountEngineEntries(entries, owned), node);
+    hooks.Insert(hooks.Count(e => Command(e).Contains(owned)), node);
   }
 
-  string after = settings.ToJsonString(JsonOut()) + "\n";
+  string after = Write(settings) + "\n";
   if (Normalize(before) == Normalize(after)) {
     Console.WriteLine($"[install] claude hooks current ({declared.Count} from the engine).");
     return true;
@@ -222,16 +222,40 @@ bool InstallClaudeHooks() {
   return true;
 }
 
-static int CountEngineEntries(JsonArray entries, string owned) =>
-  entries.Count(e => e?["command"]?.GetValue<string>()?.Contains(owned) == true);
+// ---------------------------------------------------------------------------------------------
+// 3. Pre-build the hook scripts, one at a time
+// ---------------------------------------------------------------------------------------------
+void PrebuildHookScripts(List<string> scripts) {
+  foreach (string script in scripts.Distinct()) {
+    string full = Path.Combine(root, script);
+    if (!File.Exists(full)) continue;
+    var (code, output) = Run("dotnet", ["build", full, "-v", "q", "-nologo"]);
+    if (code != 0) {
+      Console.Error.WriteLine($"[install] could not pre-build {script} (the hook will build on first use):");
+      Console.Error.WriteLine(output.TrimEnd());
+    }
+  }
+  if (scripts.Count > 0) Console.WriteLine($"[install] {scripts.Distinct().Count()} hook script(s) pre-built.");
+}
+
+static string Command(object? entry) =>
+  entry is Dictionary<string, object?> d && d.GetValueOrDefault("command") is string c ? c : "";
+
+// Dictionaries rather than a model for settings.json: every key Claude Code or the repo keeps there must
+// round-trip untouched. Relaxed escaping so the quotes inside a hook command stay `\"` rather than
+// `"` — both are valid JSON and Claude Code reads either, but the escaped form churns the whole file
+// on first write and is unreadable in review. "Unsafe" refers to HTML-embedding, not to files.
+static string Write(object value) => ZJson.SerializeObject(value, new ZJsonSerializationOpts {
+  PrettyPrint = true, UnsafeRelaxedEscaping = true, IgnoreNull = false,
+});
+
+static ZJsonSerializationOpts Lenient() => new ZJsonSerializationOpts { AllowCommentsAndTrailingCommas = true, ObjectsAsDictionaries = true };
 
 static string Normalize(string json) {
   if (json.Trim().Length <= 0) return "";
   try {
-    return JsonNode.Parse(json, null, new JsonDocumentOptions {
-      CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true,
-    })!.ToJsonString(JsonOut());
-  } catch (JsonException) {
+    return Write(ZJson.DeserializeObject<Dictionary<string, object?>>(null, json, Lenient())!);
+  } catch (Exception) {
     return json;
   }
 }
@@ -250,7 +274,14 @@ static (int Code, string Output) Run(string file, IEnumerable<string> args) {
   return (p.ExitCode, stdout.Result + stderr.Result);
 }
 
-// UnsafeRelaxedJsonEscaping so the quotes inside a hook command stay `\"` rather than becoming
-// `"`. Both are valid JSON and Claude Code reads either, but the escaped form churns the whole
-// file on first write and is unreadable in review. "Unsafe" refers to HTML-embedding, not to files.
-static JsonSerializerOptions JsonOut() => new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+/// <summary>`ci/claude-hooks.json`.</summary>
+class HookManifest {
+  public List<ManifestHook>? Hooks { get; set; }
+}
+
+class ManifestHook {
+  public string? Event { get; set; }
+  public string? Matcher { get; set; }
+  public string? Command { get; set; }
+  public int? Timeout { get; set; }
+}

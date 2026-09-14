@@ -25,6 +25,14 @@
       "timeout": 60,
     },
     {
+      // A JSON serializer or parser other than ZJson, or JSON assembled by hand in a string. Judges only what an
+      // edit adds; `-- --audit <dir>` lists everything.
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit",
+      "command": "dotnet run \"$CLAUDE_PROJECT_DIR/$ENGINE/.claude/hooks/JsonGuard.cs\"",
+      "timeout": 60,
+    },
+    {
       // Hand-rolled schema changes. Matches Bash too, since DDL can arrive through a mysql client or
       // ExecuteSqlRaw rather than an editor tool (data-design.md §6).
       "event": "PreToolUse",

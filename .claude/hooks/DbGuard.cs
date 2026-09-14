@@ -1,3 +1,4 @@
+#:project ../../ZCore/ZCore.csproj
 // inzania-engine DbGuard — reusable Claude Code PreToolUse hook (Write|Edit|MultiEdit).
 // .NET 10 file-based app. Wire it in a consuming project's .claude/settings.json:
 //   dotnet run "$CLAUDE_PROJECT_DIR/inzania-engine/.claude/hooks/DbGuard.cs"
@@ -29,22 +30,16 @@
 // NOTE for editors of this file: keep regex/message literals that mention the guarded APIs out of
 // loop bodies (in the consts/locals below), and give every loop an explicit braced body — the
 // line-based tracker treats a braceless loop as extending to the end of the enclosing block.
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using IZ.Core.Contexts;
+using IZ.Core.Tooling;
 
-string input = Console.In.ReadToEnd();
-if (string.IsNullOrWhiteSpace(input)) return 0;
-JsonDocument doc;
-try { doc = JsonDocument.Parse(input); } catch { return 0; }
-var root = doc.RootElement;
-string tool = root.TryGetProperty("tool_name", out var tn) ? tn.GetString() ?? "" : "";
-if (!root.TryGetProperty("tool_input", out var ti)) return 0;
-string path = ti.TryGetProperty("file_path", out var fp) ? fp.GetString() ?? "" : "";
-string content = "";
-if (ti.TryGetProperty("content", out var c)) content = c.GetString() ?? "";
-else if (ti.TryGetProperty("new_string", out var ns)) content = ns.GetString() ?? "";
-else if (ti.TryGetProperty("edits", out var edits) && edits.ValueKind == JsonValueKind.Array)
-  content = string.Join("\n", edits.EnumerateArray().Select(e => e.TryGetProperty("new_string", out var s) ? s.GetString() ?? "" : ""));
+ZScriptApp.Start("DbGuard");
+var hook = ClaudeHookInput.Read(Console.In.ReadToEnd());
+if (hook?.ToolInput == null) return 0;
+string tool = hook.ToolName;
+string path = hook.ToolInput.FilePath ?? "";
+string content = hook.ToolInput.NewText;
 string norm = path.Replace('\\', '/');
 var blocks = new List<string>();
 var warns = new List<string>();

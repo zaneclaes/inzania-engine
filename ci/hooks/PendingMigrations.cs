@@ -1,4 +1,5 @@
 #!/usr/bin/env dotnet
+#:project ../../ZCore/ZCore.csproj
 // inzania-engine PendingMigrations — reusable git pre-commit check, shared by every consuming repo.
 // .NET 10 file-based app with a shebang: `chmod +x` and run it directly, or `dotnet run PendingMigrations.cs`.
 //
@@ -37,8 +38,9 @@
 // Bypass one commit with SKIP_MIGRATION_CHECK=1 git commit ...
 // Exit 0 = allow, 1 = block (reason on stderr).
 using System.Diagnostics;
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using IZ.Core.Contexts;
+using IZ.Core.Json;
 
 const string PendingMarker = "Changes have been made to the model";
 string[] defaultPaths = { @"\.(cs|csproj|props)$" };
@@ -63,27 +65,25 @@ if (!File.Exists(configPath)) {
   return 0;
 }
 
-JsonElement config;
+ZScriptApp.Start("PendingMigrations");
+MigrationCheckConfig config;
 try {
-  config = JsonDocument.Parse(File.ReadAllText(configPath), new JsonDocumentOptions {
-    CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true,
-  }).RootElement;
-} catch (JsonException e) {
+  config = ZJson.DeserializeObject<MigrationCheckConfig>(null, File.ReadAllText(configPath),
+    new ZJsonSerializationOpts { AllowCommentsAndTrailingCommas = true }) ?? new MigrationCheckConfig();
+} catch (Exception e) {
   Console.Error.WriteLine($"[migrations] {Rel(configPath)} is not valid JSON: {e.Message}");
   return 1;
 }
 
-var contexts = config.TryGetProperty("contexts", out var ctxs) && ctxs.ValueKind == JsonValueKind.Array
-  ? ctxs.EnumerateArray().ToList()
-  : new List<JsonElement>();
+var contexts = config.Contexts ?? new List<MigrationContext>();
 if (contexts.Count <= 0) {
   Console.Error.WriteLine($"[migrations] {Rel(configPath)} lists no contexts; nothing checked.");
   return 0;
 }
 
-string configuration = Str(config, "configuration") ?? "Release";
-var pathPatterns = config.TryGetProperty("paths", out var ps) && ps.ValueKind == JsonValueKind.Array
-  ? ps.EnumerateArray().Select(p => p.GetString() ?? "").Where(p => p.Length > 0).ToArray()
+string configuration = config.Configuration ?? "Release";
+var pathPatterns = config.Paths is { Count: > 0 }
+  ? config.Paths.Where(p => p.Length > 0).ToArray()
   : defaultPaths;
 
 // A docs-, content- or asset-only commit cannot move the model, and the check costs a build.
@@ -94,20 +94,18 @@ if (!Args().Contains("--all")) {
   if (!staged.Any(f => pathPatterns.Any(p => Regex.IsMatch(f, p, RegexOptions.IgnoreCase)))) return 0;
 }
 
-var env = new Dictionary<string, string>();
-if (config.TryGetProperty("env", out var envEl) && envEl.ValueKind == JsonValueKind.Object)
-  foreach (var p in envEl.EnumerateObject()) env[p.Name] = p.Value.GetString() ?? "";
+var env = config.Env ?? new Dictionary<string, string>();
 
 var built = new HashSet<string>();  // startup projects already built this run; the rest reuse the output.
 var pending = new List<string>();
 foreach (var entry in contexts) {
-  string? project = Str(entry, "project");
+  string? project = entry.Project;
   if (string.IsNullOrEmpty(project)) {
-    Console.Error.WriteLine($"[migrations] {Rel(configPath)}: a contexts[] entry has no \"project\".");
+    Console.Error.WriteLine($"[migrations] {Rel(configPath)}: a contexts[] entry has no project.");
     return 1;
   }
-  string startup = Str(entry, "startupProject") ?? project;
-  string? context = Str(entry, "context");
+  string startup = entry.StartupProject ?? project;
+  string? context = entry.Context;
   string label = context ?? project;
 
   var efArgs = new List<string> {
@@ -155,7 +153,7 @@ if (pending.Count <= 0) {
 Console.Error.WriteLine($"[migrations] {pending.Count} context(s) have model changes with no migration — commit aborted.");
 Console.Error.WriteLine("[migrations] the model would deploy against a schema that lacks its columns. Generate the migration:");
 foreach (string p in pending) Console.Error.WriteLine(p);
-Console.Error.WriteLine($"[migrations] then review the generated Up() ({Str(config, "reviewDoc") ?? "the owning Migrations/README.md"}) " +
+Console.Error.WriteLine($"[migrations] then review the generated Up() ({config.ReviewDoc ?? "the owning Migrations/README.md"}) " +
                         "and commit it with the model change.");
 Console.Error.WriteLine("[migrations] bypass once with SKIP_MIGRATION_CHECK=1 git commit ...");
 return 1;
@@ -169,9 +167,6 @@ string? ArgValue(string name) {
 }
 
 string Rel(string p) => Path.GetRelativePath(root, p);
-
-static string? Str(JsonElement el, string name) =>
-  el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
 static string Run(string file, string args) {
   var psi = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true };
@@ -192,4 +187,19 @@ static (int Code, string Output) RunFull(string file, IEnumerable<string> args, 
   var stderr = p.StandardError.ReadToEndAsync();
   p.WaitForExit();
   return (p.ExitCode, stdout.Result + stderr.Result);
+}
+
+/// <summary>`ci/migration-check.json` (see the header for the keys).</summary>
+class MigrationCheckConfig {
+  public string? Configuration { get; set; }
+  public Dictionary<string, string>? Env { get; set; }
+  public List<string>? Paths { get; set; }
+  public string? ReviewDoc { get; set; }
+  public List<MigrationContext>? Contexts { get; set; }
+}
+
+class MigrationContext {
+  public string? Project { get; set; }
+  public string? StartupProject { get; set; }
+  public string? Context { get; set; }
 }
