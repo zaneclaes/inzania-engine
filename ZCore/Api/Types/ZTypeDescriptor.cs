@@ -169,11 +169,28 @@ public class ZTypeDescriptor {
   /// lying about its type. A field the wire can null belongs declared nullable, so that "not set" and
   /// "zero" stay different — defaulting silently is the floor, not the goal.</para>
   /// </remarks>
-  internal string ToCast(string val) {
-    if (IsList || IsNullableInner || IsNullableOuter || !(OrigType.IsEnum || ObjectDescriptor.IsScalar))
-      return $"({val} as {ToSystemTypeName()})!";
+  internal string ToCast(string val, bool nullableReference, string memberName) {
+    if (!OrigType.IsValueType)
+      return nullableReference
+        ? $"{val} as {ToSystemTypeName()}"
+        : $"ZTypeDescriptor.RequireReference<{ToSystemTypeName()}>({val}, \"{memberName}\")";
+    if (IsList || IsNullableInner || IsNullableOuter)
+      return $"{val} as {ToSystemTypeName()}";
     string t = CSharpName(OrigType);
     return $"({t}) ({val} ?? default({t}))";
+  }
+
+  /// <summary>
+  /// Generated descriptors cross from an untyped wire value into a member whose C# declaration is
+  /// non-nullable here. Reflection can assign null to such a member because nullability is metadata;
+  /// generated source must make the declaration's contract explicit instead of hiding it with <c>!</c>.
+  /// Required API arguments have already been validated before invocation, and a malformed object
+  /// still reports the same boundary rather than becoming a later null dereference.
+  /// </summary>
+  public static T RequireReference<T>(object? value, string memberName) where T : class {
+    if (value == null) throw new ArgumentNullException(memberName);
+    if (value is T typed) return typed;
+    throw new InvalidCastException($"{memberName} is a {value.GetType()}, not a {typeof(T)}");
   }
 
   public override string ToString() => ToGraphTypeName(false, "?");

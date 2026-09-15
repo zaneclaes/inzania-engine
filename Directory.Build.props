@@ -4,6 +4,7 @@
     <IntermediateOutputPath>..\out\$(MSBuildProjectName)\obj</IntermediateOutputPath>
     <LangVersion>13</LangVersion>
     <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 

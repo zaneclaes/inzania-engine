@@ -41,10 +41,11 @@ public class Installation : TransientObject {
 
   /// <summary>
   /// The client-side transport decision for this boot. It is transient device data, never an
-  /// entitlement. Only <see cref="AnalyticsTrafficStatus.Internal"/> is sent to the server as a
-  /// durable exclusion request; unknown simply suppresses GA until a server verdict arrives.
+  /// entitlement. It is deliberately excluded from the GraphQL contract so a new client remains
+  /// compatible with the previous server during a rolling deployment; the backward-compatible
+  /// event payload carries the server-side exclusion marker.
   /// </summary>
-  public AnalyticsTrafficStatus AnalyticsTrafficStatus { get; set; }
+  [InputIgnore] [OutputIgnore] public AnalyticsTrafficStatus AnalyticsTrafficStatus { get; set; }
 
   public int ProcessorCount { get; set; }
 

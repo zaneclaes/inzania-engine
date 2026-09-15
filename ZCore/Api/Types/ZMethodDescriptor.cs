@@ -129,7 +129,7 @@ namespace {ns};
       args = Parameters.Select((p, i) => {
         var pt = typeMap.LoadTypeDescriptor(p.ParameterType);
         usings.Add(pt.ObjectDescriptor.ObjectType.Namespace!);
-        return pt.ToCast($"args![{i}]");
+        return pt.ToCast($"args![{i}]", p.IsNullableReference, p.FieldName);
       }).ToList();
     }
     var fm = "new HashSet<string?>()";

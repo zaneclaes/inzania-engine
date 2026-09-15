@@ -30,7 +30,8 @@ public static class ZMySql {
       // .UseLazyLoadingProxies()
       .UseMySql(settings.ToConnectionString(options), settings.Version, opts => {
         opts.EnablePrimitiveCollectionsSupport();
-        opts.TranslateParameterizedCollectionsToConstants();
+        // Keep the existing stable SQL shape: collection values are translated as constants.
+        opts.UseParameterizedCollectionMode(ParameterTranslationMode.Constant);
         opts.MigrationsAssembly(typeof(TAsm).Assembly.FullName);
         opts.EnableRetryOnFailure(3);
         opts.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);

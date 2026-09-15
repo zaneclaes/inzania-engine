@@ -35,6 +35,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
 
     var jsonPropName = propertyInfo.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
     PropertyInfo = propertyInfo;
+    IsNullableReference = !propertyInfo.PropertyType.IsValueType && new NullabilityInfoContext()
+      .Create(propertyInfo).WriteState == NullabilityState.Nullable;
     IsInherited = parentProp != null;
     Name = propertyInfo.Name;
     FieldName = jsonPropName ?? propertyInfo.Name.ToFieldName();
@@ -80,6 +82,10 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
   }
 
   private PropertyInfo? PropertyInfo { get; }
+
+  /// <summary>Declaration-specific nullability. Type descriptors are cached by runtime type, so it
+  /// must never be stored on one of those shared descriptors.</summary>
+  public bool IsNullableReference { get; }
 
   // public bool IsLogIgnored { get; }
 
@@ -143,8 +149,8 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
 
     var setter = !IsSettable ? "" :
       isInitOnly ? $"\n\n  public override void SetValue(object o, object? val) =>\n    typeof({objectName}).GetProperty(\"{Name}\")!.SetValue(o, val);" :
-      isStatic ? $"\n\n  public override void SetValue(object o, object? val) =>\n    {objectName}.{Name} = {rt.ToCast("val")};" :
-      $"\n\n  public override void SetValue(object o, object? val) =>\n    {instance}.{Name} = {rt.ToCast("val")};";
+      isStatic ? $"\n\n  public override void SetValue(object o, object? val) =>\n    {objectName}.{Name} = {rt.ToCast("val", IsNullableReference, Name)};" :
+      $"\n\n  public override void SetValue(object o, object? val) =>\n    {instance}.{Name} = {rt.ToCast("val", IsNullableReference, Name)};";
 
     List<string> inits = new List<string>();
     if (Order != -1) inits.Add($"Order = {Order};");

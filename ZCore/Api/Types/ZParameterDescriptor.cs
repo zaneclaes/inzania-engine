@@ -36,6 +36,8 @@ public class ZParameterDescriptor : IAmInternal {
     _typeMap = typeMap;
     FieldName = member.Name!.ToFieldName();
     ParameterType = member.ParameterType;
+    IsNullableReference = !ParameterType.IsValueType && new NullabilityInfoContext()
+      .Create(member).ReadState == NullabilityState.Nullable;
     IsOptional = member.IsOptional || ParameterType.IsListType() || ParameterType.IsArray;
     DefaultValue = ((member.DefaultValue?.GetType() ?? typeof(DBNull)) == typeof(DBNull)) ? null : member.DefaultValue;
     IsTopic = member.GetCustomAttribute<ApiTopicAttribute>() != null;
@@ -44,6 +46,9 @@ public class ZParameterDescriptor : IAmInternal {
   public string FieldName { get; }
 
   public Type ParameterType { get; }
+
+  /// <summary>Nullability belongs to this declaration, not the cached descriptor for its runtime type.</summary>
+  public bool IsNullableReference { get; }
 
   public bool IsOptional { get; }
 

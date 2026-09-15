@@ -54,11 +54,12 @@ public static class MediaDimensions
     private static ZSize ReadJpegSOF(Stream s)
     {
         int b1 = s.ReadByte(), b2 = s.ReadByte();
+        Span<byte> seg = stackalloc byte[7];
+        Span<byte> lenBuf = stackalloc byte[2];
         while (b1 != -1 && b2 != -1)
         {
             if (b1 == 0xFF && b2 >= 0xC0 && b2 <= 0xC3)
             {
-                Span<byte> seg = stackalloc byte[7];
                 if (s.Read(seg) < 7) break;
                 int h = (seg[3] << 8) | seg[4];
                 int w = (seg[5] << 8) | seg[6];
@@ -66,7 +67,6 @@ public static class MediaDimensions
             }
             if (b1 == 0xFF && b2 != 0xFF && b2 != 0xD8 && b2 != 0xD9)
             {
-                Span<byte> lenBuf = stackalloc byte[2];
                 if (s.Read(lenBuf) < 2) break;
                 int len = (lenBuf[0] << 8) | lenBuf[1];
                 if (len < 2) break;

@@ -14,10 +14,6 @@
     <PackageReference Include="Microting.EntityFrameworkCore.MySql" Version="10.0.11" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <NoWarn>$(NoWarn);NETSDK1188</NoWarn>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\ZCore\ZCore.csproj"/>
   </ItemGroup>
