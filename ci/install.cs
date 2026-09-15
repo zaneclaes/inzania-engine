@@ -37,8 +37,6 @@ using IZ.Core.Json;
 ZScriptApp.Start("install");
 bool check = Args().Contains("--check");
 var changes = new List<string>();
-string? claudeSettingsBefore = null;
-string? claudeSettingsPending = null;
 
 string root = Run("git", ["rev-parse", "--show-toplevel"]).Output.Trim();
 if (root.Length <= 0) {
@@ -140,44 +138,29 @@ bool InstallAgentHooks(out List<string> scripts) {
     return true;
   }
 
-  if (!InstallHookManifest(manifestPath, engine, engineRel, engineIsRoot, scripts)) return false;
+  var entries = new List<(ManifestHook Hook, string Prefix)>();
+  if (!ReadManifest(manifestPath, engineIsRoot ? "" : engineRel + "/", entries)) return false;
   string repoManifest = Path.Combine(root, "ci", "agent-hooks.json");
-  if (File.Exists(repoManifest) && !InstallHookManifest(repoManifest, root, ".", true, scripts)) return false;
-  // Both manifests render into one Claude adapter. In check mode each pass works from the prior
-  // pass's in-memory output, then the complete adapter is compared once; comparing either partial
-  // manifest with the final combined file would report permanent, impossible-to-fix drift.
-  if (check && claudeSettingsBefore != null && claudeSettingsPending != null &&
-      Normalize(claudeSettingsBefore) != Normalize(claudeSettingsPending)) {
-    changes.Add(".claude/settings.json (combined engine/repo hook manifests)");
+  if (File.Exists(repoManifest) && !ReadManifest(repoManifest, "", entries)) return false;
+
+  foreach (var (entry, prefix) in entries) {
+    if (string.IsNullOrEmpty(entry.Event) || string.IsNullOrEmpty(entry.Script)) {
+      Console.Error.WriteLine("[install] agent-hooks.json: an entry is missing its event or script.");
+      return false;
+    }
+    scripts.Add((engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs");
+    scripts.Add(prefix + entry.Script);
   }
-  return InstallCodexHooks();
+
+  if (!InstallClaudeHooks(entries)) return false;
+  return InstallCodexHooks(entries);
 }
 
-bool InstallHookManifest(string manifestPath, string manifestRoot, string manifestRootRel, bool manifestIsRoot, List<string> scripts) {
-
-  HookManifest? manifest;
-  try {
-    manifest = ZJson.DeserializeObject<HookManifest>(null, File.ReadAllText(manifestPath), Lenient());
-  } catch (Exception e) {
-    Console.Error.WriteLine($"[install] {Path.GetRelativePath(root, manifestPath)}/ is not valid JSON: {e.Message}");
-    return false;
-  }
-  var declared = manifest?.Hooks;
-  if (declared == null) {
-    Console.Error.WriteLine($"[install] {Path.GetRelativePath(root, manifestPath)} has no hooks array.");
-    return false;
-  }
-
-  // The marker that says "the engine put this here". Path-based, so no bookkeeping field has to survive
-  // in settings.json and a repo-declared hook can never be mistaken for one of ours.
-  string rootPrefix = manifestIsRoot ? "" : manifestRootRel + "/";
-  string ownershipPrefix = "\"$CLAUDE_PROJECT_DIR/" + rootPrefix;
-  string ownedClaude = ownershipPrefix + ".claude/hooks/";
-  string ownedAgents = ownershipPrefix + ".agents/hooks/";
+bool InstallClaudeHooks(IEnumerable<(ManifestHook Hook, string Prefix)> entries) {
+  string adapter = (engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs";
 
   string settingsPath = Path.Combine(root, ".claude", "settings.json");
-  string before = claudeSettingsPending ?? (File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "");
-  claudeSettingsBefore ??= before;
+  string before = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "";
   Dictionary<string, object?> settings;
   try {
     settings = before.Trim().Length > 0
@@ -190,31 +173,25 @@ bool InstallHookManifest(string manifestPath, string manifestRoot, string manife
 
   if (settings.GetValueOrDefault("hooks") is not Dictionary<string, object?> events) settings["hooks"] = events = new Dictionary<string, object?>();
 
-  // Strip every engine-owned entry first, then re-add from the manifest: one pass handles additions,
-  // command/timeout edits, matcher moves and deletions alike, and converges however far behind the repo was.
+  // Strip every entry rendered by this installer first, then re-add from both manifests. Rendering them
+  // together is essential: a product hook may be a shell script outside .agents/hooks, and processing
+  // the manifests independently would otherwise re-add it forever. The shared adapter is the ownership
+  // marker; an unmanaged hook must not invoke it directly.
   foreach (string evt in events.Keys.ToList()) {
     if (events[evt] is not List<object?> groups) continue;
     for (int g = groups.Count - 1; g >= 0; g--) {
-      if (groups[g] is not Dictionary<string, object?> group || group.GetValueOrDefault("hooks") is not List<object?> entries) continue;
-      entries.RemoveAll(e => Command(e).Contains(ownedClaude) || Command(e).Contains(ownedAgents));
-      if (entries.Count <= 0) groups.RemoveAt(g);   // a group that only ever held engine hooks.
+      if (groups[g] is not Dictionary<string, object?> group || group.GetValueOrDefault("hooks") is not List<object?> hooks) continue;
+      hooks.RemoveAll(e => Command(e).Contains("$CLAUDE_PROJECT_DIR/" + adapter));
+      if (hooks.Count <= 0) groups.RemoveAt(g);
     }
     if (groups.Count <= 0) events.Remove(evt);
   }
 
-  foreach (var entry in declared) {
-    string script = entry.Script ?? "";
-    if (string.IsNullOrEmpty(entry.Event) || script.Length <= 0) {
-      Console.Error.WriteLine("[install] agent-hooks.json: an entry is missing its event or script.");
-      return false;
-    }
-    string adapter = (engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs";
-    string guard = rootPrefix + script;
-    scripts.Add(adapter);
-    scripts.Add(guard);
-    string command = ClaudeCommand(adapter, guard, entry.Arguments);
+  foreach (var (entry, prefix) in entries) {
+    string command = ClaudeCommand(adapter, prefix + entry.Script!, entry.Arguments);
+    string eventName = entry.Event!;
 
-    if (events.GetValueOrDefault(entry.Event) is not List<object?> groups) events[entry.Event] = groups = new List<object?>();
+    if (events.GetValueOrDefault(eventName) is not List<object?> groups) events[eventName] = groups = new List<object?>();
     string matcher = entry.Matcher ?? "";
     var group = groups.OfType<Dictionary<string, object?>>().FirstOrDefault(g => (g.GetValueOrDefault("matcher") as string ?? "") == matcher);
     if (group == null) {
@@ -225,6 +202,7 @@ bool InstallHookManifest(string manifestPath, string manifestRoot, string manife
 
     var node = new Dictionary<string, object?> { ["type"] = "command", ["command"] = command };
     if (entry.Timeout is int t) node["timeout"] = t;
+    if (!string.IsNullOrWhiteSpace(entry.StatusMessage)) node["statusMessage"] = entry.StatusMessage;
     hooks.Add(node);
   }
 
@@ -239,26 +217,20 @@ bool InstallHookManifest(string manifestPath, string manifestRoot, string manife
   }
 
   string after = Write(settings) + "\n";
-  claudeSettingsPending = after;
   if (Normalize(before) == Normalize(after)) {
-    Console.WriteLine($"[install] Claude hooks current ({declared.Count} from {Path.GetRelativePath(root, manifestPath)}).");
+    Console.WriteLine("[install] Claude hooks current.");
     return true;
   }
 
+  changes.Add(".claude/settings.json (agent hooks)");
   if (check) return true;
-  if (!changes.Contains(".claude/settings.json (combined engine/repo hook manifests)"))
-    changes.Add(".claude/settings.json (combined engine/repo hook manifests)");
   Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
   File.WriteAllText(settingsPath, after);
-  Console.WriteLine($"[install] Claude hooks written to .claude/settings.json ({declared.Count} from {Path.GetRelativePath(root, manifestPath)}).");
+  Console.WriteLine("[install] Claude hooks written to .claude/settings.json.");
   return true;
 }
 
-bool InstallCodexHooks() {
-  var entries = new List<(ManifestHook Hook, string Prefix)>();
-  if (!ReadManifest(Path.Combine(engine, "ci", "agent-hooks.json"), engineIsRoot ? "" : engineRel + "/", entries)) return false;
-  string repoManifest = Path.Combine(root, "ci", "agent-hooks.json");
-  if (File.Exists(repoManifest) && !ReadManifest(repoManifest, "", entries)) return false;
+bool InstallCodexHooks(IEnumerable<(ManifestHook Hook, string Prefix)> entries) {
   string adapter = (engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs";
 
   string codexPath = Path.Combine(root, ".codex", "hooks.json");
@@ -281,20 +253,20 @@ bool InstallCodexHooks() {
     hooks.Add(node);
   }
   var document = new Dictionary<string, object?> {
-    ["description"] = "Generated by ci/install-hooks.sh from ci/agent-hooks.json. Do not edit.",
+    ["description"] = "Generated by ci/install-hooks.sh from the engine and repo agent-hook manifests. Do not edit.",
     ["hooks"] = events,
   };
   string after = Write(document) + "\n";
   string before = File.Exists(codexPath) ? File.ReadAllText(codexPath) : "";
   if (Normalize(before) == Normalize(after)) {
-    Console.WriteLine($"[install] Codex hooks current ({entries.Count}).");
+    Console.WriteLine("[install] Codex hooks current.");
     return true;
   }
-  changes.Add($".codex/hooks.json ({entries.Count} hook(s))");
+  changes.Add(".codex/hooks.json (agent hooks)");
   if (check) return true;
   Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
   File.WriteAllText(codexPath, after);
-  Console.WriteLine($"[install] Codex hooks written to .codex/hooks.json ({entries.Count}).");
+  Console.WriteLine("[install] Codex hooks written to .codex/hooks.json.");
   return true;
 }
 
@@ -370,7 +342,7 @@ static string ShellWord(string value) => "'" + value.Replace("'", "'\"'\"'") + "
 // 3. Pre-build the hook scripts, one at a time
 // ---------------------------------------------------------------------------------------------
 void PrebuildHookScripts(List<string> scripts) {
-  foreach (string script in scripts.Distinct()) {
+  foreach (string script in scripts.Distinct().Where(script => Path.GetExtension(script).Equals(".cs", StringComparison.OrdinalIgnoreCase))) {
     string full = Path.Combine(root, script);
     if (!File.Exists(full)) continue;
     var (code, output) = Run("dotnet", ["build", full, "-v", "q", "-nologo"]);
@@ -429,6 +401,7 @@ class ManifestHook {
   public string? Script { get; set; }
   public List<string>? Arguments { get; set; }
   public int? Timeout { get; set; }
+  public string? StatusMessage { get; set; }
 }
 
 class McpManifest {
