@@ -62,8 +62,10 @@ static int Print(IReadOnlyCollection<string> errors, string path, int failureCod
 
 static List<string> Validate(string json, string path) {
   Dashboard? dashboard;
+  Dictionary<string, object?>? document;
   try {
     dashboard = ZJson.DeserializeObject<Dashboard>(null, json);
+    document = ZJson.DeserializeObject<Dictionary<string, object?>>(null, json, new ZJsonSerializationOpts { ObjectsAsDictionaries = true });
   } catch (Exception e) {
     return new List<string> { $"is not valid JSON: {e.Message}" };
   }
@@ -76,8 +78,34 @@ static List<string> Validate(string json, string path) {
 
   var ids = new HashSet<long>();
   ValidateWidgets(dashboard.Widgets ?? new List<Widget>(), "root", ids, errors);
+  ValidateWidgetDefinitionSchemas(Objects(document, "widgets"), "root", errors);
   ValidateTabs(dashboard, ids, errors);
   return errors;
+}
+
+static void ValidateWidgetDefinitionSchemas(IReadOnlyCollection<Dictionary<string, object?>>? widgets, string parent, List<string> errors) {
+  if (widgets == null) return;
+  foreach (Dictionary<string, object?> widget in widgets) {
+    long id = widget.TryGetValue("id", out object? value) && value is long number ? number : 0;
+    string label = id > 0 ? $"widget {id}" : "widget";
+    if (!widget.TryGetValue("definition", out object? rawDefinition) || rawDefinition is not Dictionary<string, object?> definition) continue;
+    string? type = definition.GetValueOrDefault("type") as string;
+    if (string.IsNullOrWhiteSpace(type) || !IsType(type)) continue;
+
+    if (type == "note") {
+      var allowed = new HashSet<string>(StringComparer.Ordinal) { "background_color", "content", "font_size", "has_padding", "show_tick", "text_align", "tick_edge", "tick_pos", "type", "vertical_align" };
+      foreach (string property in definition.Keys.Where(property => !allowed.Contains(property)))
+        errors.Add($"{parent}/{label}: note does not allow property '{property}'");
+      if (!definition.TryGetValue("content", out object? content) || content is not string text || string.IsNullOrWhiteSpace(text))
+        errors.Add($"{parent}/{label}: note requires content");
+    } else if (type == "group")
+      ValidateWidgetDefinitionSchemas(Objects(definition, "widgets"), parent + "/" + label, errors);
+  }
+}
+
+static IReadOnlyCollection<Dictionary<string, object?>>? Objects(Dictionary<string, object?>? parent, string property) {
+  if (parent == null || !parent.TryGetValue(property, out object? value) || value is not List<object?> values) return null;
+  return values.OfType<Dictionary<string, object?>>().ToList();
 }
 
 static void ValidateWidgets(IReadOnlyCollection<Widget> widgets, string parent, HashSet<long> ids, List<string> errors) {
@@ -97,7 +125,7 @@ static void ValidateWidgets(IReadOnlyCollection<Widget> widgets, string parent, 
     }
     string? type = widget.Definition.Type;
     if (string.IsNullOrWhiteSpace(type) || !IsType(type)) errors.Add($"{parent}/{label}: unsupported widget type '{type ?? "(missing)"}'");
-    if (string.IsNullOrWhiteSpace(widget.Definition.Title)) errors.Add($"{parent}/{label}: title is required");
+    if (type != "note" && string.IsNullOrWhiteSpace(widget.Definition.Title)) errors.Add($"{parent}/{label}: title is required");
     if (widget.Layout == null || widget.Layout.Width <= 0 || widget.Layout.Height <= 0 || widget.Layout.X < 0 || widget.Layout.Y < 0 || widget.Layout.X + widget.Layout.Width > 12) {
       errors.Add($"{parent}/{label}: layout must be a positive rectangle inside the 12-column grid");
     } else {
