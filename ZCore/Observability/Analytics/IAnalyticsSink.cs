@@ -14,4 +14,7 @@ public interface IAnalyticsSink : IDisposable {
   public ZTask Config(AnalyticsOptions options, Installation install, IZIdentity? identity = null, Dictionary<string, object>? userProps = null);
 
   public ZTask SetIdentity(IZIdentity? identity = null, Dictionary<string, object>? userProps = null);
+
+  /// <summary>Stops transport immediately when an install becomes internal or unknown.</summary>
+  public ZTask SetTrafficStatus(AnalyticsTrafficStatus status);
 }

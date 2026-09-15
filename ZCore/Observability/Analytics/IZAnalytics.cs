@@ -49,6 +49,8 @@ public interface IZAnalytics : IHaveContext, IDisposable {
 
   public ZTask SetUserProperties(IZIdentity? identity, Dictionary<string, object>? props = null);
 
+  public ZTask SetTrafficStatus(AnalyticsTrafficStatus status);
+
   // public ZTask SetIdentity(IZIdentity identity, Dictionary<string, object>? userProps = null) {
   //   userProps ??= new Dictionary<string, object>();
   //   userProps["env"] = Context.App.Env.ToString();

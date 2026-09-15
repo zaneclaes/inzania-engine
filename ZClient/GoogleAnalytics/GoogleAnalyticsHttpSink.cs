@@ -41,6 +41,8 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
   private Installation? _installation;
 
+  private AnalyticsTrafficStatus _trafficStatus = AnalyticsTrafficStatus.Unknown;
+
   protected string Url => $"{Endpoint}?measurement_id={_analyticsOptions?.MeasurementId}&api_secret={HttpUtility.UrlEncode(_analyticsOptions?.ApiSecret)}";
 
   private HttpClient Client => _client ??= CreateClient();
@@ -69,6 +71,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 #endif
 
   public ZTask SendEvent(AnalyticsEvent e) {
+    if (_trafficStatus != AnalyticsTrafficStatus.External) return ZTask.CompletedTask;
 #if UNITY_WEBGL && !UNITY_EDITOR
       try {
         // Stamped like the HTTP branch below, so engine-direct events from the WebGL runtime carry the
@@ -104,6 +107,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     _analyticsOptions = options;
     _client = null;
     _installation = install;
+    _trafficStatus = install.AnalyticsTrafficStatus;
     _clientId = install.ClientId;
     await SetIdentity(identity, userProps);
   }
@@ -113,7 +117,13 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     if (userProps != null) _userProps = userProps;
     _client?.Dispose();
     _client = null;
-    await SendEvent(new AnalyticsEvent<BaseParams>("session_start", new BaseParams()));
+    if (_trafficStatus == AnalyticsTrafficStatus.External)
+      await SendEvent(new AnalyticsEvent<BaseParams>("session_start", new BaseParams()));
+  }
+
+  public ZTask SetTrafficStatus(AnalyticsTrafficStatus status) {
+    _trafficStatus = status;
+    return ZTask.CompletedTask;
   }
 
   protected virtual async ZTask SendRequest(string? json = null) {

@@ -26,12 +26,16 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   private IAnalyticsSink? _sink;
 
+  // Traffic permission starts fail-closed. Events before the server/browser verdict are discarded,
+  // not buffered for a later External result; only already-external events may await sink setup.
+  private AnalyticsTrafficStatus _trafficStatus = AnalyticsTrafficStatus.Unknown;
+
   private ZVisitorIdentity? _visitor;
   private IZIdentity? _identity;
 
   public ZGoogleAnalytics(ZApp app) : base(new WorkContext(app, nameof(ZGoogleAnalytics))) { }
 
-  public AnalyticsOptions? StreamOptions => _stream ??= Context.GetRequiredService<IZAppSettings>().GoogleAnalytics;
+  public AnalyticsOptions? StreamOptions => _stream ??= Context.GetService<IZAppSettings>()?.GoogleAnalytics;
   private AnalyticsOptions? _stream = null;
 
   private TimeSpan _lastEngagementTime = TimeSpan.Zero;
@@ -76,7 +80,14 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     return _sink?.SetIdentity(identity, MergeUserProps(props)) ?? ZTask.CompletedTask;
   }
 
+  public ZTask SetTrafficStatus(AnalyticsTrafficStatus status) {
+    _trafficStatus = status;
+    if (status != AnalyticsTrafficStatus.External) _queue.Clear();
+    return _sink?.SetTrafficStatus(status) ?? ZTask.CompletedTask;
+  }
+
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
+    if (_trafficStatus != AnalyticsTrafficStatus.External) return;
     if (_sink == null) {
       _queue.Enqueue(e);
     } else {
@@ -208,7 +219,7 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   }
 
   private void ProcessQueue() {
-    if (_sink == null || !_queue.Any()) return;
+    if (_trafficStatus != AnalyticsTrafficStatus.External || _sink == null || !_queue.Any()) return;
     while (_queue.Any()) {
       var o = _queue.Dequeue();
       _sink.SendEvent(o).Forget();

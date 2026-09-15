@@ -39,6 +39,13 @@ public class Installation : TransientObject {
 
   public uint LaunchNumber { get; set; } // Used in analytics
 
+  /// <summary>
+  /// The client-side transport decision for this boot. It is transient device data, never an
+  /// entitlement. Only <see cref="AnalyticsTrafficStatus.Internal"/> is sent to the server as a
+  /// durable exclusion request; unknown simply suppresses GA until a server verdict arrives.
+  /// </summary>
+  public AnalyticsTrafficStatus AnalyticsTrafficStatus { get; set; }
+
   public int ProcessorCount { get; set; }
 
   public int Memory { get; set; }

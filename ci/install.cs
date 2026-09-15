@@ -37,6 +37,8 @@ using IZ.Core.Json;
 ZScriptApp.Start("install");
 bool check = Args().Contains("--check");
 var changes = new List<string>();
+string? claudeSettingsBefore = null;
+string? claudeSettingsPending = null;
 
 string root = Run("git", ["rev-parse", "--show-toplevel"]).Output.Trim();
 if (root.Length <= 0) {
@@ -141,6 +143,13 @@ bool InstallAgentHooks(out List<string> scripts) {
   if (!InstallHookManifest(manifestPath, engine, engineRel, engineIsRoot, scripts)) return false;
   string repoManifest = Path.Combine(root, "ci", "agent-hooks.json");
   if (File.Exists(repoManifest) && !InstallHookManifest(repoManifest, root, ".", true, scripts)) return false;
+  // Both manifests render into one Claude adapter. In check mode each pass works from the prior
+  // pass's in-memory output, then the complete adapter is compared once; comparing either partial
+  // manifest with the final combined file would report permanent, impossible-to-fix drift.
+  if (check && claudeSettingsBefore != null && claudeSettingsPending != null &&
+      Normalize(claudeSettingsBefore) != Normalize(claudeSettingsPending)) {
+    changes.Add(".claude/settings.json (combined engine/repo hook manifests)");
+  }
   return InstallCodexHooks();
 }
 
@@ -167,7 +176,8 @@ bool InstallHookManifest(string manifestPath, string manifestRoot, string manife
   string ownedAgents = ownershipPrefix + ".agents/hooks/";
 
   string settingsPath = Path.Combine(root, ".claude", "settings.json");
-  string before = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "";
+  string before = claudeSettingsPending ?? (File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "");
+  claudeSettingsBefore ??= before;
   Dictionary<string, object?> settings;
   try {
     settings = before.Trim().Length > 0
@@ -229,13 +239,15 @@ bool InstallHookManifest(string manifestPath, string manifestRoot, string manife
   }
 
   string after = Write(settings) + "\n";
+  claudeSettingsPending = after;
   if (Normalize(before) == Normalize(after)) {
     Console.WriteLine($"[install] Claude hooks current ({declared.Count} from {Path.GetRelativePath(root, manifestPath)}).");
     return true;
   }
 
-  changes.Add($".claude/settings.json ({declared.Count} hook(s) from {Path.GetRelativePath(root, manifestPath)})");
   if (check) return true;
+  if (!changes.Contains(".claude/settings.json (combined engine/repo hook manifests)"))
+    changes.Add(".claude/settings.json (combined engine/repo hook manifests)");
   Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
   File.WriteAllText(settingsPath, after);
   Console.WriteLine($"[install] Claude hooks written to .claude/settings.json ({declared.Count} from {Path.GetRelativePath(root, manifestPath)}).");
