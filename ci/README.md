@@ -92,7 +92,9 @@ same way no matter how many good commits land on top, until the missing object i
 
 So the check walks the commits actually being pushed, collects every gitlink value they record, and
 verifies each one is reachable from that submodule's own remote (it fetches first, so a commit a
-teammate has already pushed is not reported as missing).
+teammate has already pushed is not reported as missing). Nested Git commands clear the
+superproject-local environment exported to hooks, so each `git -C <submodule>` reads the submodule's
+own index, work tree and object database.
 
 ### Wiring it into a repo
 

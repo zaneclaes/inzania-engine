@@ -175,6 +175,13 @@ static string Describe(string path, string sha) {
 
 static (int Code, string Output) Run(string file, IEnumerable<string> args) {
   var psi = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true };
+  // Git invokes hooks with the superproject's repository-local environment exported. Those values
+  // must not follow `git -C <submodule>` into a different repository: GIT_OBJECT_DIRECTORY in
+  // particular makes a present, pushed submodule commit look as though it does not exist locally.
+  foreach (string key in new[] {
+    "GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  }) psi.Environment.Remove(key);
   foreach (string a in args) psi.ArgumentList.Add(a);
   using var p = Process.Start(psi)!;
   var stdout = p.StandardOutput.ReadToEndAsync();
