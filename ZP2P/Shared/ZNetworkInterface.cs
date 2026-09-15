@@ -102,6 +102,9 @@ public class ZNetworkInterface : TransientObject {
 
   private static List<ZNetworkInterface> AllInterfaces { get; set; } = new List<ZNetworkInterface>();
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+#pragma warning disable CS1998 // WebGL has no socket discovery; the shared API remains awaitable.
+#endif
   public static async Task<List<ZNetworkInterface>> Discover(IZContext context, int portOffset = 0, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator = null) {
 #if !UNITY_WEBGL || UNITY_EDITOR
     using var stunClient = new ZStunClient(context);
@@ -110,6 +113,9 @@ public class ZNetworkInterface : TransientObject {
 #endif
     return AllInterfaces;
   }
+#if UNITY_WEBGL && !UNITY_EDITOR
+#pragma warning restore CS1998
+#endif
 
   public static async Task<ZNetworkInterface> Select(IZContext context, int portOffset = 0, Func<NetworkInterface, IPAddress?, List<IPAddress>, ZNetworkInterface>? creator = null) {
     List<ZNetworkInterface> addresses = await Discover(context, portOffset, creator);
