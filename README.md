@@ -4,8 +4,9 @@ Reusable app/data/API/client/P2P foundation that Chordzy's `Tune*` projects subc
 Separate repo (`git@github.com:zaneclaes/inzania-engine.git`): commit here **and** bump the
 pointer in the parent. `git submodule update --init --recursive` after clone.
 Build via the parent `Chordzy.sln` — `inzania-engine.sln` is stale (wrong paths).
-Directory prefix `Z*` ↔ assembly/namespace `IZ.*`. net10 / C# 13 / nullable via
-`Directory.Build.props`; `*.meta` excluded from compilation (Unity symlinks `ZCore`, `ZClient`,
+Directory prefix `Z*` ↔ assembly/namespace `IZ.*`. net10 / C# 13 / nullable and warnings-as-errors via
+`Directory.Build.props` (`NETSDK1188` alone is suppressed for the .NET 10.0.100 Linux SDK's invalid
+satellite-locale warning); `*.meta` excluded from compilation (Unity symlinks `ZCore`, `ZClient`,
 `ZExt`, `ZP2P`, `ZSerilog` into `ChordzyGame/Assets`).
 
 | Project | Purpose | Key files |

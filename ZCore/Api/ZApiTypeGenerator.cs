@@ -33,7 +33,9 @@ public class ZApiTypeGenerator : IZTypeMap {
   /// (use `typeof(X).Assembly` and consume the result). See ChordzyCli's `generate-types`.
   /// </summary>
   private static List<Assembly> Assemblies => _assemblies ??=
+#pragma warning disable UAC0005 // Schema generation intentionally scans every currently loaded API assembly.
     AppDomain.CurrentDomain.GetAssemblies().Where(a => !IsExternal(a)).ToList();
+#pragma warning restore UAC0005
 
   /// <summary>The assemblies the schema scan will read; useful when a host generates an empty schema.</summary>
   public static List<string> ScannedAssemblyNames() => Assemblies.Select(a => a.GetName().Name ?? "?").OrderBy(n => n).ToList();
