@@ -134,8 +134,12 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
   /// </summary>
   private async Task<List<string>> ConcedeExistingInsertsAsync(IReadOnlyList<EntityEntry> refused, CancellationToken ct) {
     var conceded = refused.Where(x => x.State == EntityState.Added).ToList();
+    // Compare the ENTITIES, not the entries: EF hands out a fresh `EntityEntry` per call and does not
+    // override equality, so `conceded.Contains(entry)` never matched and every refused row was read back
+    // through `GetDatabaseValuesAsync` a second time and counted twice in the warning below.
+    var refusedEntities = new HashSet<object>(conceded.Select(x => x.Entity), ReferenceEqualityComparer.Instance);
     var pending = Db.ChangeTracker.Entries()
-      .Where(x => x.State == EntityState.Added && !x.Metadata.IsOwned() && !conceded.Contains(x))
+      .Where(x => x.State == EntityState.Added && !x.Metadata.IsOwned() && !refusedEntities.Contains(x.Entity))
       .ToList();
     foreach (var entry in pending) {
       // One lookup per pending insert, and only on the replica race, over this save's own inserts (a
