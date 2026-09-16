@@ -201,8 +201,14 @@ public class SchemaItemJson : TransientObject {
     return this;
   }
 
-  public SchemaItemJson WithDownload(string name, string url, string? subscriptionName = null) {
-    var offerId = url;
+  /// <param name="offerId">
+  /// The `@id` of the `Offer` this action accepts, defaulting to <paramref name="url" />. Several
+  /// downloads may legitimately share one entry point (a page anchor, say); in JSON-LD a repeated
+  /// `@id` **merges** the nodes, so each offer needs its own id or the graph claims one offer where
+  /// the caller meant three.
+  /// </param>
+  public SchemaItemJson WithDownload(string name, string url, string? subscriptionName = null, string? offerId = null) {
+    offerId = offerId ?? url;
     Offers.Add(new SchemaOfferJson() {
       Context = Context,
       Type = "Offer",
@@ -210,7 +216,8 @@ public class SchemaItemJson : TransientObject {
       Name = name,
     });
 
-    var req = subscriptionName == null ? null : SchemaRequirementJson.ForSubscription(Context, name);
+    // The subscription is the thing the user must hold, not the name of the download.
+    var req = subscriptionName == null ? null : SchemaRequirementJson.ForSubscription(Context, subscriptionName);
     PotentialAction.Add(new SchemaActionJson() {
       Context = Context,
       Type = "DownloadAction",
