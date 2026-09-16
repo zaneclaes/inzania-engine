@@ -116,6 +116,12 @@ with `#:project` and starts a `ZScriptApp` before touching JSON (`ZCore/README.m
   `ZJson.DeserializeObject<T>`. For JSON of unknown shape, use `ObjectsAsDictionaries`. A standalone script calls
   `ZScriptApp.Start(...)` first. API and options: `ZCore/README.md` → JSON. Enforced by `JsonGuard.cs` above.
 
+- **A repeated `@id` merges nodes in JSON-LD**, so `SchemaItemJson.WithDownload(name, url,
+  subscriptionName, offerId)` takes the `Offer`'s `@id` separately from the entry-point `url`: several
+  downloads may legitimately share one entry point (a page anchor), and without a distinct `offerId`
+  three offers collapse into one. It also builds its `ActionAccessSpecification` from
+  `subscriptionName`, never from the download's own `name`.
+
 - **API-shape rules** (violations of these shipped real security holes and wasted round-trips):
   1. *No new endpoint when an existing call already carries the context.* Clients call
      `currentSession`-style restore/auth endpoints on every boot with their `Installation`; data
