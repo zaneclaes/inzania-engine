@@ -21,9 +21,11 @@ public abstract class ClientCache : LogicBase, IZClientCache {
   /// <summary>The loads this cache is in the middle of, one per key. Two callers asking for the same
   /// thing at once used to make two requests, deserialize two copies and write the same file twice, so
   /// a read in between could see a file half-written. The shape is `TuneClient`'s
-  /// `PlayableScoreRefresh`: the first caller's task is recorded, everyone else awaits it, and it is
-  /// dropped the moment it finishes, success or failure. A plain dictionary, like that one — client
-  /// caches are driven from the UI thread.</summary>
+  /// `PlayableScoreRefresh`: the first caller's task is recorded and everyone else awaits it.
+  ///
+  /// It coalesces requests; it is **not** a second cache. Only a load still running is ever handed
+  /// out — see <see cref="Load{T}" /> — so how promptly an entry is retired is a question of tidiness,
+  /// not of correctness.</summary>
   private readonly Dictionary<string, object> _loading = new Dictionary<string, object>();
 
   public ClientCache(IZContext context) : base(context) { }
@@ -31,7 +33,15 @@ public abstract class ClientCache : LogicBase, IZClientCache {
   protected ZTask<T> Load<T>(string id, IZResult<T> func, string? format = null, TimeSpan? maxAge = null) where T : class {
     if (!string.IsNullOrEmpty(format)) id += "_" + format;
     string loadKey = typeof(T).Name + "/" + id;
-    if (_loading.TryGetValue(loadKey, out var inFlight) && inFlight is ZTask<T> shared) return shared;
+    // Only a load still RUNNING is shared. A task that has already answered is inert: a caller
+    // arriving afterwards is owed its own read, and asking the task beats trusting the bookkeeping.
+    // `LoadOnce` retires its entry from its own continuation, which may resume on another thread and
+    // can therefore lose the race with the line below that records it — the removal then finds
+    // nothing, the record lands anyway, and the entry outlives the load. Left readable, that stale
+    // entry would be served for the life of this cache, i.e. for the life of the app on a client, and
+    // the key would never be read again.
+    if (_loading.TryGetValue(loadKey, out var inFlight) && inFlight is ZTask<T> shared && !shared.IsCompleted)
+      return shared;
     var loading = LoadOnce(loadKey, id, func, format, maxAge).Preserve();
     _loading[loadKey] = loading;
     return loading;
@@ -39,9 +49,6 @@ public abstract class ClientCache : LogicBase, IZClientCache {
 
   private async ZTask<T> LoadOnce<T>(string loadKey, string id, IZResult<T> func, string? format, TimeSpan? maxAge) where T : class {
     try {
-      // Let `Load` record this task before a request that answers without ever suspending can reach
-      // the `finally` below and remove a key that was never added.
-      await ZTask.Yield();
       var data = Get<T>(id, maxAge);
       maxAge ??= IZResult.DefaultOnlineCacheAge;
       if (data == null || GetJsonFileAge<T>(id) > maxAge) {
@@ -55,6 +62,8 @@ public abstract class ClientCache : LogicBase, IZClientCache {
       }
       return data;
     } finally {
+      // Tidy-up, so the map does not grow. Correctness does not rest on this winning any race:
+      // `Load` refuses a completed entry.
       _loading.Remove(loadKey);
     }
   }

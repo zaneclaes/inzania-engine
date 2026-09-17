@@ -229,6 +229,20 @@ namespace IZ.Core.Utils
 #endif
         }
 
+        /// <summary>Whether this task has already finished — succeeded, faulted or cancelled. Safe to
+        /// ask repeatedly on a <see cref="Preserve" />d task, which is the only kind anything shares.</summary>
+        public bool IsCompleted
+        {
+            get
+            {
+#if Z_UNITY
+                return _inner.Status.IsCompleted();
+#else
+                return _inner.IsCompleted;
+#endif
+            }
+        }
+
         public T GetResult()
         {
 #if Z_UNITY
