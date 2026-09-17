@@ -49,6 +49,12 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    then `SeedDatabaseAsync(DataSeeds)` runs fire-and-forget. Consequences: every deploy applies
    pending migrations automatically (two replicas starting together can race — migrations must be
    idempotent/additive), and a bad migration blocks startup for the whole deployment.
+7. **A failed seed costs its own pass, and nothing else.** `SeedDatabaseAsync`'s loop does **not**
+   save: each seed saves inside its own `try` (`DataSeed.SeedDatabase` → `SaveSeedAsync`, the
+   tolerant save), logs `[SEED] {type} failed` on the way out, and rolls back what it was holding, so
+   the next seed starts on a clean tracker and every seed after the loser still runs. A bare
+   `Data.SaveAsync()` in that loop body is what this replaced — it re-threw the failed seed's
+   exception outside the per-seed catch and skipped the rest of the boot.
 
 ## Design rules (canonical set: `../Docs/data-design.md`; enforced by `../.claude/hooks/`: `DbGuard.cs` + `MigrationGuard.cs` + `IndexAudit.cs`; see `TuneWeb/Server/Migrations/README.md`)
 

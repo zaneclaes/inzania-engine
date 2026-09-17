@@ -53,6 +53,19 @@ public abstract class DataSeed : IDataSeed {
       context.IncrementMetric($"{ZMetrics.SysGroup}.seed.{GetType().Name}");
     } catch (Exception e) {
       Log.Error(e, "[SEED] {type} failed", GetType().Name);
+      // Throw away what this seed was holding, so a half-written seed does not ride along on the
+      // NEXT seed's save. Without it the next `SaveSeedAsync` either writes this seed's partial
+      // rows or fails on them — the same defect, one seed later.
+      //
+      // The tracker holds only THIS seed's work at this moment, because every seed saves at the end
+      // of its own pass (`SaveSeedAsync` above, and again in `DataSeed<TD,TS>.SeedModelIds`), so the
+      // rollback cannot discard a sibling seed's rows. Do not widen or narrow it.
+      //
+      // The `HasChanges` guard is not decoration: `ZEfCoreDataRepository` implements `Rollback()`,
+      // but `ZCore`'s other `IZDataRepository`, `DataCacheRepository`, throws `NotImplementedException`
+      // from it while reporting `HasChanges => false`. A throw from inside this catch would turn a
+      // handled seed failure into the crash this catch exists to prevent.
+      if (context.Data.HasChanges) context.Data.Rollback();
     } finally {
       context.TimerMetric(SeedDurationMetric, sw.Elapsed,
         new Dictionary<string, object> { ["seed"] = GetType().Name });
