@@ -47,13 +47,17 @@ uses HotChocolate's `[UseProjection]`/`[UseFiltering]`/`[UseSorting]` attributes
 `Resolver.LoadArray/LoadAll/LoadMany(name, loadFn, key, existing)`:
 
 - one `ZDataLoader` per `TypeName.field` (`SingleDataLoader` for 1:1, `MultiDataLoader` for
-  1:many) collects keys in a `ConcurrentBag`;
+  1:many) collects keys in a lock-guarded set;
 - `ScheduleResolution` starts a single timer task that waits `ResolveDelayMs` (2–22 ms, grows
   with the square root of pending keys) then calls `Resolve()` on every pending loader — each runs
   the loader's `loadFn(keys)` once, i.e. **one `SELECT … WHERE fk IN (k1..kn)`** per field per
   wave, and keeps resolving until nothing is queued;
-- callers poll `Tasks.WaitUntil(() => IsResolved)` every 25 ms (`ZCore/Utils/Tasks.cs`), so the
-  minimum latency of a resolved field is one poll tick; deep trees resolve level by level.
+- a cycle records an outcome for **every key it asked about**, a miss included, and callers poll
+  `Tasks.WaitUntil(...)` every 25 ms (`ZCore/Utils/Tasks.cs`) for **their own key**, so the minimum
+  latency of a resolved field is one poll tick; deep trees resolve level by level. Waiting on a
+  loader-wide "resolved" flag instead is what made a successful query answer null for a row that
+  exists — two production symptoms, one race:
+  `Docs/Plans/data/2026-09-17-client-cache-repair.md` in the consuming repo.
 - `existing` values (already-loaded navigation lists, or `[NotMapped]` caches) are pre-seeded
   into the loader so they never hit the DB.
 

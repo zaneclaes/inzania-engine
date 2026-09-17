@@ -36,8 +36,15 @@ public interface IZDataLoader<TKey, TValue> : IZDataLoader {
 
 public abstract class ZDataLoader<TKey, TValue> : LogicBase, IZDataLoader<TKey, TValue> where TKey : notnull {
 
-  private readonly ConcurrentBag<TKey> _queued = new ConcurrentBag<TKey>();
+  /// <summary>Joining the queue and observing a cycle have to be one indivisible step. They were not,
+  /// and <see cref="LoadAsync(TKey)" /> says what that cost.</summary>
+  private readonly object _gate = new object();
 
+  private readonly HashSet<TKey> _queued = new HashSet<TKey>();
+
+  /// <summary>Every key this loader has answered — hit or miss, a miss recorded as <c>default</c>.
+  /// Recording the miss is what makes "this key was asked about" observable, and that is the only
+  /// thing a waiter can wait on that is about its own key rather than about the loader's mood.</summary>
   protected readonly ConcurrentDictionary<TKey, TValue?> Data = new ConcurrentDictionary<TKey, TValue?>();
 
   private readonly string _id = ModelId.GenerateId();
@@ -47,42 +54,60 @@ public abstract class ZDataLoader<TKey, TValue> : LogicBase, IZDataLoader<TKey, 
   }
   public string Key { get; }
 
-  public bool IsResolved { get; private set; }
+  public bool IsResolved => !IsResolving && PendingCount == 0;
 
   public bool IsResolving { get; private set; }
 
-  public int PendingCount => _queued.Count;
+  public int PendingCount {
+    get {
+      lock (_gate) return _queued.Count;
+    }
+  }
 
   public void SetCacheEntry(TKey key, TValue? value) => Data[key] = value;
 
   public async Task Resolve() {
-    TKey[] keys = _queued.Distinct().ToArray();
-    if (!keys.Any()) {
-      IsResolved = true;
-      return;
+    TKey[] keys;
+    lock (_gate) {
+      // One cycle at a time. Keys queued while this one runs stay queued, and the resolver comes back
+      // for them: `ZSchemaResolver.Resolve` recurses while any loader still has pending keys.
+      if (IsResolving || _queued.Count == 0) return;
+      keys = new TKey[_queued.Count];
+      _queued.CopyTo(keys);
+      _queued.Clear();
+      IsResolving = true;
     }
     try {
-      IsResolving = true;
-      _queued.Clear();
       IReadOnlyDictionary<TKey, TValue?> data = await GetData(keys);
       foreach (var k in data.Keys) Data[k] = data[k];
+    } catch (Exception e) {
+      // A failed batch still has to answer its keys. Swallowing here is deliberate: this runs inside
+      // the resolver's fire-and-forget scheduling task, where an exception is unobserved and would
+      // strand every other key in the request. The answer is the same null the old code gave — the
+      // difference is that the reason is now in the log instead of nowhere.
+      Log.Error(e, "[RES] {self} failed to load {count} key(s)", this, keys.Length);
     } finally {
-      IsResolved = !_queued.Any();
-      IsResolving = false;
+      // A key that was asked about is answered, even when the source had nothing for it. Without this,
+      // "absent" and "not asked yet" are the same state and a waiter on a genuinely missing row never
+      // finishes — which is why the old code had to wait on a loader-wide flag instead.
+      foreach (var k in keys) Data.TryAdd(k, default);
+      lock (_gate) IsResolving = false;
     }
   }
 
   public async Task<TValue?> LoadAsync(TKey key) {
     if (Data.TryGetValue(key, out var value)) return value;
-    if (!_queued.Contains(key)) {
-      if (IsResolved || IsResolving) {
-        // Log.Information("[QUEUE] {self} returning to un-loaded state...", this);
-        IsResolved = false;
-      }
-      // Log.Information("[QUEUE] {key} into {self}", key, this);
-      _queued.Add(key);
+    lock (_gate) {
+      if (!Data.ContainsKey(key)) _queued.Add(key);
     }
-    await Tasks.WaitUntil(() => IsResolved);
+    // Wait for THIS key. This used to wait on a shared "the loader has nothing queued" flag, and
+    // nothing held that flag and the queue together: `Resolve`'s old `IsResolved = !_queued.Any()`
+    // read the queue and then wrote the flag, so a join landing in between was overwritten, and an
+    // empty-queue cycle set it outright. The waiter then woke on someone else's cycle and read
+    // nothing for a row that exists — on the wire, `video: null` on a page that has one, and, for a
+    // reference C# declares non-nullable, `ArgumentNullException` out of the generated type map,
+    // which failed the entire query. `Docs/Plans/data/2026-09-17-client-cache-repair.md`.
+    await Tasks.WaitUntil(() => Data.ContainsKey(key));
     return Data.GetValueOrDefault(key);
   }
 

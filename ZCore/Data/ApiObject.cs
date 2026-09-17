@@ -113,7 +113,16 @@ public abstract class ApiObject : ContextualObject {
     var ret = await Context.Resolver.LoadOptional(localProp.FieldName, async keys =>
         await CreateQuery(foreignKeyPropName, keys, beforeFilter, afterFilter).LoadDictionaryAsync(l => (TKey) foreignProp.GetValue(l)!),
       localId, existing, o => (TKey) foreignProp.GetValue(o)!);
-    localProp.SetValue(this, ret);
+    // Only a resolution WITH a value is written back. The write-back caches what was resolved, and
+    // null means "not resolved", never "resolved to nothing" — `LoadOptional` answers null both for a
+    // row that is absent and for one the loader failed to answer for. Pushing that through the
+    // generated setter turned a transient miss into `ArgumentNullException("CompletePageContent")`
+    // from inside the type map, which HotChocolate reported as a top-level error, so a whole `lesson`
+    // query failed and the app drew a dead screen. For a NULLABLE navigation it was quieter and no
+    // better: it erased a value the caller already had in hand (EF `Include`d, or hydrated off the
+    // wire). `Required()` still raises its own, truthful error for a genuine absence.
+    // `Docs/Plans/data/2026-09-17-client-cache-repair.md`.
+    if (ret != null) localProp.SetValue(this, ret);
     return ret;
   }
 

@@ -18,22 +18,45 @@ public abstract class ClientCache : LogicBase, IZClientCache {
 
   private readonly Dictionary<Type, Dictionary<string, object>> _memory = new Dictionary<Type, Dictionary<string, object>>();
 
+  /// <summary>The loads this cache is in the middle of, one per key. Two callers asking for the same
+  /// thing at once used to make two requests, deserialize two copies and write the same file twice, so
+  /// a read in between could see a file half-written. The shape is `TuneClient`'s
+  /// `PlayableScoreRefresh`: the first caller's task is recorded, everyone else awaits it, and it is
+  /// dropped the moment it finishes, success or failure. A plain dictionary, like that one — client
+  /// caches are driven from the UI thread.</summary>
+  private readonly Dictionary<string, object> _loading = new Dictionary<string, object>();
+
   public ClientCache(IZContext context) : base(context) { }
 
-  protected async ZTask<T> Load<T>(string id, IZResult<T> func, string? format = null, TimeSpan? maxAge = null) where T : class {
+  protected ZTask<T> Load<T>(string id, IZResult<T> func, string? format = null, TimeSpan? maxAge = null) where T : class {
     if (!string.IsNullOrEmpty(format)) id += "_" + format;
-    var data = Get<T>(id, maxAge);
-    maxAge ??= IZResult.DefaultOnlineCacheAge;
-    if (data == null || GetJsonFileAge<T>(id) > maxAge) {
-      try {
-        data = await func.Execute(format);
-        SetJson(id, data, format);
-      } catch (Exception e) {
-        if (data == null) throw;
-        Log.Warning(e, "[CACHE] failed to download", id, format);
+    string loadKey = typeof(T).Name + "/" + id;
+    if (_loading.TryGetValue(loadKey, out var inFlight) && inFlight is ZTask<T> shared) return shared;
+    var loading = LoadOnce(loadKey, id, func, format, maxAge).Preserve();
+    _loading[loadKey] = loading;
+    return loading;
+  }
+
+  private async ZTask<T> LoadOnce<T>(string loadKey, string id, IZResult<T> func, string? format, TimeSpan? maxAge) where T : class {
+    try {
+      // Let `Load` record this task before a request that answers without ever suspending can reach
+      // the `finally` below and remove a key that was never added.
+      await ZTask.Yield();
+      var data = Get<T>(id, maxAge);
+      maxAge ??= IZResult.DefaultOnlineCacheAge;
+      if (data == null || GetJsonFileAge<T>(id) > maxAge) {
+        try {
+          data = await func.Execute(format);
+          SetJson(id, data, format);
+        } catch (Exception e) {
+          if (data == null) throw;
+          Log.Warning(e, "[CACHE] failed to download", id, format);
+        }
       }
+      return data;
+    } finally {
+      _loading.Remove(loadKey);
     }
-    return data;
   }
 
   public virtual void Delete<T>(string id) {

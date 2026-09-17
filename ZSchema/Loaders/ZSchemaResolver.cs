@@ -30,7 +30,11 @@ public class ZSchemaResolver : LogicBase, IZResolver {
   public ZSchemaResolver(IZContext context) : base(context) {
     // Log.Information("[RES] new resolver {res} for {context} : {stack}", this, context.Root, new ZTrace(new StackTrace().ToString()).ToString());
   }
-  private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => !l.IsResolved && !l.IsResolving).ToList();
+  /// <summary>Loaders holding keys nobody has gone to the source for. Read from the queue itself
+  /// rather than from a "resolved" flag: a loader that has just been created has no keys yet — the
+  /// `Load*` methods schedule a cycle before they queue anything — and calling that one pending
+  /// produced an empty cycle whose only effect was to declare the loader finished.</summary>
+  private List<IZDataLoader> PendingLoaders => _dataLoaders.Values.Where(l => l.PendingCount > 0 && !l.IsResolving).ToList();
 
   // A poor man's approach to scheduled batching... bake in a delay after which the resolution will occur if no new tasks were queued.
   // As more resolutions are scheduled, the delay increases, so single items are fast but when giant batches happen they are given time to acrue
@@ -152,6 +156,10 @@ public class ZSchemaResolver : LogicBase, IZResolver {
       while (_stopwatch.ElapsedMilliseconds < _resolveAt) await Task.Delay(1);
       _resolutionTask = null;
       await Resolve();
+      // A key can join a loader after the sweep above has already looked at it: `LoadAll` schedules
+      // the cycle and only then queues its keys. Re-arm rather than leave that key waiting for a
+      // cycle that has already happened. `Resolve` always drains what it takes, so this terminates.
+      if (PendingLoaders.Any()) ScheduleResolution(0);
     });
   }
 

@@ -215,6 +215,20 @@ namespace IZ.Core.Utils
           await this;
         }
 
+        /// <summary>Makes this task safe for more than one awaiter. A UniTask promise is
+        /// single-consumer by design, so a task deliberately handed to a second caller — which is the
+        /// whole point of sharing one in-flight load (`ClientCache.Load`,
+        /// `TuneClient/PlayableScoreRefresh`) — has to be told to expect them. On .NET a Task already
+        /// allows it and this is the identity.</summary>
+        public ZTask<T> Preserve()
+        {
+#if Z_UNITY
+            return new ZTask<T>(_inner.Preserve());
+#else
+            return this;
+#endif
+        }
+
         public T GetResult()
         {
 #if Z_UNITY
