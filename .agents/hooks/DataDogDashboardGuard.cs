@@ -64,8 +64,9 @@ static List<string> Validate(string json, string path) {
   Dashboard? dashboard;
   Dictionary<string, object?>? document;
   try {
-    dashboard = ZJson.DeserializeObject<Dashboard>(null, json);
     document = ZJson.DeserializeObject<Dictionary<string, object?>>(null, json, new ZJsonSerializationOpts { ObjectsAsDictionaries = true });
+    NormalizeRequests(Objects(document, "widgets"));
+    dashboard = ZJson.DeserializeObject<Dashboard>(null, ZJson.SerializeObject(document));
   } catch (Exception e) {
     return new List<string> { $"is not valid JSON: {e.Message}" };
   }
@@ -103,6 +104,20 @@ static void ValidateWidgetDefinitionSchemas(IReadOnlyCollection<Dictionary<strin
   }
 }
 
+/// <summary>A `scatterplot` — and any other widget whose requests Datadog keys by role rather than
+/// listing them (`{"table": …}`, or the older `{"x": …, "y": …}`) — carries `requests` as an object,
+/// not an array. Flatten those to the array the typed model reads, so a dashboard Datadog itself
+/// exported is not reported as invalid JSON.</summary>
+static void NormalizeRequests(IReadOnlyCollection<Dictionary<string, object?>>? widgets) {
+  if (widgets == null) return;
+  foreach (Dictionary<string, object?> widget in widgets) {
+    if (!widget.TryGetValue("definition", out object? raw) || raw is not Dictionary<string, object?> definition) continue;
+    if (definition.TryGetValue("requests", out object? requests) && requests is Dictionary<string, object?> byRole)
+      definition["requests"] = byRole.Values.ToList();
+    NormalizeRequests(Objects(definition, "widgets"));
+  }
+}
+
 static IReadOnlyCollection<Dictionary<string, object?>>? Objects(Dictionary<string, object?>? parent, string property) {
   if (parent == null || !parent.TryGetValue(property, out object? value) || value is not List<object?> values) return null;
   return values.OfType<Dictionary<string, object?>>().ToList();
@@ -125,7 +140,10 @@ static void ValidateWidgets(IReadOnlyCollection<Widget> widgets, string parent, 
     }
     string? type = widget.Definition.Type;
     if (string.IsNullOrWhiteSpace(type) || !IsType(type)) errors.Add($"{parent}/{label}: unsupported widget type '{type ?? "(missing)"}'");
-    if (type != "note" && string.IsNullOrWhiteSpace(widget.Definition.Title)) errors.Add($"{parent}/{label}: title is required");
+    // The title field must be declared, so naming the widget is a decision rather than an oversight.
+    // A deliberately blank title is allowed: Datadog then labels the chart with its own query, and
+    // a repository is not the place to overrule the dashboard's author on that.
+    if (type != "note" && widget.Definition.Title == null) errors.Add($"{parent}/{label}: title is required");
     if (widget.Layout == null || widget.Layout.Width <= 0 || widget.Layout.Height <= 0 || widget.Layout.X < 0 || widget.Layout.Y < 0 || widget.Layout.X + widget.Layout.Width > 12) {
       errors.Add($"{parent}/{label}: layout must be a positive rectangle inside the 12-column grid");
     } else {

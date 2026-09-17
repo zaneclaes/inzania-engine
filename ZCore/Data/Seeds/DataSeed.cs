@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
@@ -36,15 +37,25 @@ public abstract class DataSeed : IDataSeed {
 
   public virtual bool StubOnClient => false;
 
+  /// <summary>How long one seed pass took, tagged `seed` with the seed's type name. One metric with a
+  /// tag rather than a name per seed, so "which seed is slowing the boot?" is a group-by instead of a
+  /// question you have to already know the answer to. Recorded whether the pass succeeded or threw:
+  /// a seed that fails after two minutes is the interesting case.</summary>
+  public static readonly string SeedDurationMetric = $"{ZMetrics.SysGroup}.seed.duration_ms";
+
   public async Task SeedDatabase(IZContext context) {
     _dataContext = Context = context;
     Log = context.Log.ForContext(GetType());
+    var sw = Stopwatch.StartNew();
     try {
       await Exec();
       await Context.Data.SaveSeedAsync();
       context.IncrementMetric($"{ZMetrics.SysGroup}.seed.{GetType().Name}");
     } catch (Exception e) {
       Log.Error(e, "[SEED] {type} failed", GetType().Name);
+    } finally {
+      context.TimerMetric(SeedDurationMetric, sw.Elapsed,
+        new Dictionary<string, object> { ["seed"] = GetType().Name });
     }
   }
 

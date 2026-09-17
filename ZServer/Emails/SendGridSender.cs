@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using IZ.Core;
 using IZ.Core.Contexts;
+using IZ.Core.Observability;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
@@ -50,23 +51,48 @@ public abstract class SendGridSender : LogicBase {
 
   public abstract Task<EmailValidation?> ValidateEmailAsync(string email);
 
-  public Task<Response> SendTemplate(string email, string templateId, object args) {
+  /// <summary>One point per call to the provider, tagged `kind` (what the mail is for), `result`
+  /// (ok|failed) and `status` (the HTTP status SendGrid answered with). Emitted here because this is
+  /// the single place every send passes through, and because a non-2xx used to leave nothing behind
+  /// but an exception in a log. The tags are bounded on purpose: never an address, a user or a
+  /// message id.</summary>
+  public static string SendMetric => $"{ZMetrics.Root}.email.send";
+
+  /// <summary>What a mail is for — the whole vocabulary of the `kind` tag, declared here so it stays
+  /// a small closed set rather than growing a value per feature. A caller that does not say gets
+  /// <see cref="KindOther" />.</summary>
+  public const string KindOther = "other";
+
+  /// <summary>Confirm-your-address mail.</summary>
+  public const string KindVerification = "verification";
+
+  /// <summary>Password-reset mail.</summary>
+  public const string KindReset = "reset";
+
+  /// <summary>Re-engagement mail a scheduled job decided to send.</summary>
+  public const string KindLifecycle = "lifecycle";
+
+  public Task<Response> SendTemplate(string email, string templateId, object args, string kind = KindOther) {
     var msg = new SendGridMessage {
       From = SenderEmailAddress,
       TemplateId = templateId
     };
     msg.SetTemplateData(args);
-    return Send(msg, email);
+    return SendOfKind(msg, kind, email);
   }
 
-  public Task<Response> SendRawHtml(string email, string subject, string message) => Send(new SendGridMessage {
+  public Task<Response> SendRawHtml(string email, string subject, string message, string kind = KindOther) => SendOfKind(new SendGridMessage {
     From = SenderEmailAddress,
     Subject = subject,
     PlainTextContent = message,
     HtmlContent = message
-  }, email);
+  }, kind, email);
 
-  public async Task<Response> Send(SendGridMessage msg, params string[] emails) {
+  public Task<Response> Send(SendGridMessage msg, params string[] emails) => SendOfKind(msg, KindOther, emails);
+
+  /// <summary>Deliberately not an overload of <see cref="Send" />: `Send(msg, "a@b.com")` would bind
+  /// to `kind` and send the mail to nobody.</summary>
+  public async Task<Response> SendOfKind(SendGridMessage msg, string kind, params string[] emails) {
     foreach (string email in emails)
       msg.AddTo(new EmailAddress(email));
 
@@ -76,10 +102,18 @@ public abstract class SendGridSender : LogicBase {
 
     var res = await Client.SendEmailAsync(msg);
     string response = await res.Body.ReadAsStringAsync();
+    Count(kind, res.IsSuccessStatusCode, (int) res.StatusCode);
     if (!res.IsSuccessStatusCode) throw new SystemException(response);
     Log.Information("[SEND] {email} {code} {@body}", emails, res.StatusCode, response);
     return res;
   }
+
+  private void Count(string kind, bool ok, int status) =>
+    Context.Metrics?.Increment(SendMetric, tags: new Dictionary<string, object> {
+      ["kind"] = kind,
+      ["result"] = ok ? "ok" : "failed",
+      ["status"] = status,
+    });
 
   // https://sendgrid.com/docs/for-developers/sending-email/getting-started-email-activity-api/
   public async Task<Response> GetEmailHistory(string email) {
