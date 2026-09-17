@@ -58,6 +58,14 @@ uses HotChocolate's `[UseProjection]`/`[UseFiltering]`/`[UseSorting]` attributes
   loader-wide "resolved" flag instead is what made a successful query answer null for a row that
   exists — two production symptoms, one race:
   `Docs/Plans/data/2026-09-17-client-cache-repair.md` in the consuming repo.
+- a batch that **throws** is the one exception, and it is deliberate: it answers the waiters that were
+  in it and records nothing, so a later load of the same key in the same request queues again. A
+  remembered `default` would make a transient fault — a deadlock, a timeout — indistinguishable from
+  "the row is absent" for the rest of the request, i.e. the same wrong answer the per-key wait exists
+  to stop. The failure is still swallowed and logged once per batch rather than thrown into the
+  fire-and-forget scheduling task, and a failed batch never re-queues its own keys, so a structural
+  failure (a missing DbSet) answers null and does not spin the recursion above:
+  `Docs/Plans/data/2026-09-17-repair-12.md` in the consuming repo.
 - `existing` values (already-loaded navigation lists, or `[NotMapped]` caches) are pre-seeded
   into the loader so they never hit the DB.
 
