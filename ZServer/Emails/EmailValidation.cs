@@ -3,8 +3,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using IZ.Core.Data;
-using Newtonsoft.Json;
 
 #endregion
 
@@ -26,7 +26,7 @@ public class EmailValidation : ITimeStampData {
 
   [MaxLength(255)] public string? Source { get; set; }
 
-  [JsonProperty(PropertyName = "ip_address")]
+  [JsonPropertyName("ip_address")]
   [MaxLength(255)]
   public string? IpAddress { get; set; }
 

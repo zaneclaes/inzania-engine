@@ -2,14 +2,14 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text.Encodings.Web;
+using System.Text;
 using System.Threading.Tasks;
 using IZ.Core;
 using IZ.Core.Contexts;
+using IZ.Core.Json;
 using IZ.Core.Observability;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 
@@ -18,6 +18,15 @@ using SendGrid.Helpers.Mail;
 namespace IZ.Server.Emails;
 
 public abstract class SendGridSender : LogicBase {
+
+  public const int MaxHtmlBytes = 80 * 1024;
+
+  /// <summary>RFC 822 headers a caller may attach. Marketing mail uses List-Unsubscribe; everything
+  /// else is refused so a template cannot inject arbitrary provider headers.</summary>
+  public static readonly HashSet<string> PermittedHeaders = new(StringComparer.OrdinalIgnoreCase) {
+    "List-Unsubscribe",
+    "List-Unsubscribe-Post",
+  };
 
   private readonly SendGridOptions _sendGridOpts;
   private SendGridClient? _api;
@@ -81,14 +90,60 @@ public abstract class SendGridSender : LogicBase {
     return SendOfKind(msg, kind, email);
   }
 
-  public Task<Response> SendRawHtml(string email, string subject, string message, string kind = KindOther) => SendOfKind(new SendGridMessage {
-    From = SenderEmailAddress,
-    Subject = subject,
-    PlainTextContent = message,
-    HtmlContent = message
-  }, kind, email);
+  /// <summary>Identity's <see cref="Microsoft.AspNetCore.Identity.UI.Services.IEmailSender" /> still
+  /// supplies one string. Chordzy templates use <see cref="Send(EmailMessage)" /> so plain text and
+  /// HTML stay distinct.</summary>
+  public Task<Response> SendRawHtml(string email, string subject, string message, string kind = KindOther) =>
+    Send(new EmailMessage {
+      To = email,
+      Subject = subject,
+      Html = message,
+      PlainText = message,
+      Kind = kind,
+    });
+
+  public Task<Response> Send(EmailMessage mail) {
+    ArgumentNullException.ThrowIfNull(mail);
+    if (string.IsNullOrWhiteSpace(mail.To)) throw new ArgumentException("Email recipient is required");
+    return SendOfKind(CreateProviderMessage(mail, SenderEmailAddress), mail.Kind, mail.To);
+  }
 
   public Task<Response> Send(SendGridMessage msg, params string[] emails) => SendOfKind(msg, KindOther, emails);
+
+  /// <summary>Maps the repository-owned <see cref="EmailMessage" /> onto SendGrid without logging
+  /// the recipient, the body or the provider payload.</summary>
+  public static SendGridMessage CreateProviderMessage(EmailMessage mail, EmailAddress from) {
+    ArgumentNullException.ThrowIfNull(mail);
+    if (string.IsNullOrWhiteSpace(mail.Subject)) throw new ArgumentException("Email subject is required");
+    if (string.IsNullOrWhiteSpace(mail.Html)) throw new ArgumentException("Email HTML is required");
+    if (string.IsNullOrWhiteSpace(mail.PlainText)) throw new ArgumentException("Email plain text is required");
+    int htmlBytes = Encoding.UTF8.GetByteCount(mail.Html);
+    if (htmlBytes > MaxHtmlBytes)
+      throw new ArgumentException($"Email HTML is {htmlBytes} bytes; maximum is {MaxHtmlBytes}");
+
+    var msg = new SendGridMessage {
+      From = from,
+      Subject = mail.Subject,
+      PlainTextContent = mail.PlainText,
+      HtmlContent = mail.Html,
+    };
+    ApplyPermittedHeaders(msg, mail.Headers);
+    if (mail.Kind == KindVerification || mail.Kind == KindReset)
+      msg.SetOpenTracking(false);
+    return msg;
+  }
+
+  public static void ApplyPermittedHeaders(SendGridMessage msg, IReadOnlyDictionary<string, string>? headers) {
+    if (headers == null || headers.Count == 0) return;
+    msg.Headers ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var pair in headers) {
+      if (!PermittedHeaders.Contains(pair.Key))
+        throw new ArgumentException("Email header is not permitted");
+      if (pair.Value.IndexOfAny(['\r', '\n']) >= 0)
+        throw new ArgumentException("Email header value must be a single line");
+      msg.Headers[pair.Key] = pair.Value;
+    }
+  }
 
   /// <summary>Deliberately not an overload of <see cref="Send" />: `Send(msg, "a@b.com")` would bind
   /// to `kind` and send the mail to nobody.</summary>
@@ -101,10 +156,10 @@ public abstract class SendGridSender : LogicBase {
     msg.SetClickTracking(false, false);
 
     var res = await Client.SendEmailAsync(msg);
-    string response = await res.Body.ReadAsStringAsync();
     Count(kind, res.IsSuccessStatusCode, (int) res.StatusCode);
-    if (!res.IsSuccessStatusCode) throw new SystemException(response);
-    Log.Information("[SEND] {email} {code} {@body}", emails, res.StatusCode, response);
+    if (!res.IsSuccessStatusCode)
+      throw new SystemException($"SendGrid rejected {kind} ({(int) res.StatusCode})");
+    Log.Information("[SEND] {kind} {code}", kind, res.StatusCode);
     return res;
   }
 
@@ -117,15 +172,14 @@ public abstract class SendGridSender : LogicBase {
 
   // https://sendgrid.com/docs/for-developers/sending-email/getting-started-email-activity-api/
   public async Task<Response> GetEmailHistory(string email) {
-    Dictionary<string, object> data = new Dictionary<string, object> {
+    var data = new Dictionary<string, string> {
       ["limit"] = "10",
-      ["query"] = $"to_email%3D%22{HtmlEncoder.Default.Encode(email)}%22"
+      ["query"] = "to_email%3D%22" + Uri.EscapeDataString(email) + "%22"
     };
-    string qp = JsonConvert.SerializeObject(data);
+    string qp = ZJson.SerializeObject(data);
 
     var res = await Client.RequestAsync(BaseClient.Method.GET, queryParams: qp, urlPath: "/messages");
-    string response = await res.Body.ReadAsStringAsync();
-    Log.Information("[HISTORY] {qp} {code} {@body}", qp, res.StatusCode, response);
+    Log.Information("[HISTORY] {code}", res.StatusCode);
     return res;
   }
 }
@@ -133,25 +187,20 @@ public abstract class SendGridSender : LogicBase {
 public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailSenderDb {
   public SendGridSender(IZContext context, IOptions<SendGridOptions> opts) : base(context, opts) { }
 
-  // public Task SendRawHtmlAsync(string email, string subject, string message) => ExecuteRawHtml(subject, message, email);
-
   public override async Task<EmailValidation?> ValidateEmailAsync(string email) {
     var db = Context.GetRequiredService<TDb>();
-    Dictionary<string, string> data = new Dictionary<string, string> {
-      ["email"] = email
-    };
-    string body = JsonConvert.SerializeObject(data);
+    string body = ZJson.SerializeObject(new EmailValidationRequest { Email = email });
 
     var res = await Api.RequestAsync(BaseClient.Method.POST, body, urlPath: "/validations/email");
     string response = await res.Body.ReadAsStringAsync();
 
     try {
-      ResultObject<EmailValidation>? validation = JsonConvert.DeserializeObject<ResultObject<EmailValidation>>(response);
-      if (validation?.Result == null) throw new FormatException($"Response was not a ValidationResult: {response}");
+      var validation = ZJson.DeserializeObject<ResultObject<EmailValidation>>(response);
+      if (validation?.Result == null) throw new FormatException("Response was not a ValidationResult");
       var result = validation.Result;
       result.Host ??= "";
       result.Email = email.ToLowerInvariant();
-      ZEnv.Log.Information("[VALIDATION] {email} {code} {@result}", email, res.StatusCode, result);
+      Log.Information("[VALIDATION] {code} verdict {verdict}", res.StatusCode, result.Verdict);
 
       var cur = await db.EmailValidations.FirstOrDefaultAsync(ev => ev.Email == result.Email);
       if (cur != null) {
@@ -166,15 +215,12 @@ public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailS
 
       return validation.Result;
     } catch (Exception e) {
-      Log.Warning(e, $"[VALIDATION] Failed to validate email: {email}");
+      Log.Warning(e, "[VALIDATION] Failed to validate email");
       return null;
     }
   }
+}
 
-  // public Task<Response> SendWelcomeEmail(string email, string playerId, string code) {
-  //   return SendTemplate(email, _sendGridOpts.Templates.Welcome, new WelcomeEmailParams() {
-  //     PlayerId = playerId,
-  //     Code = code,
-  //   });
-  // }
+internal sealed class EmailValidationRequest {
+  public string Email { get; set; } = null!;
 }
