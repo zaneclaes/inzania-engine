@@ -9,5 +9,8 @@ public class SendGridOptions {
   public string? RecipientName { get; set; } = null!;
   [ApiSecret] public string Key { get; set; } = null!;
   [ApiSecret] public string ValidatorKey { get; set; } = null!;
+  /// <summary>SendGrid Event Webhook verification public key (PEM). Empty until the operator
+  /// configures the signed webhook; never a new committed secret.</summary>
+  public string? EventWebhookPublicKey { get; set; }
   public SendGridTemplates Templates { get; set; } = null!;
 }

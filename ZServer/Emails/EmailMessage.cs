@@ -30,5 +30,9 @@ public sealed class EmailMessage {
   /// <see cref="SendGridSender.PermittedHeaders" /> and values must be single-line.</summary>
   public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
+  /// <summary>Opaque notification id attached as the provider custom arg
+  /// <c>nid</c> so signed webhooks can bind without trusting payload email.</summary>
+  public string? CorrelationId { get; init; }
+
   public string Kind { get; init; } = SendGridSender.KindOther;
 }

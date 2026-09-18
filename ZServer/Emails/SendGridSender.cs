@@ -28,6 +28,10 @@ public abstract class SendGridSender : LogicBase {
     "List-Unsubscribe-Post",
   };
 
+  /// <summary>The only provider custom-arg key a caller may set. Webhooks bind this opaque id;
+  /// they never trust payload email or UserId.</summary>
+  public const string CorrelationArg = "nid";
+
   private readonly SendGridOptions _sendGridOpts;
   private SendGridClient? _api;
   private SendGridClient? _client;
@@ -128,9 +132,17 @@ public abstract class SendGridSender : LogicBase {
       HtmlContent = mail.Html,
     };
     ApplyPermittedHeaders(msg, mail.Headers);
+    ApplyCorrelation(msg, mail.CorrelationId);
     if (mail.Kind == KindVerification || mail.Kind == KindReset)
       msg.SetOpenTracking(false);
     return msg;
+  }
+
+  public static void ApplyCorrelation(SendGridMessage msg, string? correlationId) {
+    if (string.IsNullOrWhiteSpace(correlationId)) return;
+    if (correlationId.IndexOfAny(['\r', '\n']) >= 0)
+      throw new ArgumentException("Email correlation id must be a single line");
+    msg.AddGlobalCustomArg(CorrelationArg, correlationId);
   }
 
   public static void ApplyPermittedHeaders(SendGridMessage msg, IReadOnlyDictionary<string, string>? headers) {
@@ -148,6 +160,19 @@ public abstract class SendGridSender : LogicBase {
   /// <summary>Deliberately not an overload of <see cref="Send" />: `Send(msg, "a@b.com")` would bind
   /// to `kind` and send the mail to nobody.</summary>
   public async Task<Response> SendOfKind(SendGridMessage msg, string kind, params string[] emails) {
+    var result = await SendAttempt(msg, kind, emails);
+    if (!result.Accepted)
+      throw new SystemException($"SendGrid rejected {kind} ({result.StatusCode})");
+    return result.Response!;
+  }
+
+  /// <summary>
+  /// One provider attempt that does not throw on a timeout-after-send. Callers persist Accepted
+  /// only when <see cref="EmailSendResult.Accepted" /> is true, Unknown when
+  /// <see cref="EmailSendResult.Ambiguous" />, and retry only a conclusive transient rejection.
+  /// Never logs the recipient, body, or provider payload.
+  /// </summary>
+  public async Task<EmailSendResult> SendAttempt(SendGridMessage msg, string kind, params string[] emails) {
     foreach (string email in emails)
       msg.AddTo(new EmailAddress(email));
 
@@ -155,12 +180,34 @@ public abstract class SendGridSender : LogicBase {
     // See https://sendgrid.com/docs/User_Guide/Settings/tracking.html
     msg.SetClickTracking(false, false);
 
-    var res = await Client.SendEmailAsync(msg);
-    Count(kind, res.IsSuccessStatusCode, (int) res.StatusCode);
-    if (!res.IsSuccessStatusCode)
-      throw new SystemException($"SendGrid rejected {kind} ({(int) res.StatusCode})");
-    Log.Information("[SEND] {kind} {code}", kind, res.StatusCode);
-    return res;
+    Response? res;
+    try {
+      res = await Client.SendEmailAsync(msg);
+    } catch (Exception e) {
+      Count(kind, false, 0);
+      Log.Warning(e, "[SEND] {kind} ambiguous", kind);
+      return EmailSendResult.MaybeAccepted();
+    }
+
+    int status = (int) res.StatusCode;
+    Count(kind, res.IsSuccessStatusCode, status);
+    if (res.IsSuccessStatusCode) {
+      Log.Information("[SEND] {kind} {code}", kind, res.StatusCode);
+      return EmailSendResult.Ok(res, ReadMessageId(res));
+    }
+
+    bool transient = status == 429 || status >= 500;
+    Log.Warning("[SEND] {kind} rejected {code}", kind, status);
+    return EmailSendResult.Rejected(status, transient, res);
+  }
+
+  public static string? ReadMessageId(Response response) {
+    if (response.Headers == null) return null;
+    if (!response.Headers.TryGetValues("X-Message-Id", out var values)) return null;
+    foreach (string value in values) {
+      if (!string.IsNullOrWhiteSpace(value)) return value.Trim();
+    }
+    return null;
   }
 
   private void Count(string kind, bool ok, int status) =>
