@@ -37,6 +37,9 @@ public static class ZMetrics {
   public static readonly string PlayScoreGroup = $"{PlayGroup}.score";
   public static readonly string PlayPointsGroup = $"{PlayGroup}.points";
 
+  public static readonly string LessonGroup = $"{Root}.lesson";
+  public static readonly string LessonStepGroup = $"{LessonGroup}.step";
+
   public static readonly string GradeGroup = $"{Root}.grade";
   public static readonly string GradeNotesGroup = $"{GradeGroup}.notes";
   public static readonly string GradeScoresGroup = $"{GradeGroup}.scores";
