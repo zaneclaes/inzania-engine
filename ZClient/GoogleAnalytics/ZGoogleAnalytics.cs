@@ -53,21 +53,31 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   public async ZTask Configure(IAnalyticsSink? sink, Installation install, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     if (sink == null) return;
+    bool browser = install.DeviceType == DeviceType.Browser;
+    if (browser && string.IsNullOrWhiteSpace(install.ClientId)) {
+      Log.Warning("[ANALYTICS] browser identity missing; sink stays unconfigured");
+      _queue.Clear();
+      return;
+    }
     if (identity == null) {
-      if (_visitor == null) {
+      if (browser) {
+        Log.Warning("[ANALYTICS] browser telemetry does not invent a visitor identity");
+      } else if (_visitor == null) {
         Log.Warning("[ANALYTICS] falling back on auto-generated identity");
         _visitor = new ZVisitorIdentity(Context, ModelId.GenerateId(), null);
       }
-      identity = _visitor;
+      if (!browser) identity = _visitor;
     }
-    if (_identity?.IZUser?.Id != identity.IZUser?.Id) _userProps.Clear();
+    if (_identity?.IZUser?.Id != identity?.IZUser?.Id) _userProps.Clear();
     _identity = identity;
-    _sink = sink;
     if (StreamOptions != null)
       await sink.Config(StreamOptions, install, identity, MergeUserProps(userProps));
-    else
+    else {
       Log.Warning("[ANALYTICS] missing GA settings");
-    // await ((IZAnalytics) this).SetIdentity(identity, MergeUserProps(userProps));
+      return;
+    }
+    // Assign the sink only after Config succeeds so events cannot race out before identity is latched.
+    _sink = sink;
     ProcessQueue();
   }
 

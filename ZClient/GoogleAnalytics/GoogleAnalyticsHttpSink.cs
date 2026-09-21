@@ -117,7 +117,8 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     if (userProps != null) _userProps = userProps;
     _client?.Dispose();
     _client = null;
-    if (_trafficStatus == AnalyticsTrafficStatus.External)
+    // Browser/WebGL sessions belong to the page tag. Native Measurement Protocol still opens its own.
+    if (_trafficStatus == AnalyticsTrafficStatus.External && _installation?.DeviceType != DeviceType.Browser)
       await SendEvent(new AnalyticsEvent<BaseParams>("session_start", new BaseParams()));
   }
 
