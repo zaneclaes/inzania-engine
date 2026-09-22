@@ -10,6 +10,7 @@ using System.Text.Json.Nodes;
 using IZ.Core.Api.Fragments;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
+using IZ.Core;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
 
@@ -114,6 +115,10 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
       }
       return arr;
     }
+    // A scalar enum's ordinal is not a GraphQL enum name. `Music` is 0, so the hub search sent
+    // `classifications: [0]` and HotChocolate rejected it (`MUSIC` is the wire name). The string is
+    // what `EnumConverter` writes; the serializer below then emits that string.
+    if (arg is Enum e) arg = e.SerializeZEnum();
     var desc = ZApi.LoadTypeDescriptor(arg.GetType());
     if (desc.ObjectDescriptor.IsScalar) return JsonSerializer.SerializeToNode(arg);
     // if (!(arg is ApiObject obj)) return arg;

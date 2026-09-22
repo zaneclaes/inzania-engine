@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Api.Types;
 using IZ.Core.Contexts;
@@ -40,7 +41,8 @@ public class HotChocolateParameterConverter : LogicBase, IParameterConverter {
       if (arg is float floatVal) return new FloatValueNode(floatVal);
       if (arg is double doubleVal) return new FloatValueNode(doubleVal);
       if (arg is decimal decVal) return new FloatValueNode(decVal);
-      if (arg is Enum e) return new EnumValueNode(e.ToString());
+      // Schema names are `MUSIC`, not `Music`. `ToString()` is the C# name and is not a value.
+      if (arg is Enum e) return new EnumValueNode(e.SerializeZEnum());
       // DateTime/Guid/char are scalars per TypeUtils but have no GraphQL literal of their own; they
       // travel as strings, in the exact format ZObjectDescriptor.ConvertValue parses on the far end.
       if (arg is DateTime dateVal) return new StringValueNode(dateVal.ToApiString());
