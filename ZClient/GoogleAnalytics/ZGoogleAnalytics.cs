@@ -26,8 +26,10 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   private IAnalyticsSink? _sink;
 
-  // Traffic permission starts fail-closed. Events before the server/browser verdict are discarded,
-  // not buffered for a later External result; only already-external events may await sink setup.
+  // Only a positive Internal verdict excludes traffic. Before any verdict arrives (Unknown) events wait
+  // in the bounded queue with the ones awaiting sink setup: External sends them, Internal drops them.
+  private const int MaxPending = 100;
+
   private AnalyticsTrafficStatus _trafficStatus = AnalyticsTrafficStatus.Unknown;
 
   private ZVisitorIdentity? _visitor;
@@ -92,14 +94,16 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   public ZTask SetTrafficStatus(AnalyticsTrafficStatus status) {
     _trafficStatus = status;
-    if (status != AnalyticsTrafficStatus.External) _queue.Clear();
-    return _sink?.SetTrafficStatus(status) ?? ZTask.CompletedTask;
+    if (status == AnalyticsTrafficStatus.Internal) _queue.Clear();
+    var sinkStatus = _sink?.SetTrafficStatus(status) ?? ZTask.CompletedTask;
+    ProcessQueue();
+    return sinkStatus;
   }
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
-    if (_trafficStatus != AnalyticsTrafficStatus.External) return;
-    if (_sink == null) {
-      _queue.Enqueue(e);
+    if (_trafficStatus == AnalyticsTrafficStatus.Internal) return;
+    if (_sink == null || _trafficStatus != AnalyticsTrafficStatus.External) {
+      if (_queue.Count < MaxPending) _queue.Enqueue(e);
     } else {
       await _sink.SendEvent(e);
     }
