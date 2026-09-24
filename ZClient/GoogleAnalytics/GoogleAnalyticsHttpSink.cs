@@ -31,7 +31,18 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 
   private IZIdentity? _userIdentity;
 
+  private readonly HttpMessageHandler? _handler;
+
+  /// <summary>POSTs that failed and were dropped, each logged once as a warning and never retried.</summary>
+  public int DroppedSends => _droppedSends;
+  private int _droppedSends;
+
   public GoogleAnalyticsHttpSink(IZContext c) : base(c) { }
+
+  /// <summary>With the transport the POSTs go through (tests: a link that resets).</summary>
+  public GoogleAnalyticsHttpSink(IZContext c, HttpMessageHandler handler) : base(c) {
+    _handler = handler;
+  }
 
   private const string GA4ApiEndpoint = "https://www.google-analytics.com/mp/collect";
   private const string GA4ApiDebugEndpoint = "https://www.google-analytics.com/debug/mp/collect";
@@ -49,7 +60,7 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   private HttpClient? _client;
 
   private HttpClient CreateClient() {
-    var httpClient = new HttpClient();
+    var httpClient = _handler == null ? new HttpClient() : new HttpClient(_handler, disposeHandler: false);
 
     httpClient.DefaultRequestHeaders.UserAgent.Clear();
     httpClient.DefaultRequestHeaders.UserAgent.Add(
@@ -112,14 +123,25 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     await SetIdentity(identity, userProps);
   }
 
-  public async ZTask SetIdentity(IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
+  public ZTask SetIdentity(IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     _userIdentity = identity;
     if (userProps != null) _userProps = userProps;
     _client?.Dispose();
     _client = null;
-    // Browser/WebGL sessions belong to the page tag. Native Measurement Protocol still opens its own.
+    // Browser/WebGL sessions belong to the page tag. Native Measurement Protocol still opens its own. It is sent, not
+    // awaited: startup waits on this call (ClientContext's ready tasks), and it must not wait on telemetry over a slow
+    // link. SendRequest never throws.
     if (_trafficStatus == AnalyticsTrafficStatus.External && _installation?.DeviceType != DeviceType.Browser)
+      SendSessionStart().Forget();
+    return ZTask.CompletedTask;
+  }
+
+  private async ZTask SendSessionStart() {
+    try {
       await SendEvent(new AnalyticsEvent<BaseParams>("session_start", new BaseParams()));
+    } catch (System.Exception e) {
+      Log.Warning("[GA] session_start dropped: {why}", e.GetBaseException().Message);
+    }
   }
 
   public ZTask SetTrafficStatus(AnalyticsTrafficStatus status) {
@@ -127,10 +149,21 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     return ZTask.CompletedTask;
   }
 
+  /// <summary>
+  /// Telemetry never fails the app. Staging 1416's `[START] fatal error!` was this POST: `Configure` →
+  /// `SetIdentity` → `session_start` ran inside startup's ready tasks, and one `Connection reset by peer` from the
+  /// analytics endpoint propagated up and failed startup. A failed send is a warning, never an error: an error log
+  /// re-enters the app's error-to-analytics handler, and the smoke's console check fails on `[ERR]`. It is not retried,
+  /// because a Measurement Protocol POST that did land would then count twice.
+  /// </summary>
   protected virtual async ZTask SendRequest(string? json = null) {
     // Log.Information("[GA] JSON {json}", json);
-
-    var res = await Client.PostAsync(Url, json == null ? null : new StringContent(json, Encoding.UTF8, "application/json"));
+    try {
+      using var res = await Client.PostAsync(Url, json == null ? null : new StringContent(json, Encoding.UTF8, "application/json"));
+    } catch (System.Exception e) {
+      System.Threading.Interlocked.Increment(ref _droppedSends);
+      Log.Warning("[GA] send failed, dropped: {why}", e.GetBaseException().Message);
+    }
 
     // Log.Information("[GA] {cde} ? {ok} ({url})", res.StatusCode, res.IsSuccessStatusCode, Client.BaseAddress);
     // return res.IsSuccessStatusCode;

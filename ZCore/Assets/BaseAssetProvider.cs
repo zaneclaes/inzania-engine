@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Utils;
+using IZ.Core.Utils.Http;
 
 namespace IZ.Core.Assets;
 
@@ -85,9 +85,8 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
     }
   }
 
-  protected virtual async ZTask<byte[]> GetUrl(string url) {
-    using var client = new HttpClient();
-    // using var input = await client.GetStreamAsync(url);
-    return await client.GetByteArrayAsync(url);
-  }
+  /// <summary>A GET through the one shared client under <see cref="TransferPolicy" /> (<see cref="SharedHttp" />): no
+  /// deadline on a slow but moving download, a stall bound, and a retry on a reset, a stall or a gateway error. It used
+  /// to be a `new HttpClient()` per call with no retry, so one reset failed the whole fetch.</summary>
+  protected virtual ZTask<byte[]> GetUrl(string url) => SharedHttp.GetBytesAsync(url, Log);
 }
