@@ -21,14 +21,14 @@ public class ApplicationStorage : TransientObject {
     _productName = productName;
     UserDir = GetUserDir(null);
     TmpDir = GetTmpDir(null);
-    Assets = GetAssets();
+    Assets = Bind(null);
   }
 
   public ApplicationStorage(string productName, string? userDir = null, string? tmpDir = null, string? www = null) {
     _productName = productName;
     UserDir = GetUserDir(userDir);
     TmpDir = GetTmpDir(tmpDir);
-    Assets = GetAssets();
+    Assets = Bind(null);
     WwwRoot = ExpandPath(www);
   }
 
@@ -36,7 +36,7 @@ public class ApplicationStorage : TransientObject {
     _productName = productName;
     UserDir = GetUserDir(userDir);
     TmpDir = GetTmpDir(tmpDir);
-    Assets = assetDir ?? GetAssets();
+    Assets = Bind(assetDir);
     WwwRoot = ExpandPath(www);
   }
   [ApiDocs("User save directory")]
@@ -57,7 +57,14 @@ public class ApplicationStorage : TransientObject {
 
   private string GetTmpDir(string? tmpDir) => string.IsNullOrEmpty(tmpDir) ? Environment.GetEnvironmentVariable("TMP_DIR") ?? "/tmp" : ExpandPath(tmpDir);
 
-  private IAssetProvider GetAssets() => new FileAssetProvider();
+  /// <summary>The provider resolves its asset directory from *this* storage's `UserDir`, never from the process-global
+  /// `ZEnv.App`: two apps in one process (the test suite beside an in-process `CliApp`) used to race, and whichever was
+  /// global when the provider first read `AssetDirectory` decided where every later asset write went.</summary>
+  private IAssetProvider Bind(IAssetProvider? provider) {
+    provider ??= new FileAssetProvider();
+    if (provider is BaseAssetProvider owned) owned.AttachTo(this);
+    return provider;
+  }
   private string FindZDir() {
     if (_zDir != null) return _zDir;
     string? dir = Directory.GetCurrentDirectory();
