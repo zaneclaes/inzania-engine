@@ -16,6 +16,7 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
 
   private readonly HashSet<string> _activeDownloads = new HashSet<string>();
   private string? _assetDir;
+  private ApplicationStorage? _storage;
   public abstract string Name { get; }
 
   public string AssetDirectory => _assetDir ??= LoadAssetDir();
@@ -62,8 +63,18 @@ public abstract class BaseAssetProvider : LogicBase, IAssetProvider {
     return fp;
   }
 
+  /// <summary>Called by the <see cref="ApplicationStorage" /> that owns this provider. The asset directory is that
+  /// storage's `UserDir/Assets`; it is never looked up through the process-global `ZEnv.App`, which in a process with
+  /// two apps names whichever was constructed last.</summary>
+  internal void AttachTo(ApplicationStorage storage) {
+    _storage = storage;
+    _assetDir = null;
+  }
+
   private string LoadAssetDir() {
-    string dir = FilePaths.GetAbsolutePath(Path.Combine(ZEnv.App.Storage.UserDir, "Assets"));
+    var storage = _storage ?? throw new InvalidOperationException(
+      $"[ASSET] {GetType().Name} is not attached to an ApplicationStorage; pass it to the storage that owns it");
+    string dir = FilePaths.GetAbsolutePath(Path.Combine(storage.UserDir, "Assets"));
     if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
     return dir;
   }
