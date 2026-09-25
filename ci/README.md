@@ -142,8 +142,9 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    itself; the installer refuses to install one that does not, since silently stopping large-file
    uploads is worse than a failed install.
 2. **Agent hooks** — renders this directory's `agent-hooks.json`, plus an optional consuming-repo
-   `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json` and Codex's
-   `.codex/hooks.json`. The two runtimes call the same guard files through `ci/RunAgentHook.cs`.
+   `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json`, Codex's `.codex/hooks.json` and Grok's
+   `.grok/hooks/agent-guards.json`. All three runtimes call the same guard files through `ci/RunAgentHook.cs`, which
+   translates Codex's `apply_patch` and Grok's camelCase payload into the Claude shape the guards read.
 3. **Pre-build** — builds each engine hook script once, one at a time. Every hook references `ZCore`
    (`#:project`, so it can use `ZJson`), and several run at once on each edit. Cold, they would all build
    `ZCore` at the same moment, and concurrent builds of one project fail at random (1 in 5 when measured).
@@ -151,18 +152,19 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
 
 The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.json`, `settings.json`,
 `hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
-`ZJson` like any other code. Claude settings are read as plain dictionaries, so keys the installer knows
-nothing about round-trip untouched.
+`ZJson` like any other code. Every runtime file is read as plain dictionaries, so keys the installer
+knows nothing about round-trip untouched.
 
 `agent-hooks.json` is the single source of truth for the engine guards (`DbGuard`, `ApiAuthGuard`,
 `JsonGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every agent in every consuming repo picks it up on
 its next `install`; drop one and every agent loses it. A product-only hook belongs in that repo's own
 `ci/agent-hooks.json`, so it is rendered alongside the reusable engine hooks without copying either.
 
-**How rendering stays safe.** The installer recognizes its generated commands by their path into
-`.agents/hooks/` or `ci/RunAgentHook.cs`, removes only those entries, and re-renders both manifests.
-One pass therefore converges on additions, command/timeout edits, matcher moves and deletions while
-preserving unrelated Claude settings. It is idempotent: a second run reports "everything already
-current" and rewrites nothing.
+**How rendering stays safe.** One renderer serves all three runtimes. It recognizes its generated commands by the
+adapter path (`ci/RunAgentHook.cs`) they run, removes only those entries, and re-renders both manifests. One pass
+therefore converges on additions, command/timeout edits, matcher moves and deletions, while every other key and every
+hook it did not generate (a plugin's, the operator's) survives untouched in any of the three files. It is idempotent:
+a second run reports "everything already current" and rewrites nothing.
 
-An invalid `settings.json` is reported and left alone rather than overwritten.
+An invalid runtime file (`settings.json`, `hooks.json`, `agent-guards.json`) is reported and left alone rather than
+overwritten.

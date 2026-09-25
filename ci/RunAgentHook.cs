@@ -1,8 +1,9 @@
 #!/usr/bin/env dotnet
 #:project ../ZCore/ZCore.csproj
-// Adapter shared by Claude Code and Codex hook declarations. Claude already sends the shape the
-// guards consume. Codex sends `apply_patch` as one unified diff, so this splits it into one
-// Claude-compatible edit payload per file before running the guard. Guard logic stays in one file.
+// Adapter shared by the Claude Code, Codex and Grok hook declarations (rendered by install.cs). Claude
+// already sends the shape the guards consume. Codex sends `apply_patch` as one unified diff, so this
+// splits it into one Claude-compatible edit payload per file. Grok sends camelCase `toolName`/`toolInput`
+// with its own tool names, so this translates it to Claude's names and fields. Guard logic stays in one file.
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using IZ.Core.Contexts;
@@ -36,6 +37,10 @@ static IEnumerable<string> Payloads(string stdin) {
     yield return stdin;
     yield break;
   }
+  if (hook?.ToolName == null && FromGrok(stdin) is { } grok) {
+    yield return ZJson.SerializeObject(grok);
+    yield break;
+  }
   if (hook?.ToolName != "apply_patch" || string.IsNullOrWhiteSpace(hook.ToolInput?.Command)) {
     yield return stdin;
     yield break;
@@ -52,6 +57,36 @@ static IEnumerable<string> Payloads(string stdin) {
     };
     yield return ZJson.SerializeObject(converted);
   }
+}
+
+// Grok names its tools and fields differently; the guards only understand Claude's. Null when the
+// payload is not Grok's (no camelCase `toolName`).
+static GuardEnvelope? FromGrok(string stdin) {
+  GrokEnvelope? grok;
+  try {
+    grok = ZJson.DeserializeObject<GrokEnvelope>(null, stdin);
+  } catch {
+    return null;
+  }
+  if (string.IsNullOrEmpty(grok?.ToolName)) return null;
+  GrokToolInput? input = grok.ToolInput;
+  return new GuardEnvelope {
+    ToolName = grok.ToolName switch {
+      "run_terminal_command" or "run_terminal_cmd" => "Bash",
+      "search_replace" => "Edit",
+      "write_file" => "Write",
+      _ => grok.ToolName,
+    },
+    ToolInput = new GuardToolInput {
+      Command = input?.Command,
+      FilePath = input?.FilePath ?? input?.FilePathCamel ?? input?.Path,
+      Content = input?.Content,
+      OldString = input?.OldString ?? input?.OldStringCamel,
+      NewString = input?.NewString ?? input?.NewStringCamel,
+      ReplaceAll = input?.ReplaceAll ?? input?.ReplaceAllCamel ?? false,
+      Edits = input?.Edits,
+    },
+  };
 }
 
 static IEnumerable<PatchFile> ParsePatch(string patch) {
@@ -121,3 +156,39 @@ class HookToolInput {
 }
 
 record PatchFile(string Path, string Added, string Removed);
+
+/// <summary>The full Claude payload a translated Grok call becomes (Write carries `content`, Edit `replace_all`).</summary>
+class GuardEnvelope {
+  [JsonPropertyName("tool_name")] public string ToolName { get; set; } = "";
+  [JsonPropertyName("tool_input")] public GuardToolInput ToolInput { get; set; } = new();
+}
+
+class GuardToolInput {
+  [JsonPropertyName("command")] public string? Command { get; set; }
+  [JsonPropertyName("file_path")] public string? FilePath { get; set; }
+  [JsonPropertyName("content")] public string? Content { get; set; }
+  [JsonPropertyName("old_string")] public string? OldString { get; set; }
+  [JsonPropertyName("new_string")] public string? NewString { get; set; }
+  [JsonPropertyName("replace_all")] public bool ReplaceAll { get; set; }
+  [JsonPropertyName("edits")] public object? Edits { get; set; }
+}
+
+class GrokEnvelope {
+  [JsonPropertyName("toolName")] public string? ToolName { get; set; }
+  [JsonPropertyName("toolInput")] public GrokToolInput? ToolInput { get; set; }
+}
+
+class GrokToolInput {
+  [JsonPropertyName("command")] public string? Command { get; set; }
+  [JsonPropertyName("path")] public string? Path { get; set; }
+  [JsonPropertyName("file_path")] public string? FilePath { get; set; }
+  [JsonPropertyName("filePath")] public string? FilePathCamel { get; set; }
+  [JsonPropertyName("content")] public string? Content { get; set; }
+  [JsonPropertyName("old_string")] public string? OldString { get; set; }
+  [JsonPropertyName("oldString")] public string? OldStringCamel { get; set; }
+  [JsonPropertyName("new_string")] public string? NewString { get; set; }
+  [JsonPropertyName("newString")] public string? NewStringCamel { get; set; }
+  [JsonPropertyName("replace_all")] public bool? ReplaceAll { get; set; }
+  [JsonPropertyName("replaceAll")] public bool? ReplaceAllCamel { get; set; }
+  [JsonPropertyName("edits")] public object? Edits { get; set; }
+}
