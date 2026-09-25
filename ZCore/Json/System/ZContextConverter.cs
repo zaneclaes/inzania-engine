@@ -189,14 +189,20 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
         reader.Read();
 
         if (polymorphicDiscriminatorName != null && prop?.Name == polymorphicDiscriminatorName) {
-          if (ZApi.TypeMap.ApiObjects.TryGetValue(val?.ToString() ?? "", out var td)) {
+          var typeMap = ZApi.TypeMap;
+          ZObjectDescriptor? td;
+          bool found;
+          lock (typeMap.SyncRoot) found = typeMap.ApiObjects.TryGetValue(val?.ToString() ?? "", out td); // IZTypeMap: loads run concurrently
+          if (found && td != null) {
             if (td.ObjectType.HasAssignableType(typeDescriptor.ObjectDescriptor.ObjectType)) {
               typeDescriptor = ZApi.LoadTypeDescriptor(td.ObjectType);
             } else {
               Context.Log.Warning("[DISCRIMINATOR] {t} is not a subclass of {parent}", td, typeDescriptor);
             }
           } else {
-            Context.Log.Warning("[DISCRIMINATOR] {v} could not be found among {types}", val, ZApi.TypeMap.ApiObjects.Keys);
+            List<string> known;
+            lock (typeMap.SyncRoot) known = typeMap.ApiObjects.Keys.ToList();
+            Context.Log.Warning("[DISCRIMINATOR] {v} could not be found among {types}", val, known);
           }
         }
 
