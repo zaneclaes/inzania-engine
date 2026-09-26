@@ -11,6 +11,7 @@ using IZ.Core.Api.Fragments;
 using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data.Seeds;
+using IZ.Core.Observability;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Observability.Logging;
 using IZ.Core.Utils;
@@ -112,8 +113,21 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     });
   }
 
+  /// <summary>
+  /// The configuration faults this host starts with: every environment name that binds nothing
+  /// (<see cref="ConfigCheck.UnboundEnvironmentNames" />). A subclass appends its own (a key pair
+  /// whose modes disagree, a missing secret) and they share one rule, <see cref="ConfigCheck.Apply" />.
+  /// Never include a value.
+  /// </summary>
+  protected virtual IEnumerable<string> ConfigProblems() =>
+    ConfigCheck.UnboundEnvironmentNames(_builder.Configuration, Environment.GetEnvironmentVariables())
+      .Select(ConfigCheck.Unbound);
+
   protected override async ZTask PrepareAsync() {
     await base.PrepareAsync();
+    using var config = new WorkContext(this, "Config");
+    ConfigCheck.Apply(ConfigProblems().ToList(), Env, Log, _ => config.IncrementMetric("config.problem",
+      tags: new Dictionary<string, object> { ["app"] = ProductName }));
     WebApp!.UseSerilogRequestLogging(opts => {
       opts.GetLevel = ApiExceptionMiddleware.GetLogLevel;
     });

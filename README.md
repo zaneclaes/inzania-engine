@@ -161,6 +161,12 @@ with `#:project` and starts a `ZScriptApp` before touching JSON (`ZCore/README.m
   WebGL build one deploy behind. So: **give every wire enum a `0` member that is safe to mistake an
   unknown value for**, and never parse an enum off the wire with `Enum.Parse` (Chordzy pins the
   whole population in `TuneTests/Lib/EnumWireTests.cs`).
+- **An env name that binds nothing is reported at start-up.** `ZHostApp.PrepareAsync` runs `ConfigProblems()`
+  (`ZServer/ConfigCheck.cs`): every environment name containing `__` (every segment non-empty; `ASPNETCORE_`/`DOTNET_`
+  excluded) whose `:` key no `appsettings*.json` declares is a problem, and a subclass appends its own faults. At
+  Development and below it throws with the list; on a deployed host it logs `[CONFIG] <problem>` at Error and
+  counts `config.problem` (tag `app`), and the host still starts. A key read only from the environment is declared
+  in `appsettings.json` with an empty value; there is no allowlist.
 - Global statics (`ZEnv.App/Log/SpanBuilder`, `ZApi.TypeMap`) are set by `ZApp`'s constructor;
   two apps per process clobber each other. `ZApp.Settings/Auth/Storage` throw until `BuildAsync()`.
 - Unity-safe code only in ZCore/ZClient/ZP2P/ZSerilog: `Z_UNITY` swaps `ZTask` onto UniTask and
