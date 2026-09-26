@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using IZ.Core;
@@ -184,8 +185,9 @@ public abstract class SendGridSender : LogicBase {
     try {
       res = await Client.SendEmailAsync(msg);
     } catch (Exception e) {
+      // A send nobody can confirm is a failure until a provider event says otherwise: Error, never a quiet Warning.
       Count(kind, false, 0);
-      Log.Warning(e, "[SEND] {kind} ambiguous", kind);
+      Log.Error(e, "[SEND] {kind} ambiguous", kind);
       return EmailSendResult.MaybeAccepted();
     }
 
@@ -197,7 +199,7 @@ public abstract class SendGridSender : LogicBase {
     }
 
     bool transient = status == 429 || status >= 500;
-    Log.Warning("[SEND] {kind} rejected {code}", kind, status);
+    Log.Error("[SEND] {kind} rejected {code}", kind, status);
     return EmailSendResult.Rejected(status, transient, res);
   }
 
@@ -217,6 +219,45 @@ public abstract class SendGridSender : LogicBase {
       ["status"] = status,
     });
 
+  /// <summary>
+  /// A SendGrid `/validations/email` answer as a verdict, or null with <paramref name="problem" /> saying why: a
+  /// non-2xx status with the provider's first error message, or a 2xx body with no `result`. The problem never carries
+  /// the body itself, which echoes the address.
+  /// </summary>
+  public static EmailValidation? ParseValidation(int status, string? body, out string? problem) {
+    if (status is < 200 or >= 300) {
+      problem = $"HTTP {status}: {ProviderErrorMessage(body) ?? "no error message"}";
+      return null;
+    }
+    ResultObject<EmailValidation>? parsed = null;
+    try {
+      parsed = string.IsNullOrWhiteSpace(body) ? null : ZJson.DeserializeObject<ResultObject<EmailValidation>>(body);
+    } catch (Exception e) {
+      problem = $"HTTP {status}: unreadable body ({e.GetType().Name})";
+      return null;
+    }
+    if (parsed?.Result == null || string.IsNullOrWhiteSpace(parsed.Result.Verdict)) {
+      problem = $"HTTP {status}: no result in the body";
+      return null;
+    }
+    problem = null;
+    return parsed.Result;
+  }
+
+  /// <summary>SendGrid's `{"errors":[{"message":"…"}]}`, first message only, bounded, with anything address-shaped
+  /// removed.</summary>
+  public static string? ProviderErrorMessage(string? body) {
+    if (string.IsNullOrWhiteSpace(body)) return null;
+    try {
+      string? message = ZJson.DeserializeObject<ProviderErrorBody>(body)?.Errors?.FirstOrDefault(e => !string.IsNullOrWhiteSpace(e.Message))?.Message;
+      if (message == null) return null;
+      message = string.Join(' ', message.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => !w.Contains('@')));
+      return message.Length > 200 ? message[..200] : message;
+    } catch (Exception) {
+      return null;
+    }
+  }
+
   // https://sendgrid.com/docs/for-developers/sending-email/getting-started-email-activity-api/
   public async Task<Response> GetEmailHistory(string email) {
     var data = new Dictionary<string, string> {
@@ -234,20 +275,35 @@ public abstract class SendGridSender : LogicBase {
 public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailSenderDb {
   public SendGridSender(IZContext context, IOptions<SendGridOptions> opts) : base(context, opts) { }
 
+  /// <summary>
+  /// The provider's verdict on an address, or null when the validator gave none. A null never refuses a signup (the
+  /// caller fails open), so every null is logged at Error with the reason a person can act on — the HTTP status and
+  /// SendGrid's own message (a key without the Email Address Validation scope answers 403 "access forbidden"),
+  /// never the address. Production logged only "Response was not a ValidationResult" from 2026-09-17 to 2026-09-26.
+  /// </summary>
   public override async Task<EmailValidation?> ValidateEmailAsync(string email) {
-    var db = Context.GetRequiredService<TDb>();
-    string body = ZJson.SerializeObject(new EmailValidationRequest { Email = email });
-
-    var res = await Api.RequestAsync(BaseClient.Method.POST, body, urlPath: "/validations/email");
-    string response = await res.Body.ReadAsStringAsync();
-
+    int status;
+    string response;
     try {
-      var validation = ZJson.DeserializeObject<ResultObject<EmailValidation>>(response);
-      if (validation?.Result == null) throw new FormatException("Response was not a ValidationResult");
-      var result = validation.Result;
+      string body = ZJson.SerializeObject(new EmailValidationRequest { Email = email });
+      var res = await Api.RequestAsync(BaseClient.Method.POST, body, urlPath: "/validations/email");
+      status = (int) res.StatusCode;
+      response = await res.Body.ReadAsStringAsync();
+    } catch (Exception e) {
+      Log.Error(e, "[VALIDATION] validator unavailable: {reason}", e.Message);
+      return null;
+    }
+
+    var result = ParseValidation(status, response, out string? problem);
+    if (result == null) {
+      Log.Error("[VALIDATION] validator gave no verdict: {reason}", problem);
+      return null;
+    }
+    try {
+      var db = Context.GetRequiredService<TDb>();
       result.Host ??= "";
       result.Email = email.ToLowerInvariant();
-      Log.Information("[VALIDATION] {code} verdict {verdict}", res.StatusCode, result.Verdict);
+      Log.Information("[VALIDATION] {code} verdict {verdict}", status, result.Verdict);
 
       var cur = await db.EmailValidations.FirstOrDefaultAsync(ev => ev.Email == result.Email);
       if (cur != null) {
@@ -259,15 +315,22 @@ public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailS
         await db.EmailValidations.AddAsync(result);
       }
       await db.SaveChangesAsync();
-
-      return validation.Result;
     } catch (Exception e) {
-      Log.Warning(e, "[VALIDATION] Failed to validate email");
-      return null;
+      // The verdict stands; only its cache row failed.
+      Log.Error(e, "[VALIDATION] could not store the verdict");
     }
+    return result;
   }
 }
 
 internal sealed class EmailValidationRequest {
   public string Email { get; set; } = null!;
+}
+
+public sealed class ProviderErrorBody {
+  public List<ProviderError>? Errors { get; set; }
+}
+
+public sealed class ProviderError {
+  public string? Message { get; set; }
 }
