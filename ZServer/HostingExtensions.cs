@@ -78,10 +78,15 @@ public static class HostingExtensions {
       .AddSubscriptionDiagnostics();
   }
 
+  /// <summary>Whether GraphQL errors carry stack traces: never on a deployed environment.</summary>
+  public static bool IncludeExceptionDetails(ZEnvironment env) => env <= ZEnvironment.Development;
+
   public static IServiceCollection AddZServerGraphQl(this IServiceCollection collection, ZApp app)  => collection
     // .AddScoped<ISubscriptionDiagnosticEventsListener, ZSubscriptionDiagnostics>()
     .AddGraphQLServer()
-    .ModifyRequestOptions(opt => opt.IncludeExceptionDetails = true)
+    // Stack traces and exception internals on the wire are for a developer's own machine only. The
+    // error filter already carries each exception's message and code, which is what clients show.
+    .ModifyRequestOptions(opt => opt.IncludeExceptionDetails = IncludeExceptionDetails(app.Env))
     // .AddType<WorkMutation>()
     .AddSchemaQuery(app)
     .AddZSubscriptions()
