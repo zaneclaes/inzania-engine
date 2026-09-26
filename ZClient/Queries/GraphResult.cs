@@ -36,9 +36,15 @@ public class GraphError {
   // [{"line":32,"column":3}]
   // public string Locations { get; set; } = null!;
 
-  public object[] Path { get; set; } = null!;
+  // Both are optional in a GraphQL error (spec §7.1.2), and a reply that is not the server's — a proxy's, an
+  // intercepted request's — carries only `message`. Never null, so a reader of `Extensions.Reason` (the app's
+  // HandleZException) cannot turn an error reply into a NullReferenceException (round 9 staging, trackEvents).
+  private object[]? _path;
+  private GraphErrorExtensions? _extensions;
 
-  public GraphErrorExtensions Extensions { get; set; } = null!;
+  public object[] Path { get => _path ??= Array.Empty<object>(); set => _path = value; }
+
+  public GraphErrorExtensions Extensions { get => _extensions ??= new GraphErrorExtensions(); set => _extensions = value; }
 
   public string FormattedMessage {
     get {
