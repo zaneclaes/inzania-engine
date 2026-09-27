@@ -9,6 +9,7 @@ using IZ.Core;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
 using IZ.Core.Observability;
+using IZ.Core.Observability.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SendGrid;
@@ -54,8 +55,21 @@ public abstract class SendGridSender : LogicBase {
   private string SendGridKey => string.IsNullOrWhiteSpace(_sendGridOpts.Key) ? GetSendGridKeyEnv() : _sendGridOpts.Key;
   protected SendGridClient Client => _client ??= new SendGridClient(SendGridKey);
 
-  private string ApiKey => string.IsNullOrWhiteSpace(_sendGridOpts.ValidatorKey) ? throw new ArgumentException(nameof(_sendGridOpts.ValidatorKey)) : _sendGridOpts.ValidatorKey;
-  protected SendGridClient Api => _api ??= new SendGridClient(ApiKey);
+  /// <summary>Whether an address validator is configured. `SendGrid:ValidatorKey` needs the Email Address Validation
+  /// scope, which only some SendGrid plans offer; an empty key means validation is off, not broken. Every signup then
+  /// skips the provider call, and <see cref="LogValidatorState" /> says so once at start-up instead of an error per
+  /// signup.</summary>
+  public bool ValidationEnabled => IsValidatorConfigured(_sendGridOpts);
+
+  public static bool IsValidatorConfigured(SendGridOptions opts) => !string.IsNullOrWhiteSpace(opts.ValidatorKey);
+
+  /// <summary>The one start-up line that says whether signups are address-validated. Never prints the key.</summary>
+  public static void LogValidatorState(IZLogger log, SendGridOptions opts) {
+    if (IsValidatorConfigured(opts)) log.Information("[VALIDATION] enabled");
+    else log.Information("[VALIDATION] disabled: SendGrid:ValidatorKey is empty, so signups are not address-validated");
+  }
+
+  protected SendGridClient Api => _api ??= new SendGridClient(_sendGridOpts.ValidatorKey);
   private string GetSendGridKeyEnv() {
     string key = $"SENDGRID_API_KEY_{Context.App.ProductName.ToUpperInvariant()}";
     string? env = Environment.GetEnvironmentVariable(key);
@@ -276,12 +290,15 @@ public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailS
   public SendGridSender(IZContext context, IOptions<SendGridOptions> opts) : base(context, opts) { }
 
   /// <summary>
+  /// Null without a call or a log when no validator key is configured (<see cref="SendGridSender.ValidationEnabled" />):
+  /// that is a deliberate configuration, announced once at start-up, not a per-signup failure.
   /// The provider's verdict on an address, or null when the validator gave none. A null never refuses a signup (the
   /// caller fails open), so every null is logged at Error with the reason a person can act on — the HTTP status and
   /// SendGrid's own message (a key without the Email Address Validation scope answers 403 "access forbidden"),
   /// never the address. Production logged only "Response was not a ValidationResult" from 2026-09-17 to 2026-09-26.
   /// </summary>
   public override async Task<EmailValidation?> ValidateEmailAsync(string email) {
+    if (!ValidationEnabled) return null;
     int status;
     string response;
     try {
