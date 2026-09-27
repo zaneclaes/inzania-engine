@@ -51,6 +51,13 @@ public interface IZAnalytics : IHaveContext, IDisposable {
 
   public ZTask SetTrafficStatus(AnalyticsTrafficStatus status);
 
+  /// <summary>
+  /// The visitor's optional-collection permission. A refusal discards every hit waiting for the traffic verdict and
+  /// queues nothing more until a grant, so a grant made before the verdict cannot release what was tracked under the
+  /// refusal. Hits sent once the verdict is known are unaffected: the sink (the page's tag) applies consent to those.
+  /// </summary>
+  public void SetOptionalCollection(bool allowed);
+
   // public ZTask SetIdentity(IZIdentity identity, Dictionary<string, object>? userProps = null) {
   //   userProps ??= new Dictionary<string, object>();
   //   userProps["env"] = Context.App.Env.ToString();
