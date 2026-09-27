@@ -55,13 +55,33 @@ public abstract class SendGridSender : LogicBase {
   private string SendGridKey => string.IsNullOrWhiteSpace(_sendGridOpts.Key) ? GetSendGridKeyEnv() : _sendGridOpts.Key;
   protected SendGridClient Client => _client ??= new SendGridClient(SendGridKey);
 
-  /// <summary>Whether an address validator is configured. `SendGrid:ValidatorKey` needs the Email Address Validation
-  /// scope, which only some SendGrid plans offer; an empty key means validation is off, not broken. Every signup then
-  /// skips the provider call, and <see cref="LogValidatorState" /> says so once at start-up instead of an error per
-  /// signup.</summary>
-  public bool ValidationEnabled => IsValidatorConfigured(_sendGridOpts);
+  /// <summary>Whether signups are address-validated. `SendGrid:ValidatorKey` needs the Email Address Validation
+  /// scope, which only some SendGrid plans offer. An empty key means validation is off, not broken: every signup
+  /// skips the provider call, and <see cref="LogValidatorState" /> says so once at start-up. A key the provider refuses
+  /// (401 revoked, 403 without the scope) is switched off the same way for the rest of the process, after one
+  /// <see cref="RefusedKeyLog" /> line (<see cref="NoteProviderAnswer" />). A 5xx or a timeout is not a refusal and is
+  /// retried on the next signup.</summary>
+  public bool ValidationEnabled => IsValidatorConfigured(_sendGridOpts) && !RefusedKeys.ContainsKey(_sendGridOpts.ValidatorKey);
 
   public static bool IsValidatorConfigured(SendGridOptions opts) => !string.IsNullOrWhiteSpace(opts.ValidatorKey);
+
+  /// <summary>Keys the provider refused in this process, with the status it answered. Static because the sender is
+  /// scoped per request; keyed by the key itself so a rotated key is tried afresh. Never logged.</summary>
+  private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> RefusedKeys = new();
+
+  public const string RefusedKeyLog = "[VALIDATION] disabled: provider refused the key ({status})";
+
+  /// <summary>401 and 403 are the provider refusing the key itself, never a verdict on one address.</summary>
+  public static bool IsKeyRefusal(int status) => status is 401 or 403;
+
+  /// <summary>Records a provider answer. A 401/403 disables validation for this key for the rest of the process and
+  /// returns true; only the first refusal of a key logs (<see cref="RefusedKeyLog" />, at Error). Anything else
+  /// returns false and changes nothing.</summary>
+  protected bool NoteProviderAnswer(int status) {
+    if (!IsKeyRefusal(status)) return false;
+    if (RefusedKeys.TryAdd(_sendGridOpts.ValidatorKey, status)) Log.Error(RefusedKeyLog, status);
+    return true;
+  }
 
   /// <summary>The one start-up line that says whether signups are address-validated. Never prints the key.</summary>
   public static void LogValidatorState(IZLogger log, SendGridOptions opts) {
@@ -289,9 +309,17 @@ public abstract class SendGridSender : LogicBase {
 public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailSenderDb {
   public SendGridSender(IZContext context, IOptions<SendGridOptions> opts) : base(context, opts) { }
 
+  /// <summary>The one provider call: the HTTP status and body of `POST /v3/validations/email`. Virtual so a test can
+  /// answer without the network.</summary>
+  protected virtual async Task<(int Status, string Body)> RequestValidationAsync(string body) {
+    var res = await Api.RequestAsync(BaseClient.Method.POST, body, urlPath: "/validations/email");
+    return ((int) res.StatusCode, await res.Body.ReadAsStringAsync());
+  }
+
   /// <summary>
-  /// Null without a call or a log when no validator key is configured (<see cref="SendGridSender.ValidationEnabled" />):
-  /// that is a deliberate configuration, announced once at start-up, not a per-signup failure.
+  /// Null without a call or a log when validation is off (<see cref="SendGridSender.ValidationEnabled" />): no key, or a
+  /// key the provider already refused. The refusing answer itself logs once and returns null (staging 1559 logged
+  /// `validator gave no verdict: HTTP 401` on every signup).
   /// The provider's verdict on an address, or null when the validator gave none. A null never refuses a signup (the
   /// caller fails open), so every null is logged at Error with the reason a person can act on — the HTTP status and
   /// SendGrid's own message (a key without the Email Address Validation scope answers 403 "access forbidden"),
@@ -303,13 +331,12 @@ public class SendGridSender<TDb> : SendGridSender where TDb : DbContext, IEmailS
     string response;
     try {
       string body = ZJson.SerializeObject(new EmailValidationRequest { Email = email });
-      var res = await Api.RequestAsync(BaseClient.Method.POST, body, urlPath: "/validations/email");
-      status = (int) res.StatusCode;
-      response = await res.Body.ReadAsStringAsync();
+      (status, response) = await RequestValidationAsync(body);
     } catch (Exception e) {
       Log.Error(e, "[VALIDATION] validator unavailable: {reason}", e.Message);
       return null;
     }
+    if (NoteProviderAnswer(status)) return null;
 
     var result = ParseValidation(status, response, out string? problem);
     if (result == null) {
