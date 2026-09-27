@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,6 +18,7 @@ using IZ.Data.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace IZ.Data.Storage;
 
@@ -125,6 +127,10 @@ public class ZDbContext : DbContext, IHaveContext {
     // try {
     List<IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes().ToList();
     foreach (var entityType in entityTypes) {
+      // Before the DataObject filter and before any ConfigureModel hook, so every mapped entity is covered
+      // and a hand-written hook can still override one property.
+      ConvertStoredEnumNames(entityType);
+
       var dataType = entityType.ClrType;
       if (!typeof(DataObject).IsAssignableFrom(dataType)) continue;
 
@@ -159,6 +165,48 @@ public class ZDbContext : DbContext, IHaveContext {
 
     TimeStampData.AutoIndex(modelBuilder);
   }
+
+  private static readonly string[] StringColumnPrefixes = { "varchar", "char", "nvarchar", "text" };
+
+  private static readonly ConcurrentDictionary<Type, ValueConverter> StoredEnumConverters = new();
+
+  /// <summary>
+  /// A plain enum column declared as a string (`[Column(TypeName = "varchar(n)")]`) stores the member
+  /// NAME. EF's implicit string-to-enum conversion throws `Cannot convert string value …` for a name this
+  /// build lacks while materializing the whole result, so one row written by a rolled-back build, a
+  /// newer production copied to staging or the other replica mid-rollout failed every query that loaded
+  /// it — and a background loop that ran that query stopped on every tick. Every such property instead
+  /// reads through <see cref="ZEnums.Parse{TEnum}" />: an unknown name becomes the enum's declared
+  /// fallback, with one `[ENUM]` warning per distinct value per process, and writes stay the member
+  /// name (what EF's `EnumToStringConverter` wrote), so stored data and the schema do not change.
+  /// The decision is made from the declared column type, which MySQL and SQLite share; SQLite infers no
+  /// converter of its own and would otherwise store ordinals. An enum with no declared fallback
+  /// (<see cref="ZEnums.HasDeclaredFallback" />) fails the model build: its value 0 is often a live state
+  /// that a reader would act on.
+  /// </summary>
+  private static void ConvertStoredEnumNames(IMutableEntityType entityType) {
+    foreach (var property in entityType.GetDeclaredProperties()) {
+      var enumType = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+      if (!enumType.IsEnum || enumType.IsDefined(typeof(FlagsAttribute), false)) continue;
+      string? columnType = property.GetColumnType();
+      if (columnType == null ||
+          !StringColumnPrefixes.Any(p => columnType.StartsWith(p, StringComparison.OrdinalIgnoreCase))) continue;
+      if (!ZEnums.HasDeclaredFallback(enumType))
+        throw new InvalidOperationException(
+          $"{entityType.ClrType.Name}.{property.Name}: {enumType.Name} stores names and declares no fallback. " +
+          "Add an `Unknown` member (a negative value, if 0 is taken) or [ZEnumFallback], so a name this build " +
+          "lacks reads as a value no reader acts on.");
+      property.SetValueConverter(StoredEnumConverters.GetOrAdd(enumType, t =>
+        (ValueConverter) BuildStoredEnumConverterMethod.MakeGenericMethod(t).Invoke(null, null)!));
+    }
+  }
+
+  private static readonly MethodInfo BuildStoredEnumConverterMethod =
+    typeof(ZDbContext).GetMethod(nameof(BuildStoredEnumConverter), BindingFlags.Static | BindingFlags.NonPublic)!;
+
+  private static ValueConverter BuildStoredEnumConverter<TEnum>() where TEnum : struct, Enum =>
+    new ValueConverter<TEnum, string>(v => v.ToString(), s => ZEnums.Parse<TEnum>(s));
+
 
   private void ConfigureModelProperty(ZTypeDescriptor zTypeDescriptor, string propertyName, ModelBuilder modelBuilder) {
     var prop = zTypeDescriptor.ObjectDescriptor.ObjectProperties[propertyName];
