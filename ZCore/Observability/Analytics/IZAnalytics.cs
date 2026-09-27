@@ -52,9 +52,10 @@ public interface IZAnalytics : IHaveContext, IDisposable {
   public ZTask SetTrafficStatus(AnalyticsTrafficStatus status);
 
   /// <summary>
-  /// The visitor's optional-collection permission. A refusal discards every hit waiting for the traffic verdict and
-  /// queues nothing more until a grant, so a grant made before the verdict cannot release what was tracked under the
-  /// refusal. Hits sent once the verdict is known are unaffected: the sink (the page's tag) applies consent to those.
+  /// The visitor's optional-collection permission. A refusal discards every hit waiting for the traffic verdict, and
+  /// until a grant nothing is queued or sent, so a grant made before the verdict cannot release what was tracked under
+  /// the refusal. A native install's sink configuration and identity changes, which open a Measurement Protocol
+  /// session, wait for the grant too. A browser sink is still configured, because the page's tag applies consent itself.
   /// </summary>
   public void SetOptionalCollection(bool allowed);
 

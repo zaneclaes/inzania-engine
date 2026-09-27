@@ -56,6 +56,13 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   public async ZTask Configure(IAnalyticsSink? sink, Installation install, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     if (sink == null) return;
     bool browser = install.DeviceType == DeviceType.Browser;
+    _native = !browser;
+    // A native sink's Config opens a Measurement Protocol session (`session_start`), so under a refusal it waits for
+    // the grant. A browser sink only hands the page's tag its id, and the tag applies consent itself.
+    if (_refused && !browser) {
+      _deferred = new DeferredConfigure(sink, install, identity, userProps);
+      return;
+    }
     if (browser && string.IsNullOrWhiteSpace(install.ClientId)) {
       Log.Warning("[ANALYTICS] browser identity missing; sink stays unconfigured");
       _queue.Clear();
@@ -89,7 +96,13 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     // common case, since a visitor's own set is nearly empty).
     if (_identity?.IZUser?.Id != identity?.IZUser?.Id) _userProps.Clear();
     _identity = identity;
-    return _sink?.SetIdentity(identity, MergeUserProps(props)) ?? ZTask.CompletedTask;
+    var merged = MergeUserProps(props);
+    // The native sink's SetIdentity opens a new Measurement Protocol session: under a refusal it waits for the grant.
+    if (_refused && _native) {
+      _identityPending = true;
+      return ZTask.CompletedTask;
+    }
+    return _sink?.SetIdentity(identity, merged) ?? ZTask.CompletedTask;
   }
 
   public ZTask SetTrafficStatus(AnalyticsTrafficStatus status) {
@@ -100,29 +113,63 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     return sinkStatus;
   }
 
-  // Set by a refusal of optional collection: the queue then holds nothing, so no later grant can release a hit
-  // tracked while the visitor had said no (the embedded player's direct `operation_timing` and `screen_view`).
+  // Set by a refusal of optional collection. While set, nothing is queued or sent: no later grant can release a hit
+  // tracked while the visitor had said no (the embedded player's direct `operation_timing` and `screen_view`), and a
+  // native install makes no Measurement Protocol request at all, `session_start` included.
   private bool _refused;
+
+  // Whether the last Configure was for a native install, whose sink posts to the Measurement Protocol itself.
+  private bool _native;
+
+  // A native Configure or identity change that arrived under a refusal, applied by the grant.
+  private DeferredConfigure? _deferred;
+  private bool _identityPending;
+
+  private sealed class DeferredConfigure {
+    public readonly IAnalyticsSink Sink;
+    public readonly Installation Install;
+    public readonly IZIdentity? Identity;
+    public readonly Dictionary<string, object>? UserProps;
+
+    public DeferredConfigure(IAnalyticsSink sink, Installation install, IZIdentity? identity, Dictionary<string, object>? userProps) {
+      Sink = sink;
+      Install = install;
+      Identity = identity;
+      UserProps = userProps;
+    }
+  }
 
   /// <summary>Hits waiting for the sink or the traffic verdict, for tests.</summary>
   public int QueuedCount => _queue.Count;
 
   public void SetOptionalCollection(bool allowed) {
+    bool wasRefused = _refused;
+    _refused = !allowed;
     if (!allowed) {
       int discarded = _queue.Count;
       _queue.Clear();
       if (discarded > 0) Log.Information("[ANALYTICS] discarded {cnt} queued hit(s): optional collection refused", discarded);
-    } else if (_refused) {
-      // The smokescreen's grant-after-play reads this line: it must say 0.
-      Log.Information("[ANALYTICS] optional collection granted with {cnt} hit(s) queued under the refusal", _queue.Count);
+      return;
     }
-    _refused = !allowed;
+    if (!wasRefused) return;
+    // The smokescreen's grant-after-play reads this line: it must say 0.
+    Log.Information("[ANALYTICS] optional collection granted with {cnt} hit(s) queued under the refusal", _queue.Count);
+    var deferred = _deferred;
+    _deferred = null;
+    if (deferred != null) {
+      var identity = _identityPending ? _identity : deferred.Identity; // the latest identity the refusal held back
+      _identityPending = false;
+      Configure(deferred.Sink, deferred.Install, identity, deferred.UserProps).Forget();
+    } else if (_identityPending) {
+      _identityPending = false;
+      _sink?.SetIdentity(_identity, _userProps).Forget();
+    }
   }
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
-    if (_trafficStatus == AnalyticsTrafficStatus.Internal) return;
+    if (_trafficStatus == AnalyticsTrafficStatus.Internal || _refused) return;
     if (_sink == null || _trafficStatus != AnalyticsTrafficStatus.External) {
-      if (!_refused && _queue.Count < MaxPending) _queue.Enqueue(e);
+      if (_queue.Count < MaxPending) _queue.Enqueue(e);
     } else {
       await _sink.SendEvent(e);
     }
