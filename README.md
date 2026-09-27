@@ -161,6 +161,21 @@ with `#:project` and starts a `ZScriptApp` before touching JSON (`ZCore/README.m
   WebGL build one deploy behind. So: **give every wire enum a `0` member that is safe to mistake an
   unknown value for**, and never parse an enum off the wire with `Enum.Parse` (Chordzy pins the
   whole population in `TuneTests/Lib/EnumWireTests.cs`).
+- **A string-stored enum column reads through the same `ZEnums`, and declares its fallback.** A plain enum
+  property with `[Column(TypeName = "varchar(n)")]` stores the member *name*. EF's own string-to-enum
+  conversion threw `Cannot convert string value …` for a name the running build lacks, while materializing
+  the whole result — so one row written by a rolled-back build, by a newer production copied to staging, or
+  by the other replica mid-rollout failed every query that loaded it, and a background loop that ran that
+  query stopped on every tick. `ZDbContext.OnModelCreating` therefore sets one converter on every such
+  property (decided from the declared column type, before any `ConfigureModel` hook): the member name out,
+  `ZEnums.Parse` back, so an unknown name reads as the enum's fallback with one `[ENUM]` warning per distinct
+  value per process, and stored data is unchanged. The fallback must be **declared** — a
+  `[ZEnumFallback(nameof(X))]`, an `Unknown` member or a `None` member (`ZEnums.HasDeclaredFallback`); an enum
+  that only has a meaningful `0` (`Running`, `Proposed`) makes the model refuse to build, naming the property.
+  Add `Unknown = -1` when 0 is taken, so no ordinal or `default(T)` moves. A reader then acts on a stored enum
+  only through a SQL predicate that names the value (`== X`, or `IZ.Data.Storage.StoredEnumFilter.Declared`
+  for "any member this build knows"), never `!= X` or `NOT IN`, which a foreign name matches; and never
+  saves a whole entity it read, which would write the fallback over the stored name.
 - **An env name that binds nothing is reported at start-up.** `ZHostApp.PrepareAsync` runs `ConfigProblems()`
   (`ZServer/ConfigCheck.cs`): every environment name containing `__` (every segment non-empty; `ASPNETCORE_`/`DOTNET_`
   excluded) whose `:` key no `appsettings*.json` declares is a problem, and a subclass appends its own faults. At

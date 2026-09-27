@@ -58,17 +58,39 @@ public static class ZEnums {
   }
 
   /// <summary>
-  /// What an unrecognized value becomes: the `Unknown` member if the enum declares one, else `None`,
-  /// else whatever 0 maps to (the engine's enums put `Unknown` there by convention).
+  /// What an unrecognized value becomes: the member a <see cref="ZEnumFallbackAttribute" /> names, else the
+  /// `Unknown` member if the enum declares one, else `None`, else whatever 0 maps to (the engine's enums put
+  /// `Unknown` there by convention). The wire and a string-stored database column share this one rule.
   /// </summary>
   public static object Fallback(Type enumType) => _fallbacks.GetOrAdd(enumType, t => {
     var names = WireNames(t);
+    var declared = DeclaredFallbackName(t);
+    if (declared != null) {
+      if (!Enum.IsDefined(t, declared))
+        throw new ArgumentException($"[ZEnumFallback(\"{declared}\")] on {t.FullName} names no member of it");
+      return Enum.Parse(t, declared);
+    }
     if (names.TryGetValue(UnknownName, out var unknown)) return unknown;
     if (names.TryGetValue(NoneName, out var none)) return none;
     return Enum.ToObject(t, 0);
   });
 
   public static TEnum Fallback<TEnum>() where TEnum : struct, Enum => (TEnum) Fallback(typeof(TEnum));
+
+  /// <summary>
+  /// Whether the enum names its fallback on purpose: a <see cref="ZEnumFallbackAttribute" />, an `Unknown`
+  /// member or a `None` member. False when only the value-0 rule would apply — for many enums 0 is a
+  /// live state (`Running`, `Proposed`, `Draft`), and reading a name this build lacks as that state
+  /// would make a reader act on it. A string-stored database column requires this to be true.
+  /// </summary>
+  public static bool HasDeclaredFallback(Type enumType) {
+    if (DeclaredFallbackName(enumType) != null) return true;
+    var names = WireNames(enumType);
+    return names.ContainsKey(UnknownName) || names.ContainsKey(NoneName);
+  }
+
+  private static string? DeclaredFallbackName(Type enumType) =>
+    ((ZEnumFallbackAttribute?) Attribute.GetCustomAttribute(enumType, typeof(ZEnumFallbackAttribute)))?.MemberName;
 
   /// <summary>Parses a wire name, a C# name or a numeric string. False when none of them match.</summary>
   public static bool TryParse(Type enumType, string? val, out object result) {
@@ -126,4 +148,18 @@ public static class ZEnums {
     ZEnv.Log.Warning("[ENUM] {type} has no value {val} (this build is older than the server's) — using {fallback}",
       enumType.Name, val, fallback);
   }
+}
+
+/// <summary>
+/// Names the member an unrecognized value of this enum reads as (<see cref="ZEnums.Fallback(Type)" />), for
+/// an enum with no `Unknown` or `None` member whose value-0 member is nonetheless the safe default
+/// (General MIDI program 0, say). A name that is not a member throws when the fallback is first built.
+/// </summary>
+[AttributeUsage(AttributeTargets.Enum)]
+public sealed class ZEnumFallbackAttribute : Attribute {
+  public ZEnumFallbackAttribute(string memberName) {
+    MemberName = memberName;
+  }
+
+  public string MemberName { get; }
 }

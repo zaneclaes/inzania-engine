@@ -69,6 +69,14 @@ Rules, and why:
 - **Plain (non-flags) enums are fine as columns** and serialize as `SCREAMING_SNAKE` GraphQL
   enum names. The `*Val` mirror is only required for `[Flags]` enums (and for any enum a client
   must round-trip numerically, e.g. `GradingOptions.Focus`).
+- **A string-stored enum column declares its fallback, and readers name the values they act on.**
+  A `varchar` enum column stores member names, and a name the running build lacks (a rolled-back
+  feature's rows, staging copied from a newer production, a replica of another build) reads as the
+  enum's fallback through `ZDbContext`'s stored-enum convention instead of throwing. The enum must
+  declare that fallback — `[ZEnumFallback]`, `Unknown` (`= -1` when 0 is a live state) or `None` —
+  or the model refuses to build. A reader acts on such a column only through a SQL predicate that
+  names the value (`== X`, `StoredEnumFilter.Declared(…)`), never `!=`/`NOT IN`, and never acts on
+  one by loading rows and branching on them in memory. Details: `../README.md` → Conventions.
 
 ### Flags and query performance (the one weakness — measured)
 
