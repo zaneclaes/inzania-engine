@@ -26,6 +26,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Settings.Configuration;
 using Serilog.Sinks.Datadog.Logs;
@@ -85,6 +86,19 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
 
   protected WebApplication? WebApp { get; private set; }
 
+  private bool _isListening;
+
+  /// <summary>
+  /// Starts Kestrel after the application has mapped its pipeline, without pretending that all of
+  /// the application's own initialization is complete. A host that has done this must wait for
+  /// shutdown rather than ask <see cref="WebApplication.RunAsync"/> to start Kestrel a second time.
+  /// </summary>
+  protected async Task StartListeningAsync() {
+    if (_isListening) return;
+    await WebApp!.StartAsync();
+    _isListening = true;
+  }
+
   protected abstract IDataSeed[] DataSeeds { get; }
 
   private static ZLogBuilder CreateLogger(IConfiguration config) => SerilogZLogBuilder.GetDefault()
@@ -123,7 +137,14 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     ConfigCheck.UnboundEnvironmentNames(_builder.Configuration, Environment.GetEnvironmentVariables())
       .Select(ConfigCheck.Unbound);
 
-  protected override async ZTask PrepareAsync() {
+  private bool _hostPrepared;
+
+  /// <summary>Completes the parts of host preparation that must happen before Kestrel starts:
+  /// middleware registration and the fragment catalogue. Database initialization intentionally
+  /// remains separate so a derived host can expose a non-ready listener while it performs a
+  /// serialized mirror before migrations.</summary>
+  protected async ZTask PrepareBeforeListeningAsync() {
+    if (_hostPrepared) return;
     await base.PrepareAsync();
     using var config = new WorkContext(this, "Config");
     ConfigCheck.Apply(ConfigProblems().ToList(), Env, Log, _ => config.IncrementMetric("config.problem",
@@ -132,12 +153,20 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
       opts.GetLevel = ApiExceptionMiddleware.GetLogLevel;
     });
     WebApp!.Services.GetRequiredService<IFragmentProvider>().LoadDirectory(Storage.GraphQLDir);
+    _hostPrepared = true;
+  }
 
+  /// <summary>Applies the database schema and starts non-blocking seeding after the host pipeline is fixed.</summary>
+  protected async ZTask PrepareDatabaseAsync() {
     await WebApp!.Services.MigrateDatabaseAsync<TDb>();
-
     // Seeding should not block startup:
     WebApp!.Services.SeedDatabaseAsync(DataSeeds).Forget();
     WebApp!.Lifetime.ApplicationStarted.Register(() => ListUrls(WebApp!));
+  }
+
+  protected override async ZTask PrepareAsync() {
+    await PrepareBeforeListeningAsync();
+    await PrepareDatabaseAsync();
   }
 
   protected void ListUrls(WebApplication app) {
@@ -155,6 +184,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
     await BuildAsync();
     WebApp = _builder.Build();
     await PrepareAsync();
-    await WebApp.RunAsync();
+    if (_isListening) await WebApp.WaitForShutdownAsync();
+    else await WebApp.RunAsync();
   }
 }
