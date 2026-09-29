@@ -63,6 +63,7 @@ public class DataRepositoryBase : LogicBase {
       string m = x.Message ?? string.Empty;
       if (m.IndexOf("Duplicate entry", StringComparison.OrdinalIgnoreCase) >= 0) return true;
       if (m.IndexOf("duplicate key", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+      if (m.IndexOf("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) >= 0) return true;
     }
     return false;
   }
