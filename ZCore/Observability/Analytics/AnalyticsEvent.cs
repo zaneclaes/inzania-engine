@@ -35,6 +35,10 @@ public class BaseParams : IEventParams {
   [JsonPropertyName("ga_session_number")] public long SessionNumber { get; set; }
   [JsonPropertyName("engagement_time_msec")] public long? EngagementTimeMsec { get; set; }
 
+  /// <summary>GA4's debug flag: an event carrying it shows in DebugView and the property's Developer traffic filter
+  /// drops it from reports. Set only for the product's own test installs; null (omitted) otherwise.</summary>
+  [JsonPropertyName("debug_mode")] public bool? DebugMode { get; set; }
+
   [JsonPropertyName("city")] public string? City { get; set; }
   [JsonPropertyName("region_id")] public string? RegionId { get; set; }
   [JsonPropertyName("country_id")] public string? CountryId { get; set; }

@@ -37,6 +37,10 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   public int DroppedSends => _droppedSends;
   private int _droppedSends;
 
+  /// <summary>Stamps <see cref="BaseParams.DebugMode" /> on every event this sink sends, `session_start` included, and
+  /// logs each POST (`[GA] post <name> debug_mode`), for an app's own test install. Delivery is unchanged.</summary>
+  public bool DebugMode { get; set; }
+
   public GoogleAnalyticsHttpSink(IZContext c) : base(c) { }
 
   /// <summary>With the transport the POSTs go through (tests: a link that resets).</summary>
@@ -107,6 +111,10 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     // UserEvent) keeps it — overwriting it here gave GA and the database different ids for one run.
     if (e.EventParams.SessionId == 0) e.EventParams.SessionId = SessionId;
     e.EventParams.SessionNumber = _installation?.LaunchNumber ?? 0;
+    if (DebugMode && e.EventParams is BaseParams debug) {
+      debug.DebugMode = true;
+      Log.Information("[GA] post {name} debug_mode", e.Name);
+    }
     req.Events.Add(e);
     string json = ZJson.SerializeObject(req);
     return SendRequest(json);
