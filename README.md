@@ -24,6 +24,12 @@ satellite-locale warning); `*.meta` excluded from compilation (Unity symlinks `Z
 
 Data layer deep-dives: `ZCore/README.md` (object model, attributes, lazy resolution), `ZData/README.md` (EF Core pipeline, design rules, inspecting queries in Datadog), `ZSchema/README.md` (HotChocolate binding, batching resolver). Migrations workflow: `TuneWeb/Server/Migrations/README.md`.
 
+`ZHostApp.PrepareDatabaseAsync` applies migrations, then calls the protected
+`LaunchDatabaseSeeds` operation. Its default starts the existing `SeedDatabaseAsync` pass without
+awaiting it. A host that refreshes its database in the background can override only that launch
+and invoke the same seed operation after its refresh finishes; migration and host readiness do
+not wait for seeding. The seed runner still owns per-seed saves, rollback and failure reporting.
+
 **`Docs/data-design.md`** is the canonical database/API design ruleset (flags enums instead of
 bool columns, the numeric `*Val` wire mirror, index tradeoffs, inheritance, N:M through-joins) —
 read it before adding or changing any stored model. It is enforced by three reusable tools in

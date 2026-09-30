@@ -142,7 +142,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   /// <summary>Completes the parts of host preparation that must happen before Kestrel starts:
   /// middleware registration and the fragment catalogue. Database initialization intentionally
   /// remains separate so a derived host can expose a non-ready listener while it performs a
-  /// serialized mirror before migrations.</summary>
+  /// database preparation.</summary>
   protected async ZTask PrepareBeforeListeningAsync() {
     if (_hostPrepared) return;
     await base.PrepareAsync();
@@ -159,10 +159,16 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   /// <summary>Applies the database schema and starts non-blocking seeding after the host pipeline is fixed.</summary>
   protected async ZTask PrepareDatabaseAsync() {
     await WebApp!.Services.MigrateDatabaseAsync<TDb>();
-    // Seeding should not block startup:
-    WebApp!.Services.SeedDatabaseAsync(DataSeeds).Forget();
+    LaunchDatabaseSeeds(WebApp!.Services);
     WebApp!.Lifetime.ApplicationStarted.Register(() => ListUrls(WebApp!));
   }
+
+  /// <summary>Starts the ordinary seed pass without holding host preparation. A host with a
+  /// background refresh may defer this launch until that refresh reaches its terminal result.</summary>
+  protected virtual void LaunchDatabaseSeeds(IServiceProvider services) => SeedDatabaseAsync(services).Forget();
+
+  /// <summary>The existing seed runner, shared by immediate and deferred startup launches.</summary>
+  protected virtual Task SeedDatabaseAsync(IServiceProvider services) => services.SeedDatabaseAsync(DataSeeds);
 
   protected override async ZTask PrepareAsync() {
     await PrepareBeforeListeningAsync();
