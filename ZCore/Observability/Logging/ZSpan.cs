@@ -22,6 +22,8 @@ public class ZSpan : IZSpan {
 
   public virtual void SetException(Exception ex) { }
 
+  public virtual void RecordCaught(Exception ex, string? source = null) { }
+
   public virtual void SetSession(IZSession session) { }
 
   public virtual void Dispose() { }

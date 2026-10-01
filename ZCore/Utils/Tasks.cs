@@ -136,15 +136,17 @@ public static class Tasks {
 
   public static Exception HandleException(this IZContext scope, Exception ex, string tag, string reason, ZEventLevel lvl = ZEventLevel.Error) {
     string errorType = ex.GetType().Name;
+    ZEventLevel reported = lvl;
+    // Down-scope error levels for noisy things. The span still records the requested level.
+    // A downgraded log omits the exception object, so the span records the caught event itself.
+    if (ex is OperationCanceledException) lvl = ZEventLevel.Debug;
     if (scope.Span != null) {
       scope.Span.SetTag("error_type", errorType);
-      scope.Span.SetTag("error_message", ex.Message);
-      scope.Span.SetTag("error_level", lvl.ToString());
-      if (lvl >= ZEventLevel.Error) scope.Span.SetException(ex);
+      scope.Span.SetTag("error_message", RuntimeExceptionReport.SafeText(ex.Message));
+      scope.Span.SetTag("error_level", reported.ToString());
+      if (reported >= ZEventLevel.Error) scope.Span.SetException(ex);
+      else if (lvl <= ZEventLevel.Information) scope.Span.RecordCaught(ex, reason);
     }
-
-    // Down-scope error levels for noisy things
-    if (ex is OperationCanceledException) lvl = ZEventLevel.Debug;
 
     if (lvl > ZEventLevel.Information) scope.Log.Write(lvl,
       ex, "[{tag}]: {reason} {type}: {@error}", tag, reason, errorType, ZError.Guard(ex));
