@@ -29,6 +29,9 @@ public static class ZEnv {
 
   public static Func<IZSpan> SpanBuilder { get; set; } = ZSpan.ForContext;
 
+  /// <summary>Set by the Datadog tracer so a logged exception is also a span event. Null in tests and Unity.</summary>
+  public static Action<Exception, string?>? OnCaughtException { get; set; }
+
   public static DateTime Now => DateTime.UtcNow;
 
   public static IZLogger Log { get; set; } = new ConsoleLogger();

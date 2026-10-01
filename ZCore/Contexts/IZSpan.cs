@@ -12,5 +12,8 @@ public interface IZSpan : IDisposable {
 
   public void SetException(Exception ex);
 
+  /// <summary>Records a caught exception on the current trace without marking this span failed.</summary>
+  public void RecordCaught(Exception ex, string? source = null);
+
   public void SetSession(IZSession session);
 }

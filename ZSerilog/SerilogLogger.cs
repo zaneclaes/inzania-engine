@@ -1,6 +1,7 @@
 #region
 
 using System;
+using IZ.Core;
 using IZ.Core.Observability.Logging;
 using Serilog;
 using Serilog.Events;
@@ -19,8 +20,15 @@ public class SerilogLogger : IZLogger {
   public void Write(ZEventLevel level, string template, params object?[] args) =>
     _logger.Write(GetLevel(level), template, args);
 
-  public void Write(ZEventLevel level, Exception e, string template, params object?[] args) =>
+  public void Write(ZEventLevel level, Exception e, string template, params object?[] args) {
     _logger.Write(GetLevel(level), e, template, args);
+    try {
+      // Logging does not decide the request outcome. The tracer records a caught span when one is installed.
+      ZEnv.OnCaughtException?.Invoke(e, null);
+    } catch (Exception) {
+      // A telemetry failure must not replace the caller's exception.
+    }
+  }
 
   public IZLogger ForContext(Type context, IEventEnricher? enricher = null) {
     var logger = _logger.ForContext(context);

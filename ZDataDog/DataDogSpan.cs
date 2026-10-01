@@ -47,7 +47,12 @@ public class DataDogSpan : ZSpan, IScope, IZSpan {
 
   public override void SetException(Exception ex) {
     base.SetException(ex);
-    Scope.Span.SetException(ex);
+    RuntimeExceptionSpan.ApplyFailed(Scope.Span, ex);
+  }
+
+  public override void RecordCaught(Exception ex, string? source = null) {
+    base.RecordCaught(ex, source);
+    RuntimeExceptionSpan.RecordOnActive(Scope.Span, ex, source);
   }
 
   public override void SetSession(IZSession session) {

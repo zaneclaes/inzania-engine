@@ -28,6 +28,7 @@ public class DataDogMetrics : LogicBase, IZMetrics {
       };
       if (subdomain != null) ddTags.Add($"subdomain:{subdomain}");
       else ddTags.Add("subdomain:www");
+      foreach (var tag in RuntimeWorkload.Current) ddTags.Add($"{tag.Key}:{tag.Value}");
       // var props = Context.GetMetricTags();
       // foreach (string key in props.Keys) ddTags.Add($"{key.Replace(".", "_")}:{props[key]}");
       var cfg = new StatsdConfig {
