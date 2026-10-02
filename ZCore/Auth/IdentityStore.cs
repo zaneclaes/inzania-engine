@@ -32,7 +32,7 @@ public abstract class IdentityStore<TU> : LogicBase, IIdentityStore where TU : c
     string newToken = ses?.Token ?? "";
 
     if (!existingToken.Equals(newToken)) {
-      Log.Information("[SESSION] user '{username}' ({id}) now active; saving (token {token})...", ses?.IZUser.Username, ses?.Id, ses?.Token);
+      Log.Information("[SESSION] session changed; saving...");
       WriteUserSession(ses);
     }
     _currentIdentity = ses == null ? null : CreateIdentity(ses);
