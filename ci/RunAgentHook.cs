@@ -10,16 +10,19 @@ using IZ.Core.Contexts;
 using IZ.Core.Json;
 
 ZScriptApp.Start("RunAgentHook");
-if (args.Length < 2 || args[0] != "--guard") {
-  Console.Error.WriteLine("Usage: dotnet run RunAgentHook.cs -- --guard <guard.cs> [guard arguments]");
+int guardAt = Array.IndexOf(args, "--guard");
+if (guardAt < 0 || guardAt + 1 >= args.Length) {
+  Console.Error.WriteLine("Usage: dotnet run RunAgentHook.cs -- [--runtime <name>] --guard <guard.cs> [guard arguments]");
   return 1;
 }
 
-string guard = args[1];
-string[] guardArgs = args.Skip(2).ToArray();
+string guard = args[guardAt + 1];
+string[] guardArgs = args.Skip(guardAt + 2).ToArray();
+int runtimeAt = Array.IndexOf(args, "--runtime");
+string? runtime = runtimeAt >= 0 && runtimeAt + 1 < guardAt ? args[runtimeAt + 1] : null;
 string stdin = Console.In.ReadToEnd();
 foreach (string payload in Payloads(stdin)) {
-  var result = RunGuard(guard, guardArgs, payload);
+  var result = RunGuard(guard, guardArgs, payload, runtime);
   if (result.Output.Length > 0) Console.Error.Write(result.Output);
   if (result.Code != 0) return result.Code;
 }
@@ -111,7 +114,7 @@ static IEnumerable<PatchFile> ParsePatch(string patch) {
   if (path != null) yield return new PatchFile(path, string.Join("\n", added), string.Join("\n", removed));
 }
 
-static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guardArgs, string input) {
+static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guardArgs, string input, string? runtime) {
   bool csharp = Path.GetExtension(guard).Equals(".cs", StringComparison.OrdinalIgnoreCase);
   var start = new ProcessStartInfo(csharp ? "dotnet" : "sh") {
     RedirectStandardInput = true,
@@ -125,6 +128,7 @@ static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guar
   string root = GitRoot();
   start.Environment["CLAUDE_PROJECT_DIR"] = root;
   start.Environment["CODEX_PROJECT_DIR"] = root;
+  if (!string.IsNullOrWhiteSpace(runtime)) start.Environment["AGENT_HOOK_RUNTIME"] = runtime;
   using Process process = Process.Start(start)!;
   process.StandardInput.Write(input);
   process.StandardInput.Close();
