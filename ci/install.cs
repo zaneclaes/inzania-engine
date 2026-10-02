@@ -291,6 +291,15 @@ bool InstallCodexMcp() {
     if (server.Type == "http") {
       toml.Add("url = " + TomlString(server.Url ?? ""));
     } else {
+      var forwarded = (server.EnvVars ?? []).Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+      if (forwarded.Any(name => string.IsNullOrEmpty(name) ||
+          !(name[0] == '_' || char.IsAsciiLetter(name[0])) ||
+          name.Any(c => !(c == '_' || char.IsAsciiLetterOrDigit(c))))) {
+        Console.Error.WriteLine($"[install] MCP server {name} has an invalid environment forwarding name.");
+        return false;
+      }
+      if (forwarded.Length > 0)
+        toml.Add("env_vars = [" + string.Join(", ", forwarded.Select(TomlString)) + "]");
       string script = string.Join(" ", (server.Env ?? new Dictionary<string, string>()).OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Key + "=" + x.Value))
         + (server.Env is { Count: > 0 } ? " " : "")
         + "exec " + ShellWord(server.Command ?? "")
@@ -410,5 +419,6 @@ class McpServer {
   public string? Url { get; set; }
   public string? Command { get; set; }
   public List<string>? Args { get; set; }
+  public List<string>? EnvVars { get; set; }
   public Dictionary<string, string>? Env { get; set; }
 }

@@ -158,6 +158,15 @@ The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.
 `ZJson` like any other code. Every runtime file is read as plain dictionaries, so keys the installer
 knows nothing about round-trip untouched.
 
+The consuming repo's `.mcp.json` also owns Codex's generated `.codex/config.toml`. A stdio server
+may declare `envVars`, an explicit list of runtime environment **names** needed by its launcher.
+The installer validates ASCII environment names, removes duplicates and sorts them ordinally into
+Codex `env_vars`; it does not resolve, print or persist their values. Existing `env` shell expressions
+and quoted command arguments stay intact. This is necessary when a runtime filters its stdio child
+environment: a valid variable in the parent does not establish that the MCP process received it.
+HTTP servers and stdio servers without an allowlist keep their existing configuration. Run normal
+installation after changing the manifest, then `--check`; never edit the generated adapter by hand.
+
 `agent-hooks.json` is the single source of truth for the engine guards (`DbGuard`, `ApiAuthGuard`,
 `JsonGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every agent in every consuming repo picks it up on
 its next `install`; drop one and every agent loses it. A product-only hook belongs in that repo's own
