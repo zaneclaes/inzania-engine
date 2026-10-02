@@ -37,9 +37,11 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
   public int DroppedSends => _droppedSends;
   private int _droppedSends;
 
-  /// <summary>Stamps <see cref="BaseParams.DebugMode" /> on every event this sink sends, `session_start` included, and
-  /// logs each POST (`[GA] post <name> debug_mode`), for an app's own test install. Delivery is unchanged.</summary>
-  public bool DebugMode { get; set; }
+  /// <summary>The app's own test install (the Editor, a development build, a smokescreen install). It fails CLOSED: this
+  /// sink makes no Measurement Protocol request at all, whatever the traffic verdict, `session_start` included, and logs
+  /// each event it drops as `[GA] suppressed <name> test-install`. Operator rule (2026-10-01): our own traffic never
+  /// reaches the production GA property, `debug_mode` or not.</summary>
+  public bool TestInstall { get; set; }
 
   public GoogleAnalyticsHttpSink(IZContext c) : base(c) { }
 
@@ -86,6 +88,10 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
 #endif
 
   public ZTask SendEvent(AnalyticsEvent e) {
+    if (TestInstall) {
+      Log.Information("[GA] suppressed {name} test-install", e.Name);
+      return ZTask.CompletedTask;
+    }
     if (_trafficStatus != AnalyticsTrafficStatus.External) return ZTask.CompletedTask;
 #if UNITY_WEBGL && !UNITY_EDITOR
       try {
@@ -113,10 +119,8 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
     // UserEvent) keeps it — overwriting it here gave GA and the database different ids for one run.
     if (e.EventParams.SessionId == 0) e.EventParams.SessionId = SessionId;
     e.EventParams.SessionNumber = _installation?.LaunchNumber ?? 0;
-    if (DebugMode && e.EventParams is BaseParams debug) {
-      debug.DebugMode = true;
-      Log.Information("[GA] post {name} debug_mode", e.Name);
-    }
+    // Every real POST is logged, so the app smokescreen's GA gate sees any send a test install would leak.
+    Log.Information("[GA] post {name}", e.Name);
     req.Events.Add(e);
     string json = ZJson.SerializeObject(req);
     return SendRequest(json);
