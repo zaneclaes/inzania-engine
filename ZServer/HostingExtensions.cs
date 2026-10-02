@@ -13,6 +13,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Utils;
 using IZ.Schema;
+using IZ.Schema.Errors;
 using IZ.Server.Graphql;
 using IZ.Server.Health;
 using IZ.Server.Http;
@@ -82,6 +83,7 @@ public static class HostingExtensions {
   public static bool IncludeExceptionDetails(ZEnvironment env) => env <= ZEnvironment.Development;
 
   public static IServiceCollection AddZServerGraphQl(this IServiceCollection collection, ZApp app)  => collection
+    .AddSingleton<IClientAbortSignal, HttpClientAbortSignal>()
     // .AddScoped<ISubscriptionDiagnosticEventsListener, ZSubscriptionDiagnostics>()
     .AddGraphQLServer()
     // Stack traces and exception internals on the wire are for a developer's own machine only. The

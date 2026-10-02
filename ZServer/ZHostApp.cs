@@ -113,10 +113,7 @@ public abstract class ZHostApp<TDb> : ZApp where TDb : DbContext {
   }
 
   protected virtual void AddHealthChecks(WebApplication app) {
-    app.MapHealthChecks("/health/readiness", new HealthCheckOptions {
-      Predicate = check => check.Tags.Contains("readiness"),
-      ResponseWriter = HealthCheck.WriteResponse
-    });
+    app.MapHealthChecks("/health/readiness", HealthCheck.Readiness());
     app.MapHealthChecks("/health/liveness", new HealthCheckOptions {
       Predicate = check => check.Tags.Contains("liveness"),
       ResponseWriter = HealthCheck.WriteResponse

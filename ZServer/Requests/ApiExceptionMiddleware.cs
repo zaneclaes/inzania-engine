@@ -53,7 +53,21 @@ public static class ApiExceptionMiddleware {
     return ApiResponse.Write(value, httpContext, res.GetHttpStatusCode());
   }
 
+  private const string ExpectedUnavailableItem = "IZ.ExpectedUnavailable";
+
+  /// <summary>
+  /// Marks this response's 503 as a state the host reports on purpose, not a fault: a pod still warming up answers
+  /// its readiness probe (and its gated routes) 503 until initialization finishes. <see cref="GetLogLevel" /> logs
+  /// such a 503 at Warning. Only a 503 is excused, and only when nothing threw.
+  /// </summary>
+  public static void MarkExpectedUnavailable(this HttpContext httpContext) => httpContext.Items[ExpectedUnavailableItem] = true;
+
+  public static bool IsExpectedUnavailable(this HttpContext httpContext) =>
+    httpContext.Response.StatusCode == StatusCodes.Status503ServiceUnavailable &&
+    httpContext.Items.TryGetValue(ExpectedUnavailableItem, out object? marked) && marked is true;
+
   public static LogEventLevel GetLogLevel(HttpContext httpContext, double d, Exception? ex) {
+    if (ex == null && httpContext.IsExpectedUnavailable()) return LogEventLevel.Warning;
     var context = httpContext.RequestServices.GetCurrentContext();
     if (ex != null) {
       if (ex is OperationCanceledException) return LogEventLevel.Warning;
