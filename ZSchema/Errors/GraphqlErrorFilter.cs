@@ -26,7 +26,10 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
     nameof(HttpStatusCode.Forbidden), nameof(HttpStatusCode.NotAcceptable)
   };
 
-  public GraphqlErrorFilter(IZLogger log) : base(log) { }
+  private readonly IClientAbortSignal? _aborts;
+
+  /// <param name="aborts">The host's client-abort test; without one (schema export, unit tests) no error is a client abort.</param>
+  public GraphqlErrorFilter(IZLogger log, IClientAbortSignal? aborts = null) : base(log) { _aborts = aborts; }
 
   public IError OnError(IError error) {
     var ex = error.Exception;
@@ -37,7 +40,8 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
           .SetExtension("Exception", ex.GetType().Name)
           .SetExtension("Method", ex.Data["method"])
         ;
-      var level = IsRefusal(ex, error.Code) ? ZEventLevel.Warning : ZEventLevel.Error;
+      // A client that hung up mid-request (a form read cancelled by RequestAborted) is not a server fault either.
+      var level = IsRefusal(ex, error.Code) || (_aborts?.IsClientAbort(ex) ?? false) ? ZEventLevel.Warning : ZEventLevel.Error;
       if (ex is ZException zEx) {
         error = error.SetExtension("Reason", zEx.Reason);
         Log.Write(level, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);
