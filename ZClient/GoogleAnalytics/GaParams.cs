@@ -40,6 +40,10 @@ public class GaParams {
 
   [JsonPropertyName("user_properties")] public Dictionary<string, object> UserProperties { get; set; } = new Dictionary<string, object>();
 
+  /// <summary>The request's top-level device (<see cref="GaDevice.From" />): the only place the Measurement Protocol
+  /// reads device data. Null (omitted) for a browser or unknown install.</summary>
+  [JsonPropertyName("device")] public GaDevice? Device { get; set; }
+
   [JsonPropertyName("events")] public List<object> Events { get; set; } = new List<object>();
 
   // [JsonPropertyName("v")] public int ProtocolVersion { get; set; } = 2;

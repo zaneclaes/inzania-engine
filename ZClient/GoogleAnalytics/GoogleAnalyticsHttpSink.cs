@@ -104,7 +104,9 @@ public class GoogleAnalyticsHttpSink : LogicBase, IAnalyticsSink {
         return ZTask.CompletedTask;
       }
 #else
-    var req = new GaParams(_clientId, GetAnalyticsUserId(_userIdentity?.IZUser), _userProps);
+    var req = new GaParams(_clientId, GetAnalyticsUserId(_userIdentity?.IZUser), _userProps) {
+      Device = GaDevice.From(_installation),
+    };
     e.EventParams ??= new BaseParams();
     if (_installation != null) e.EventParams.LoadInstallation(_installation);
     // An emitter that already stamped a session id (TuneAnalytics, which mirrors the same event into

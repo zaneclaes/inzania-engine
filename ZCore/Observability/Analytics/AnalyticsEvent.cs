@@ -1,7 +1,6 @@
 #region
 
 using System;
-using System.Linq;
 using System.Text.Json.Serialization;
 using IZ.Core.Auth;
 using IZ.Core.Utils;
@@ -45,15 +44,9 @@ public class BaseParams : IEventParams {
   [JsonPropertyName("subcontinent_id")] public string? SubcontinentId { get; set; }
   [JsonPropertyName("continent_id")] public string? ContinentId { get; set; }
 
-  [JsonPropertyName("category")] public string? Category { get; set; } // desktop, tablet, mobile
-  [JsonPropertyName("language")] public string? Language { get; set; } // en, en-US
-  [JsonPropertyName("screen_resolution")] public string? ScreenResolution { get; set; } // WIDTHxHEIGHT
-  [JsonPropertyName("operating_system")] public string? OperatingSystem { get; set; } // MacOS
-  [JsonPropertyName("operating_system_version")] public string? OperatingSystemVersion { get; set; } // 13.5
-  [JsonPropertyName("model")] public string? Model { get; set; } // Pixel 9, blah blah
-  [JsonPropertyName("brand")] public string? Brand { get; set; } // Apple
-  [JsonPropertyName("browser")] public string? Browser { get; set; }
-  [JsonPropertyName("browser_version")] public string? BrowserVersion { get; set; }
+  // No device keys here: the Measurement Protocol reads the device only from the request's top-level `device`
+  // object (`IZ.Client.GoogleAnalytics.GaDevice`), and a browser's gtag reports its own. Device keys in `params`
+  // were unregistered event parameters that used up the per-event parameter limit.
 
   // GA4 data filters match on traffic_type: "internal" hides Dev/Staging from every report, "app"
   // separates the game client from the website so web acquisition reports stay clean.
@@ -127,12 +120,6 @@ public class BaseParams : IEventParams {
     } else if (installation.DeviceType != DeviceType.Browser) {
       TrafficType = TrafficTypeApp;
     }
-    Language = installation.Language;
-    ScreenResolution = $"{installation.ScreenWidth}x{installation.ScreenHeight}";
-    Model = installation.Model;
-    OperatingSystem = installation.OsFamily;
-    OperatingSystemVersion = installation.Os.Split(" ").Last();
-    Category = installation.DeviceType.ToString().ToLowerInvariant();
   }
 }
 
