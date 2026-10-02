@@ -111,8 +111,17 @@ public static class ZInputTypes {
         // var node = resolver.ArgumentLiteral<IValueNode>(parameterInfo.Name!.ToFieldName());
         var node = getValue(parameterInfo.FieldName);
         if (node == null) {
-          context.Log.Debug("[PAR] NULL {pt}", parameterInfo.FieldName);
-          continue;
+          // An omitted optional argument used to be dropped, so the args array shrank and a later
+          // parameter read the wrong slot (or threw). Lists stay omitted: IsOptional is also set
+          // for every list, which is not a C# default.
+          bool optionalValue = parameterInfo.IsOptional
+            && !parameterInfo.ParameterType.IsArray
+            && !parameterInfo.ParameterType.IsListType();
+          if (!optionalValue) {
+            context.Log.Debug("[PAR] NULL {pt}", parameterInfo.FieldName);
+            continue;
+          }
+          node = new NullValueNode(null);
         }
 
         var paramType = ZApi.LoadTypeDescriptor(parameterInfo.ParameterType);
