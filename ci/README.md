@@ -144,7 +144,10 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
 2. **Agent hooks** — renders this directory's `agent-hooks.json`, plus an optional consuming-repo
    `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json`, Codex's `.codex/hooks.json` and Grok's
    `.grok/hooks/agent-guards.json`. All three runtimes call the same guard files through `ci/RunAgentHook.cs`, which
-   translates Codex's `apply_patch` and Grok's camelCase payload into the Claude shape the guards read.
+   translates Codex's `apply_patch` and Grok's camelCase payload into the Claude shape the guards read. Each
+   rendered command names its runtime (`--runtime claude|codex|grok`), and the adapter passes it to the guard as
+   `AGENT_HOOK_RUNTIME`, so a guard that must know which runtime fired it reads that rather than guessing from
+   the payload.
 3. **Pre-build** — builds each engine hook script once, one at a time. Every hook references `ZCore`
    (`#:project`, so it can use `ZJson`), and several run at once on each edit. Cold, they would all build
    `ZCore` at the same moment, and concurrent builds of one project fail at random (1 in 5 when measured).
