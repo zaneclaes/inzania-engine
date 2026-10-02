@@ -31,7 +31,11 @@ uses HotChocolate's `[UseProjection]`/`[UseFiltering]`/`[UseSorting]` attributes
   from a fragment, which is why `TuneHostApp.GenerateSourceFiles()` regenerates fragments in
   Development.
 - `ZDataTypeInspector` hides `[OutputIgnore]` members and `IAmInternal` types;
-  `ZNamingConventions` camel-cases; `GraphqlErrorFilter` maps exceptions to status codes;
+  `ZNamingConventions` camel-cases; `GraphqlErrorFilter` maps exceptions to status codes and logs a
+  refusal the caller earned (`NotFound`/`Unauthorized`/`Forbidden`/`NotAcceptable`, a
+  `ParameterZException` or `NotFoundZException`, HotChocolate's `AUTH_NOT_AUTHORIZED`/`AUTH_NOT_AUTHENTICATED`)
+  at Warning and every server fault at Error (`GraphqlErrorFilter.IsRefusal`; a bare
+  `InvalidOperationException` is a fault even though the client sees `NotFound`);
   `ApiExecutionEventListener` emits per-operation diagnostics.
 - Enums bind via `ZEnumType<T>` as GraphQL enums whose values are only the *declared* members —
   a `[Flags]` combination (e.g. `A|B == 3`) has no name: `EnumType.Serialize` throws and variable
