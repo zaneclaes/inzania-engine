@@ -100,7 +100,7 @@ public abstract class ClientContext : RootContext {
       await ZTask.WhenAll(GetStartupTasks().ToArray());
       Log.Information("[START] entering ready state after {ms}ms; breakdown: {tasks}", Uptime.TotalMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await ZTask.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptime.TotalMilliseconds,
+      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser?.Id, Uptime.TotalMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
     } catch (Exception e) {
