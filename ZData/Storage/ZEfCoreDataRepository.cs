@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -15,7 +16,10 @@ using IZ.Core.Exceptions;
 using IZ.Data.Resolvers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 using Type = System.Type;
 
 #endregion
@@ -88,6 +92,63 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     await ExecuteLocked(() => Db.SaveChangesAsync(ct));
     // await Db.SaveChangesAsync(ct);
     // _changed.Clear();
+  }
+
+  /// <summary>
+  /// Fence a mutation on an existing row, across independent contexts and replicas. This is a
+  /// clean request boundary: tracking is cleared only when it contains no pending writes, and
+  /// the callback receives a fresh row after its lock is held. Saving inside the transaction
+  /// makes an error observable before the caller acknowledges the mutation.
+  /// </summary>
+  public override async Task<TResult> ExecuteAtomic<TData, TResult>(
+    TData row, Func<TData, Task<TResult>> mutation
+  ) {
+    var ct = Context.CancellationToken;
+    bool sqlite = Db.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+    bool mysql = Db.Database.ProviderName?.Contains("MySql", StringComparison.OrdinalIgnoreCase) == true;
+    if (!sqlite && !mysql) throw new NotSupportedException("Atomic row mutation requires MySQL or SQLite");
+    if (Db.Database.CurrentTransaction != null || Db.ChangeTracker.HasChanges())
+      throw new InvalidOperationException("Atomic row mutation must begin before any pending writes");
+    var entry = Db.Entry(row);
+    var model = entry.Metadata;
+    var key = model.FindPrimaryKey() ?? throw new InvalidOperationException("Atomic row mutation needs a primary key");
+    var values = key.Properties.Select(p => entry.Property(p.Name).CurrentValue).ToArray();
+    var table = StoreObjectIdentifier.Table(model.GetTableName()!, model.GetSchema());
+    var sql = Db.GetService<ISqlGenerationHelper>();
+    // SQLite's non-deferred serializable transaction takes its writer lock at BEGIN. MySQL
+    // locks only the existing indexed row; READ COMMITTED keeps the following reads fresh.
+    await using var transaction = await Db.Database.BeginTransactionAsync(
+      sqlite ? IsolationLevel.Serializable : IsolationLevel.ReadCommitted, ct);
+    try {
+      using var command = Db.Database.GetDbConnection().CreateCommand();
+      command.Transaction = transaction.GetDbTransaction();
+      var predicates = new List<string>();
+      for (int i = 0; i < key.Properties.Count; i++) {
+        string name = "@atomic" + i;
+        predicates.Add(sql.DelimitIdentifier(key.Properties[i].GetColumnName(table)!) + " = " + name);
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = values[i] ?? DBNull.Value;
+        command.Parameters.Add(parameter);
+      }
+      command.CommandText = "SELECT " + sql.DelimitIdentifier(key.Properties[0].GetColumnName(table)!) +
+        " FROM " + sql.DelimitIdentifier(table.Name, table.Schema) + " WHERE " + string.Join(" AND ", predicates) +
+        (mysql ? " FOR UPDATE" : "");
+      if (await command.ExecuteScalarAsync(ct) == null)
+        throw new InvalidOperationException("Atomic mutation row no longer exists");
+      Db.ChangeTracker.Clear();
+      var fresh = await Db.Set<TData>().FindAsync(values, ct) ??
+        throw new InvalidOperationException("Atomic mutation row no longer exists");
+      Sanitize(Context);
+      var result = await mutation(fresh);
+      await SaveAsync(ct);
+      await transaction.CommitAsync(ct);
+      return result;
+    } catch {
+      await transaction.RollbackAsync(CancellationToken.None);
+      Db.ChangeTracker.Clear();
+      throw;
+    }
   }
 
 
