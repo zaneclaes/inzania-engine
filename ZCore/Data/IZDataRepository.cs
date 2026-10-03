@@ -34,6 +34,11 @@ public interface IZDataRepository : IHaveContext, IDisposable {
   [ApiDocs("Wrap a loader in a semaphore for thread safety")]
   public Task<TData> ExecuteLocked<TData>(Func<Task<TData>> loader);
 
+  /// <summary>Run and save a mutation while holding its existing row's database lock. The
+  /// callback receives a fresh row loaded under that lock, never a pre-lock tracked snapshot.</summary>
+  public Task<TResult> ExecuteAtomic<TData, TResult>(TData row, Func<TData, Task<TResult>> mutation)
+    where TData : DataObject;
+
   public Task<long> ExecuteLongSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, long>> func);
 
   public Task<double> ExecuteDoubleSumAsync<TData>(IZContext context, IQueryable<TData> q, Expression<Func<TData, double>> func);
