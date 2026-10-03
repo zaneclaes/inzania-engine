@@ -41,6 +41,13 @@ read it before adding or changing any stored model. It is enforced by three reus
 fires when a `.cs` edit touches query surface in either direction). Because the hooks block these
 mistakes at the edit, they are deliberately *not* repeated as pre-commit checklist items.
 
+IndexAudit's hook resolves the edited file's owning Git worktree, including directory symlinks,
+then follows Git's superproject relationship to audit the consuming host and engine together.
+It uses that checkout's baseline and skips nested `.scratch` trees rather than mixing sibling
+models. Standalone engines and non-Git source remain auditable. Manual roots stay explicit,
+including a root inside `.scratch`; `--strict` still fails new findings. An ambiguous relative
+path or failed root discovery blocks the hook rather than silently auditing another checkout.
+
 What an edit-time hook cannot see is a change made in an IDE, by a merge, or by a contributor not
 driving Claude — so the one check that must hold for the *whole commit* lives in `ci/hooks/` instead:
 **`PendingMigrations.cs`**, a reusable git `pre-commit` check that refuses a commit where
