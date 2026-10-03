@@ -14,8 +14,9 @@
 // stored-shape declarations the flags rules judge (a bool property, an enum / bit-shifted member,
 // a `Flags` token) — in the new content or in the text it replaced (added, removed or rewritten;
 // see gateRx for why the declaration half is not optional). Only then does it run the full audit
-// (~3 s), rooted at
-// $CLAUDE_PROJECT_DIR; NEW (non-baselined) findings are reported on stderr with exit 2 so they are
+// rooted at the edited file's actual Git checkout and consuming superproject, resolving directory
+// links and retaining standalone/non-Git coverage. Nested .scratch trees are excluded; an explicit
+// manual root inside .scratch is still audited. NEW (non-baselined) findings are reported on stderr with exit 2 so they are
 // fed back to the model. Because the gate is symmetric, every agent edit that can change the audit
 // result is audited, which is why consuming projects do not need a separate pre-commit run.
 // Wire it as PostToolUse (matcher Write|Edit|MultiEdit).
@@ -26,6 +27,7 @@
 //    (or its sort column when there is no filter) — column order quality is not verified;
 //  - navigation/collection properties inside predicates are ignored (they become SQL joins).
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 using IZ.Core.Contexts;
 using IZ.Core.Tooling;
 
@@ -69,9 +71,73 @@ if (hookMode) {
   if (gateRx.Matches(newText).Count == 0 && gateRx.Matches(oldText).Count == 0) return 0;
   string projectDir = Environment.GetEnvironmentVariable("CLAUDE_PROJECT_DIR") ?? Directory.GetCurrentDirectory();
   roots.Clear();
-  roots.Add(projectDir);
+  try {
+    roots.Add(OriginRoot(hookPath, projectDir));
+  } catch (Exception error) {
+    Console.Error.WriteLine($"index-audit: cannot resolve the edited checkout: {error.Message}");
+    return 2;
+  }
 }
 if (roots.Count == 0) roots.Add(Directory.GetCurrentDirectory());
+
+// Resolve directory links too: Unity's mirror is a linked directory, not a linked source file.
+static string RealPath(string path) {
+  string full = Path.GetFullPath(path);
+  string current = Path.GetPathRoot(full)!;
+  foreach (string part in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries)) {
+    current = Path.Combine(current, part);
+    FileSystemInfo entry = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
+    if (entry.LinkTarget != null) current = entry.ResolveLinkTarget(true)?.FullName
+      ?? throw new IOException($"Unresolved source link: {current}");
+  }
+  return current;
+}
+
+static string? GitRoot(string directory, string argument) {
+  var start = new ProcessStartInfo("git") { WorkingDirectory = directory, UseShellExecute = false,
+    RedirectStandardOutput = true, RedirectStandardError = true };
+  start.ArgumentList.Add("rev-parse");
+  start.ArgumentList.Add(argument);
+  // Inherited hook Git state belongs to its caller, not necessarily to the edited checkout.
+  foreach (string key in new[] { "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE" })
+    start.Environment.Remove(key);
+  using var process = Process.Start(start) ?? throw new IOException("Could not start Git root discovery");
+  var output = process.StandardOutput.ReadToEndAsync();
+  var error = process.StandardError.ReadToEndAsync();
+  process.WaitForExit();
+  string value = output.GetAwaiter().GetResult().Trim();
+  string detail = error.GetAwaiter().GetResult();
+  if (process.ExitCode != 0) {
+    if (detail.Contains("not a git repository", StringComparison.OrdinalIgnoreCase)) return null;
+    throw new IOException($"Git root discovery failed: {detail.Trim()}");
+  }
+  return value.Length == 0 ? null : RealPath(value);
+}
+
+static string OriginRoot(string editedPath, string projectDir) {
+  string project = RealPath(projectDir);
+  string path = RealPath(Path.IsPathRooted(editedPath) ? editedPath : Path.Combine(project, editedPath));
+  if (!Path.IsPathRooted(editedPath)) {
+    string fromCwd = RealPath(Path.Combine(Directory.GetCurrentDirectory(), editedPath));
+    if (fromCwd != path && File.Exists(fromCwd))
+      throw new IOException($"Ambiguous relative edited path: {editedPath}");
+  }
+  string ancestor = Path.GetDirectoryName(path)!;
+  while (!Directory.Exists(ancestor)) ancestor = Path.GetDirectoryName(ancestor)
+    ?? throw new IOException($"No existing ancestor for {editedPath}");
+  string? root = GitRoot(ancestor, "--show-toplevel");
+  if (root == null) {
+    // Non-Git projects still receive complete project coverage when the source belongs to it.
+    return path.StartsWith(project + Path.DirectorySeparatorChar, StringComparison.Ordinal) ? project : ancestor;
+  }
+  var seen = new HashSet<string>(StringComparer.Ordinal);
+  while (seen.Add(root)) {
+    string? host = GitRoot(root, "--show-superproject-working-tree");
+    if (host == null) return root;
+    root = host;
+  }
+  throw new IOException("Cyclic Git superproject discovery");
+}
 
 string[] skipDirs = { "obj", "bin", "out", "node_modules", ".git", "Temp", "Library", "Logs", ".claude", "Migrations", "Generated" };
 string[] wireBases = { "ApiObject", "TransientObject", "DataObject", "ModelId", "ModelNumber", "ModelKey", "ZPacket" };
@@ -127,17 +193,18 @@ static string AttrsBefore(string src, int declIndex) {
 // ---- pass 1: collect files ----
 var files = new List<string>();
 var seenReal = new HashSet<string>();
-void Walk(string dir) {
+void Walk(string dir, bool explicitRoot = false) {
   var di = new DirectoryInfo(dir);
   if ((di.Attributes & FileAttributes.ReparsePoint) != 0) return;   // skip symlinks (Unity mirrors)
   if (skipDirs.Contains(di.Name)) return;
+  if (!explicitRoot && di.Name == ".scratch") return;
   if (!seenReal.Add(di.FullName)) return;
   foreach (var f in di.GetFiles("*.cs")) {
     if ((f.Attributes & FileAttributes.ReparsePoint) == 0) files.Add(f.FullName);
   }
   foreach (var d in di.GetDirectories()) { Walk(d.FullName); }
 }
-foreach (string r in roots) { Walk(Path.GetFullPath(r)); }
+foreach (string r in roots) { Walk(RealPath(r), true); }
 
 // ---- pass 2: model map ----
 var classes = new Dictionary<string, ModelClass>();                  // name -> info (last one wins on dupes)

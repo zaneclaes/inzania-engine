@@ -141,6 +141,12 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    disable them with no error. A repo hook that takes over one of those four must chain to lfs
    itself; the installer refuses to install one that does not, since silently stopping large-file
    uploads is worse than a failed install.
+   Linked worktrees resolve the effective hook path through Git, including an existing
+   `core.hooksPath`; the source wrappers always belong to the registered primary consuming
+   repository, so removing a worker does not break shared hooks. The installer never changes
+   `core.hooksPath` and refuses to overwrite unmanaged custom hooks. It validates the complete
+   hook set before installing any link. `--check` reports missing or drifted hooks without
+   creating directories or changing links/configuration.
 2. **Agent hooks** — renders this directory's `agent-hooks.json`, plus an optional consuming-repo
    `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json`, Codex's `.codex/hooks.json` and Grok's
    `.grok/hooks/agent-guards.json`. All three runtimes call the same guard files through `ci/RunAgentHook.cs`, which
@@ -157,6 +163,15 @@ The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.
 `hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
 `ZJson` like any other code. Every runtime file is read as plain dictionaries, so keys the installer
 knows nothing about round-trip untouched.
+
+The consuming repo's `.mcp.json` also owns Codex's generated `.codex/config.toml`. A stdio server
+may declare `envVars`, an explicit list of runtime environment **names** needed by its launcher.
+The installer validates ASCII environment names, removes duplicates and sorts them ordinally into
+Codex `env_vars`; it does not resolve, print or persist their values. Existing `env` shell expressions
+and quoted command arguments stay intact. This is necessary when a runtime filters its stdio child
+environment: a valid variable in the parent does not establish that the MCP process received it.
+HTTP servers and stdio servers without an allowlist keep their existing configuration. Run normal
+installation after changing the manifest, then `--check`; never edit the generated adapter by hand.
 
 `agent-hooks.json` is the single source of truth for the engine guards (`DbGuard`, `ApiAuthGuard`,
 `JsonGuard`, `MigrationGuard`, `IndexAudit`). Add one there and every agent in every consuming repo picks it up on
