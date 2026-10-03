@@ -390,7 +390,10 @@ void PrebuildHookScripts(List<string> scripts) {
   foreach (string script in scripts.Distinct().Where(script => Path.GetExtension(script).Equals(".cs", StringComparison.OrdinalIgnoreCase))) {
     string full = Path.Combine(root, script);
     if (!File.Exists(full)) continue;
+    Console.WriteLine($"[install] pre-build start {script}");
+    var elapsed = Stopwatch.StartNew();
     var (code, output) = Run("dotnet", ["build", full, "-v", "q", "-nologo"]);
+    Console.WriteLine($"[install] pre-build complete {script} exit {code} elapsed {elapsed.ElapsedMilliseconds}ms");
     if (code != 0) {
       Console.Error.WriteLine($"[install] could not pre-build {script} (the hook will build on first use):");
       Console.Error.WriteLine(output.TrimEnd());

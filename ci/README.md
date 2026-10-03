@@ -158,6 +158,9 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    (`#:project`, so it can use `ZJson`), and several run at once on each edit. Cold, they would all build
    `ZCore` at the same moment, and concurrent builds of one project fail at random (1 in 5 when measured).
    Warm, they start in about a second.
+   Each actual script build reports its start, completion, exit code and elapsed milliseconds,
+   so an interrupted installation identifies the last entered and completed build. The commands,
+   sequential prebuilds and failure handling are unchanged; no environment values are logged.
 
 The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.json`, `settings.json`,
 `hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
