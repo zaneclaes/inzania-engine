@@ -18,6 +18,11 @@ public interface IEventParams {
 
 public class AnalyticsEvent {
 
+  /// <summary>Assigned by the producer, retained through the engine's pre-verdict queue. Private
+  /// transport bookkeeping; neither field changes any third-party analytics wire payload.</summary>
+  [JsonIgnore] public DateTime CapturedAt { get; } = ZEnv.Now;
+  [JsonIgnore] public string CaptureId { get; } = Guid.NewGuid().ToString("N");
+
   public AnalyticsEvent(string name, IEventParams? pars = null) {
     Name = name;
     EventParams = pars;
