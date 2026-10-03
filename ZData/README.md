@@ -43,6 +43,10 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    the callback therefore cannot reuse tracked values from before the lock. It saves and commits
    before returning; failure or cancellation rolls back and clears failed tracking. The callback
    must not retain a pre-lock entity graph. No table, column or distributed service is added.
+   The whole transaction runs through EF's configured execution strategy. Acquiring the lock
+   may retry before the callback begins; an entered callback is never replayed because callers
+   can change request state or metrics without an idempotence key. A retry after that boundary
+   throws with the original failure attached and reports that commit outcome may be uncertain.
 4. **Includes.** `Fetch(x => x.Nav)` (`ZCore/Api/IPreFetched.Fetch`) → `QueryInclude` →
    EF `Include`; `QueryThenInclude` / `QueryThenIncludeMany` → `ThenInclude`. Results are
    `IPreFetched<TEntity,TProp>` and still `IZQueryable`, so `Filter` etc. chain after them.

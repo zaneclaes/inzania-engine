@@ -115,6 +115,14 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     var values = key.Properties.Select(p => entry.Property(p.Name).CurrentValue).ToArray();
     var table = StoreObjectIdentifier.Table(model.GetTableName()!, model.GetSchema());
     var sql = Db.GetService<ISqlGenerationHelper>();
+    bool callbackStarted = false;
+    Exception? failure = null;
+    return await Db.Database.CreateExecutionStrategy().ExecuteAsync(async () => {
+    // Grade finishes have no universal idempotence key and may change caller state or metrics.
+    // The strategy may retry acquiring the row, but must never replay an entered callback,
+    // including when a commit acknowledgement was lost and its outcome is uncertain.
+    if (callbackStarted)
+      throw new InvalidOperationException("Atomic mutation cannot replay after its callback began; commit outcome may be uncertain", failure);
     // SQLite's non-deferred serializable transaction takes its writer lock at BEGIN. MySQL
     // locks only the existing indexed row; READ COMMITTED keeps the following reads fresh.
     await using var transaction = await Db.Database.BeginTransactionAsync(
@@ -140,15 +148,22 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
       var fresh = await Db.Set<TData>().FindAsync(values, ct) ??
         throw new InvalidOperationException("Atomic mutation row no longer exists");
       Sanitize(Context);
+      callbackStarted = true;
       var result = await mutation(fresh);
       await SaveAsync(ct);
       await transaction.CommitAsync(ct);
       return result;
-    } catch {
-      await transaction.RollbackAsync(CancellationToken.None);
+    } catch (Exception exception) {
+      failure = exception;
+      try {
+        await transaction.RollbackAsync(CancellationToken.None);
+      } catch (Exception rollbackFailure) {
+        throw new AggregateException("Atomic mutation failed and rollback could not be confirmed", exception, rollbackFailure);
+      }
       Db.ChangeTracker.Clear();
       throw;
     }
+    });
   }
 
 
