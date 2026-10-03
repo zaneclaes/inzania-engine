@@ -146,7 +146,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   }
 
   private void HandleError(string error) {
-    Log.Information($"[GQL-WS] Connection error {error}!");
+    Log.Information("[GQL-WS] Connection error; detail length {length}", error.Length);
   }
 
   private void HandleClose(WebSocketCloseCode code) {
@@ -175,9 +175,15 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     string? messageContents = Encoding.UTF8.GetString(bytes);
     Log.Debug("[GQL-WS] received protocol message");
     // JObject obj = JObject.Parse(message);
-    var msg = ZJson.DeserializeObject<GraphQLWebSocketMessage>(Context, messageContents);
-    if (msg == null) {
-      Log.Warning("[GQL-WS] failed to parse incoming message: {contents}", messageContents);
+    GraphQLWebSocketMessage? msg;
+    try {
+      msg = ZJson.DeserializeObject<GraphQLWebSocketMessage>(Context, messageContents);
+    } catch (Exception e) {
+      Log.Warning("[GQL-WS] failed to decode protocol message; bytes {length}, failure {failureType}", bytes.Length, e.GetType().Name);
+      return;
+    }
+    if (msg == null || string.IsNullOrEmpty(msg.Type)) {
+      Log.Warning("[GQL-WS] missing protocol message type; bytes {length}", bytes.Length);
       return;
     }
 
@@ -192,7 +198,8 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
       try {
         data = await _parser((JsonElement) payload); //  (TData?) GraphRequest.FromPayload(Context, typeof(TData), jsonData.ToString());
       } catch (Exception e) {
-        Log.Error(e, "[GQL-WS] failed to parse {type} from {payloadType} {data}", typeof(TData).Name, payload.GetType(), payload.ToString());
+        Log.Error("[GQL-WS] failed to parse {type}; payload type {payloadType}, failure {failureType}",
+          typeof(TData).Name, payload.GetType().Name, e.GetType().Name);
       }
 
       // Log.Information("[GQL-WS] {type}: {@data}", typeof(TData).Name, data ?? (object)message);
@@ -201,7 +208,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     } else if (msg.Type.Equals("ka")) {
       // NO-OP (keep-alive)
     } else {
-      Log.Error("[GQL-WS] message: {message}", messageContents);
+      Log.Error("[GQL-WS] unrecognized protocol message; bytes {length}", bytes.Length);
     }
     LastHeartbeat = ZEnv.Now;
   }
@@ -243,7 +250,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     } catch (Exception e) {
       // Known to close without handshake
       if (e.Message.Contains("without completing the close")) Log.Debug("[GQL-WS] failed to close");
-      else Log.Warning(e, "[GQL-WS] failed to close");
+      else Log.Warning("[GQL-WS] failed to close; failure {failureType}", e.GetType().Name);
     }
   }
 
