@@ -141,6 +141,12 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    disable them with no error. A repo hook that takes over one of those four must chain to lfs
    itself; the installer refuses to install one that does not, since silently stopping large-file
    uploads is worse than a failed install.
+   Linked worktrees resolve the effective hook path through Git, including an existing
+   `core.hooksPath`; the source wrappers always belong to the registered primary consuming
+   repository, so removing a worker does not break shared hooks. The installer never changes
+   `core.hooksPath` and refuses to overwrite unmanaged custom hooks. It validates the complete
+   hook set before installing any link. `--check` reports missing or drifted hooks without
+   creating directories or changing links/configuration.
 2. **Agent hooks** — renders this directory's `agent-hooks.json`, plus an optional consuming-repo
    `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json`, Codex's `.codex/hooks.json` and Grok's
    `.grok/hooks/agent-guards.json`. All three runtimes call the same guard files through `ci/RunAgentHook.cs`, which

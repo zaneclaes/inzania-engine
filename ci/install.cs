@@ -86,28 +86,59 @@ return 0;
 // 1. Git hooks
 // ---------------------------------------------------------------------------------------------
 bool InstallGitHooks() {
-  string src = Path.Combine(root, "ci", "hooks");
-  string dst = Path.Combine(root, ".git", "hooks");
+  var commonResult = Run("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  var worktrees = Run("git", ["worktree", "list", "--porcelain"]);
+  var primary = worktrees.Output.Split('\n').FirstOrDefault(line => line.StartsWith("worktree "))?[9..].TrimEnd('\r');
+  if (commonResult.Code != 0 || worktrees.Code != 0 || primary == null || !Directory.Exists(primary)) {
+    Console.Error.WriteLine("[install] cannot establish the durable Git-hook owner.");
+    return false;
+  }
+  var primaryGit = Run("git", ["-C", primary, "rev-parse", "--path-format=absolute", "--git-dir"]);
+  if (primaryGit.Code != 0 || Path.GetFullPath(primaryGit.Output.Trim()) != Path.GetFullPath(commonResult.Output.Trim())) {
+    Console.Error.WriteLine("[install] primary worktree does not own the common Git directory.");
+    return false;
+  }
+  string src = Path.Combine(primary, "ci", "hooks");
   if (!Directory.Exists(src)) {
+    if (Directory.Exists(Path.Combine(root, "ci", "hooks"))) {
+      Console.Error.WriteLine("[install] durable owner's ci/hooks is missing; refusing worker-local wrappers.");
+      return false;
+    }
     Console.WriteLine("[install] no ci/hooks/ in this repo; no git hooks to install.");
     return true;
   }
-  if (!Directory.Exists(dst)) {
-    // A submodule or worktree keeps its git dir elsewhere; ask git rather than assuming .git is one.
-    string gitDir = Run("git", ["rev-parse", "--git-dir"]).Output.Trim();
-    dst = Path.Combine(Path.IsPathRooted(gitDir) ? gitDir : Path.Combine(root, gitDir), "hooks");
-    Directory.CreateDirectory(dst);
+  bool customPath = Run("git", ["config", "--get", "core.hooksPath"]).Code == 0;
+  var workerSource = Path.Combine(root, "ci", "hooks");
+  if (Directory.Exists(workerSource)) {
+    foreach (var workerHook in Directory.GetFiles(workerSource)) {
+      var name = Path.GetFileName(workerHook);
+      if (!name.EndsWith(".cs") && !name.StartsWith('.') && !File.Exists(Path.Combine(src, name))) {
+        Console.Error.WriteLine($"[install] durable owner's hook {name} is missing; refusing worker-local wrappers.");
+        return false;
+      }
+    }
   }
-
+  var pending = new List<(string Target, string Link)>();
+  // Validate the whole set before creating directories or replacing any hook.
   foreach (string hook in Directory.GetFiles(src).OrderBy(f => f)) {
     string name = Path.GetFileName(hook);
     // The .cs files in ci/hooks/ are the reusable checks the shell hooks call, not hooks themselves —
     // git would try to execute them by their extensionless name and fail.
     if (name.EndsWith(".cs") || name.StartsWith('.')) continue;
 
-    string target = Path.Combine(dst, name);
+    // Git's absolute path formatting resolves the final symlink to its source. Keep the
+    // effective destination lexical so a subsequent install cannot replace the source wrapper.
+    var pathResult = Run("git", ["rev-parse", "--git-path", "hooks/" + name]);
+    if (pathResult.Code != 0 || string.IsNullOrWhiteSpace(pathResult.Output)) {
+      Console.Error.WriteLine($"[install] cannot resolve effective Git hook {name}.");
+      return false;
+    }
+    string target = Path.GetFullPath(pathResult.Output.Trim(), root);
     var info = new FileInfo(target);
     string? current = info.LinkTarget;   // null when the path is absent or a real file rather than a link.
+    string link = Path.GetRelativePath(Path.GetDirectoryName(target)!, hook);
+    bool owned = current != null && Path.GetFullPath(current, Path.GetDirectoryName(target)!) == Path.GetFullPath(hook);
+    if (owned) continue;
 
     if (info.Exists && current == null && File.ReadAllText(target).Contains("git lfs")
         && !File.ReadAllText(hook).Contains("git lfs")) {
@@ -116,15 +147,23 @@ bool InstallGitHooks() {
       return false;
     }
 
-    // Relative link, so the repo can be moved or cloned to a different path and keep working.
-    string link = Path.Combine("..", "..", "ci", "hooks", name);
-    if (current == link) continue;
-
     changes.Add($"git hook {name}");
     if (check) continue;
-    if (info.Exists || current != null) File.Delete(target);
+    if (Directory.Exists(target)) {
+      Console.Error.WriteLine($"[install] REFUSING directory at Git hook {name}.");
+      return false;
+    }
+    if (customPath && (info.Exists || current != null || Directory.Exists(target))) {
+      Console.Error.WriteLine($"[install] REFUSING unmanaged custom Git hook {name}; core.hooksPath is preserved.");
+      return false;
+    }
+    pending.Add((target, link));
+  }
+  foreach (var (target, link) in pending) {
+    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+    if (File.Exists(target) || new FileInfo(target).LinkTarget != null) File.Delete(target);
     File.CreateSymbolicLink(target, link);
-    Console.WriteLine($"[install] git hook {name}");
+    Console.WriteLine($"[install] git hook {Path.GetFileName(target)}");
   }
   return true;
 }
