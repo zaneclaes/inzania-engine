@@ -37,6 +37,12 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    thread-safe, so parallel `Task.WhenAll` on one context serializes anyway; open a child context
    if you really need parallel DB work. `Sanitize` runs after loads and before saves: it attaches
    the context to loaded objects and rejects `Added` entities that are not `DataObject`s.
+   `ExecuteAtomic(row, callback)` is the cross-context mutation boundary. It requires a clean
+   tracker, locks the existing primary-key row in a transaction (MySQL `FOR UPDATE`; SQLite's
+   immediate serializable writer lock), and supplies a fresh row to the callback. Reads inside
+   the callback therefore cannot reuse tracked values from before the lock. It saves and commits
+   before returning; failure or cancellation rolls back and clears failed tracking. The callback
+   must not retain a pre-lock entity graph. No table, column or distributed service is added.
 4. **Includes.** `Fetch(x => x.Nav)` (`ZCore/Api/IPreFetched.Fetch`) → `QueryInclude` →
    EF `Include`; `QueryThenInclude` / `QueryThenIncludeMany` → `ThenInclude`. Results are
    `IPreFetched<TEntity,TProp>` and still `IZQueryable`, so `Filter` etc. chain after them.

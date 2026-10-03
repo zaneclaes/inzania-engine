@@ -14,6 +14,11 @@ public class DataRepositoryBase : LogicBase {
 
   public DataRepositoryBase(IZContext context) : base(context) { }
 
+  /// <summary>The memory-only repository has no stored row or transaction. Database repositories
+  /// override this operation to fence the read, mutation and save together.</summary>
+  public virtual Task<TResult> ExecuteAtomic<TData, TResult>(TData row, Func<TData, Task<TResult>> mutation)
+    where TData : DataObject => mutation(row);
+
   public async Task ExecuteLocked(Func<Task> loader) {
     await _semaphore.WaitAsync(Context.CancellationToken);
     try {
