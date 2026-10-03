@@ -10,4 +10,5 @@ public class ZHeaders {
   public static readonly string RequestId = "X-Request-ID";
 
   public static readonly string Env = "X-Env";
+  public static readonly string SessionRenewal = "X-Session-Renewal";
 }

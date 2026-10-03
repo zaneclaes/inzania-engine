@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using IZ.Client.Queries;
 using IZ.Core;
 using IZ.Core.Api.GraphQLWebSockets;
+using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Exceptions;
@@ -21,7 +22,8 @@ namespace IZ.Client.Networking.WebSockets.GraphQL;
 
 public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSocket<TData> where TData : class {
 
-  private readonly Dictionary<string, string> _headers;
+  private Dictionary<string, string> _headers;
+  private readonly Dictionary<string, string>? _extraHeaders;
 
   private readonly Func<JsonElement, Task<TData>> _parser;
 
@@ -43,8 +45,8 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     _parser = parser;
     _subscriptionUrl = new Uri(context.App.Gql.Replace("http", "ws"));
     _request = req;
-    _headers = ZQueries.GetHeaders(context, headers);
-    CreateSocket();
+    _extraHeaders = headers == null ? null : new Dictionary<string, string>(headers);
+    _headers = ZQueries.GetHeaders(context, _extraHeaders);
   }
 
   public IGraphQLWebSocketDelegate<TData> Delegate { get; set; }
@@ -94,6 +96,14 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     Socket.OnError += HandleError;
     Socket.OnClose += HandleClose;
     Socket.OnMessage += HandleMessage;
+  }
+
+  private async Task PrepareSocket() {
+    var store = Context.GetService<IIdentityStore>();
+    if (store != null) await store.EnsureFreshSessionAsync(cancellationToken: Context.CancellationToken);
+    _headers = ZQueries.GetHeaders(Context, _extraHeaders);
+    Disconnect();
+    CreateSocket();
   }
 
   private Task WaitUntil(GqlWebSocketState state) {
@@ -152,9 +162,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     if (_connectionAttempts > 0)
       // Exponential back-off
       await Task.Delay(_connectionAttempts * _connectionAttempts * 1000);
-    else
-      // Disconnect(); // For WebGL, which stays "connected" despite disconnection
-      CreateSocket();
+    await PrepareSocket();
     if (Socket == null) throw new NullReferenceException(nameof(Socket));
     _connectionAttempts++;
     Log.Information("[GQL-WS] re-connect #{count}", _connectionAttempts);
@@ -165,7 +173,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
 
   private async Task DoHandleMessage(byte[] bytes) {
     string? messageContents = Encoding.UTF8.GetString(bytes);
-    Log.Debug("[GQL-WS] RES {msg}", messageContents);
+    Log.Debug("[GQL-WS] received protocol message");
     // JObject obj = JObject.Parse(message);
     var msg = ZJson.DeserializeObject<GraphQLWebSocketMessage>(Context, messageContents);
     if (msg == null) {
@@ -176,7 +184,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
     if (msg.Type.Equals("connection_ack")) {
       State = GqlWebSocketState.Connected;
     } else if (msg.Type.Contains("error")) {
-      throw new ApplicationException("The handshake failed. Error: " + messageContents);
+      throw new ApplicationException("The handshake failed.");
     } else if (msg.Type.Equals("data")) {
       object payload = msg.Payload ?? throw new RemoteZException(Context, "No payload");
       // var jsonData = payload.GetProperty("data");
@@ -207,7 +215,7 @@ public class GraphQlWebSocket<TData> : TransientObject, IActivate, IGraphQlWebSo
   public Task Send(string id, GraphRequest req) => Send("{\"id\": \"" + id + "\", \"type\": \"start\", \"payload\": " + req.ToPayload() + "}");
 
   public async Task Connect(string id = "1") {
-    if (Socket == null) CreateSocket();
+    await PrepareSocket();
     _socketId = id;
     Log.Debug("[GQL-WS] Connect");
     Socket!.Connect().Forget();

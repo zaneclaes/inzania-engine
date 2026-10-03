@@ -1,6 +1,13 @@
 # inzania-engine — `IZ.*` engine layer (git submodule)
 
 Reusable app/data/API/client/P2P foundation that Chordzy's `Tune*` projects subclass.
+
+Session renewal is optional: `IRefreshingSession` projects private refresh/expiry fields into
+`StoredSession`, and `ISessionRenewalStore` exposes the existing identity owner's renewal callback.
+Legacy implementations keep their original interfaces and extension dispatch is a no-op. HTTP
+and GraphQL socket owners await that callback before constructing current bearer headers; socket
+reconnect also rebuilds `connection_init`. `StallHandler` accepts an optional before-send delegate
+without changing transfer retry, stall or cancellation policy. Credential values are never logged.
 Separate repo (`git@github.com:zaneclaes/inzania-engine.git`): commit here **and** bump the
 pointer in the parent. `git submodule update --init --recursive` after clone.
 Build via the parent `Chordzy.sln` — `inzania-engine.sln` is stale (wrong paths).

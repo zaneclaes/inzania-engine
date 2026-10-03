@@ -10,6 +10,7 @@ using IZ.Client.Queries;
 using IZ.Core;
 using IZ.Core.Api;
 using IZ.Core.Api.GraphQLWebSockets;
+using IZ.Core.Auth;
 using IZ.Core.Contexts;
 using IZ.Core.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,8 +47,11 @@ public class ZStubJsonConnection : IConnection<JsonDocument> {
 
 public class ZGraphServerConnection : LogicBase, IServerConnection {
 
-  public Task<TData> ExecuteApiRequest<TData>(ExecutionResult result, CancellationToken? ct = null) where TData : class =>
-    ParseApiRequest<TData>(result.Context.ServiceProvider.GetRequiredService<IHttpConnection>(), result, ct);
+  public async Task<TData> ExecuteApiRequest<TData>(ExecutionResult result, CancellationToken? ct = null) where TData : class {
+    var store = result.Context.GetService<IIdentityStore>();
+    if (store != null) await store.EnsureFreshSessionAsync(result.Plan.OperationName, ct ?? result.Context.CancellationToken);
+    return await ParseApiRequest<TData>(result.Context.ServiceProvider.GetRequiredService<IHttpConnection>(), result, ct);
+  }
 
   public async Task<IGraphQlWebSocket<TData>> Subscribe<TData>(ExecutionResult result, IGraphQLWebSocketDelegate<TData> del, CancellationToken? ct = null) where TData : class {
     var execDoc = new GraphExecutionDocument(result);
@@ -85,13 +89,13 @@ public class ZGraphServerConnection : LogicBase, IServerConnection {
     } catch (RemoteZException) {
       throw;
     } catch (Exception e) {
-      throw new RemoteZException(context, $"[GQL] Failed to execute {execDoc}", e);
+      throw new RemoteZException(context, $"[GQL] Failed to execute {opReq.Name}", e);
     }
 
     if (res.Data == null) throw new NullReferenceException(nameof(TData));
     var data = res.Data!.Result;
     // context.Guard(data);
-    Log.Debug("[API] {@data}", data);
+    Log.Debug("[API] completed {operation}", opReq.Name);
     return data;
   }
 

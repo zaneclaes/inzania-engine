@@ -1,11 +1,13 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 
 namespace IZ.Core.Auth;
 
-public abstract class IdentityStore<TU> : LogicBase, IIdentityStore where TU : class, IZUser {
+public abstract class IdentityStore<TU> : LogicBase, IIdentityStore, ISessionRenewalStore where TU : class, IZUser {
   public event EventHandler<IZIdentity?>? OnUserIdentityChanged;
 
   public IZIdentity? CurrentZIdentity => _currentIdentity;
@@ -25,6 +27,16 @@ public abstract class IdentityStore<TU> : LogicBase, IIdentityStore where TU : c
   public abstract IZSession? LoadStoredSession();
 
   private string _clientId = "";
+  private Func<string?, CancellationToken, Task>? _renewal;
+  public int SessionRenewalContract { get; private set; }
+
+  public void ConfigureSessionRenewal(int contract, Func<string?, CancellationToken, Task>? renewal) {
+    _renewal = contract == 1 ? renewal : null;
+    SessionRenewalContract = _renewal == null ? 0 : 1;
+  }
+
+  public Task EnsureFreshSessionAsync(string? operation = null, CancellationToken cancellationToken = default) =>
+    _renewal?.Invoke(operation, cancellationToken) ?? Task.CompletedTask;
 
   public IZIdentity? UpdateUserSession(IZSession? ses) {
     _clientId = Install.ClientId;

@@ -44,8 +44,10 @@ public static class ZQueries {
       [ZHeaders.Env] = context.App.Env.ToString()
     };
 
-    var at = context.GetService<IIdentityStore>()?.StoredSession;
+    var store = context.GetService<IIdentityStore>();
+    var at = store?.StoredSession;
     if (at?.AccessToken != null) ret[ZHeaders.Authorization] = "bearer " + at.AccessToken;
+    if (store != null && store.GetSessionRenewalContract() == 1) ret[ZHeaders.SessionRenewal] = "1";
 
     if (extra != null) {
       foreach (string key in extra.Keys) {

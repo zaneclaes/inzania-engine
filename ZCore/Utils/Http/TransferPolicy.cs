@@ -197,14 +197,18 @@ public static class TransferStatus {
 /// </summary>
 public sealed class StallHandler : DelegatingHandler {
   private readonly TransferPolicy _policy;
+  private readonly Func<HttpRequestMessage, CancellationToken, Task>? _beforeSend;
 
-  public StallHandler(TransferPolicy? policy = null, HttpMessageHandler? inner = null) {
+  public StallHandler(TransferPolicy? policy = null, HttpMessageHandler? inner = null,
+    Func<HttpRequestMessage, CancellationToken, Task>? beforeSend = null) {
     _policy = policy ?? TransferPolicy.Default;
+    _beforeSend = beforeSend;
     // Left unset for IHttpClientFactory (`AddHttpMessageHandler`), which assigns it and refuses one already set.
     if (inner != null) InnerHandler = inner;
   }
 
   protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) {
+    if (_beforeSend != null) await _beforeSend(request, cancellationToken).ConfigureAwait(false);
     var stall = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
     stall.CancelAfter(_policy.StallTimeout);
     HttpResponseMessage response;
