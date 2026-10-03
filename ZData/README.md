@@ -41,7 +41,8 @@ concrete pieces: `TuneData/TuneDbContext.cs` (the `DbSet`s), `TuneWeb/Server/Tun
    tracker, locks the existing primary-key row in a transaction (MySQL `FOR UPDATE`; SQLite's
    immediate serializable writer lock), and supplies a fresh row to the callback. Reads inside
    the callback therefore cannot reuse tracked values from before the lock. It saves and commits
-   before returning; failure or cancellation rolls back and clears failed tracking. The callback
+   before returning; failure or cancellation attempts rollback and clears tracking only after
+   rollback is confirmed. The callback
    must not retain a pre-lock entity graph. No table, column or distributed service is added.
    The whole transaction runs through EF's configured execution strategy. Acquiring the lock
    may retry before the callback begins; an entered callback is never replayed because callers
