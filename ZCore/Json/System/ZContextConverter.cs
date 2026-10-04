@@ -247,7 +247,8 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
     if (value is IEnumerable enumerable and not string) {
       writer.WriteStartArray();
       foreach (object? item in enumerable) {
-        Write(writer, item, options);
+        if (item == null) writer.WriteNullValue();
+        else Write(writer, item, options);
       }
       writer.WriteEndArray();
       return;
