@@ -35,7 +35,7 @@ public class ZInputType<TData> : InputObjectType<TData> where TData : ApiObject 
       var prop = zTypeDescriptor.ObjectDescriptor.Inputs[inputName];
       ZEnv.Log.Verbose("[IN] [{type}] {arg} = {type}", typeof(TData), inputName, prop.FieldType);
 
-      var t = ZSchema.GetZSchemaType(prop.FieldType, typeof(ZInputType<>));
+      var t = ZSchema.GetZSchemaType(prop.FieldType, typeof(ZInputType<>), prop.EnforceOptional);
       var d = descriptor.Field(inputName).Type(t);
     }
     base.Configure(descriptor);
