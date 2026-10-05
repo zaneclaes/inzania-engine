@@ -167,6 +167,7 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   }
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
+    e.StampCaptureTraffic(_trafficStatus);
     if (_trafficStatus == AnalyticsTrafficStatus.Internal || _refused) return;
     if (_sink == null || _trafficStatus != AnalyticsTrafficStatus.External) {
       if (_queue.Count < MaxPending) _queue.Enqueue(e);

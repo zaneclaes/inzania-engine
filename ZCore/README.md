@@ -61,6 +61,13 @@ Extension verbs — use these, not raw LINQ, so the call stays translatable and 
 
 ## JSON: `ZJson` only (`Json/`)
 
+`AnalyticsEvent` assigns immutable `CapturedAt` and random 128-bit `CaptureId` when the producer
+constructs it. The existing analytics queue retains them while a traffic verdict or sink setup
+is pending. A host's durable transport may reuse them; both are `[JsonIgnore]` and leave the
+existing Google event payload unchanged. `ZGoogleAnalytics.SendEvent` stamps the capture traffic
+verdict once before queueing. A later external verdict cannot make an unknown or internal capture
+eligible in a host's native proxy projection.
+
 `ZJson` is the only JSON reader and writer in any code built on the engine (`../README.md` → Conventions; enforced
 by `.claude/hooks/JsonGuard.cs`). It wraps System.Text.Json, in `Json/System/`, the one place allowed to name it,
 with the engine's policy:

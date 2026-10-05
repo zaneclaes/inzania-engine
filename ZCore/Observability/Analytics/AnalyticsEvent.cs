@@ -18,6 +18,20 @@ public interface IEventParams {
 
 public class AnalyticsEvent {
 
+  /// <summary>Assigned by the producer, retained through the engine's pre-verdict queue. Private
+  /// transport bookkeeping; neither field changes any third-party analytics wire payload.</summary>
+  [JsonIgnore] public DateTime CapturedAt { get; } = ZEnv.Now;
+  [JsonIgnore] public string CaptureId { get; } = Guid.NewGuid().ToString("N");
+  [JsonIgnore] public AnalyticsTrafficStatus CapturedTrafficStatus { get; private set; }
+  private bool _captureTrafficStamped;
+
+  /// <summary>The analytics owner stamps its verdict once, before its existing queue can defer delivery.</summary>
+  public void StampCaptureTraffic(AnalyticsTrafficStatus status) {
+    if (_captureTrafficStamped) return;
+    CapturedTrafficStatus = status;
+    _captureTrafficStamped = true;
+  }
+
   public AnalyticsEvent(string name, IEventParams? pars = null) {
     Name = name;
     EventParams = pars;
