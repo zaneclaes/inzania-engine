@@ -3,6 +3,11 @@
 Read with `../ZData/README.md` (how objects become tables/queries) and `../ZSchema/README.md` (how they
 become GraphQL). ZCore itself has no EF or HotChocolate dependency; it is the vocabulary both use.
 
+`AnalyticsOptions.AppMeasurementId` and `DispatchEnabled` are server-only configuration for native
+proxy dispatch. The existing `[ApiSecret]` copy exclusion keeps both out of client options alongside
+the transport secret; the public browser `MeasurementId` remains copied. Dispatch defaults off.
+This exclusion does not clear private values already present in a destination; its builder owns that.
+
 ## Object hierarchy (`Data/`)
 
 `ContextualObject` → `ApiObject` (anything on the wire) → `DataObject` (allowed in a `DbSet`) →

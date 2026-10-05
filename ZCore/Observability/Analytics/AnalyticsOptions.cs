@@ -13,6 +13,8 @@ public class AnalyticsOptions : AppOptions<AnalyticsOptions> {
   [Observable] public string Name { get; set; } = null!;
   [Observable] public string MeasurementId { get; set; } = null!;
   [Observable] public long StreamId { get; set; }
+  [ApiSecret] public string? AppMeasurementId { get; set; }
+  [ApiSecret] public bool DispatchEnabled { get; set; }
   public bool Debug { get; set; }
   [ApiSecret] public string ApiSecret { get; set; } = null!; // NOT kept secret for now... may need to change to server intermediary model
 
