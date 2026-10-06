@@ -220,6 +220,14 @@ public class FragmentProvider : IHaveLogger, IFragmentProvider {
       // Make sure this child fragment exists!
       if (!childDesc.IsScalar && !breadcrumbs.Contains(Fragment.GetName(childDesc, format))) LoadRequired(context, childDesc, format, breadcrumbs);
     }
+    var includedFields = new HashSet<string>(props.Select(p => p.FieldName), StringComparer.Ordinal);
+    foreach (var method in desc.Methods.Values) {
+      if (method.Parameters.Count != 0 || !method.Formats.Contains(format)
+          || desc.AllProperties.Any(p => p.FieldName == method.FieldName)
+          || !method.FieldTypeDescriptor.ObjectDescriptor.IsScalar
+          || !includedFields.Add(method.FieldName)) continue;
+      ret.Add($"  {method.FieldName}");
+    }
     ret.Add("}");
     return string.Join("\n", ret);
   }
