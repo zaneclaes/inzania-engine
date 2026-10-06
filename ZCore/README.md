@@ -1,5 +1,9 @@
 # ZCore — data/API object model and lazy resolution (`IZ.Core`)
 
+Generated property setters retain declaration-specific nullable reference collection elements through the existing reflective setter fallback. Runtime `Type` cannot distinguish `List<string>` from `List<string?>`; emitting a direct nonnullable cast loses the source contract and fails strict compilation. This fallback preserves null positions without mutating cached type descriptors or changing other properties' generated setters. Declaration inspection runs only in the .NET generator; Unity's shared runtime does not require `NullabilityInfoContext`.
+
+The existing context JSON writer emits null enumerable items as explicit null values, preserving their positions before recursively writing nonnull items. It never skips those slots or dereferences a null item; property-level ignore-null behavior remains separate. The consuming project's existing descriptor-generation and JSON round-trip controls verify both paths.
+
 Read with `../ZData/README.md` (how objects become tables/queries) and `../ZSchema/README.md` (how they
 become GraphQL). ZCore itself has no EF or HotChocolate dependency; it is the vocabulary both use.
 

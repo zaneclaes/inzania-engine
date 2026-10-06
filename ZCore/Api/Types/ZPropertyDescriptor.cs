@@ -141,6 +141,16 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
     bool isStatic = PropertyInfo?.GetMethod?.IsStatic ?? PropertyInfo?.SetMethod?.IsStatic ?? false;
     bool isInitOnly = PropertyInfo?.SetMethod?.ReturnParameter.GetRequiredCustomModifiers()
       .Any(m => m.Name == "IsExternalInit") ?? false;
+    // Generation runs on .NET; Unity's runtime does not provide NullabilityInfoContext.
+    bool hasNullableElements = false;
+#if !Z_UNITY
+    // Runtime Type erases nullable reference elements. Reuse reflection rather than emit a
+    // nonnullable cast for List<string?> or string?[] and lose their declaration/null slots.
+    var declaration = PropertyInfo == null ? null : new NullabilityInfoContext().Create(PropertyInfo);
+    hasNullableElements = declaration?.GenericTypeArguments.Any(argument =>
+      !argument.Type.IsValueType && argument.WriteState == NullabilityState.Nullable) == true ||
+      declaration?.ElementType is { Type.IsValueType: false, WriteState: NullabilityState.Nullable };
+#endif
     string instance = $"(o as {objectName} ?? throw new NullReferenceException($\"{{o.GetType()}} is not a {objectName}\"))";
 
     var getter = isStatic
@@ -148,7 +158,7 @@ public class ZPropertyDescriptor : ZFieldDescriptor {
       : $"\n\n  public override object? GetValue(object o) =>\n    {instance}.{Name};";
 
     var setter = !IsSettable ? "" :
-      isInitOnly ? $"\n\n  public override void SetValue(object o, object? val) =>\n    typeof({objectName}).GetProperty(\"{Name}\")!.SetValue(o, val);" :
+      isInitOnly || hasNullableElements ? $"\n\n  public override void SetValue(object o, object? val) =>\n    typeof({objectName}).GetProperty(\"{Name}\")!.SetValue(o, val);" :
       isStatic ? $"\n\n  public override void SetValue(object o, object? val) =>\n    {objectName}.{Name} = {rt.ToCast("val", IsNullableReference, Name)};" :
       $"\n\n  public override void SetValue(object o, object? val) =>\n    {instance}.{Name} = {rt.ToCast("val", IsNullableReference, Name)};";
 
