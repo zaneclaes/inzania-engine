@@ -34,14 +34,16 @@ public class GraphqlErrorFilter : ExceptionStatusCodes, IErrorFilter {
   public IError OnError(IError error) {
     var ex = error.Exception;
     if (ex != null) {
+      var requestRefusal = _aborts?.GetClientRefusalStatus(ex);
       error = error
-          .WithCode(GetExceptionErrorCode(ex)) //
+          .WithCode(requestRefusal?.ToString() ?? GetExceptionErrorCode(ex)) //
           .WithMessage(ex.Message)
           .SetExtension("Exception", ex.GetType().Name)
           .SetExtension("Method", ex.Data["method"])
         ;
       // A client that hung up mid-request (a form read cancelled by RequestAborted) is not a server fault either.
-      var level = IsRefusal(ex, error.Code) || (_aborts?.IsClientAbort(ex) ?? false) ? ZEventLevel.Warning : ZEventLevel.Error;
+      var level = requestRefusal == HttpStatusCode.BadRequest || IsRefusal(ex, error.Code)
+        || (_aborts?.IsClientAbort(ex) ?? false) ? ZEventLevel.Warning : ZEventLevel.Error;
       if (ex is ZException zEx) {
         error = error.SetExtension("Reason", zEx.Reason);
         Log.Write(level, "[GQL] {method} returned {code} ({type}): {msg}", ex.Data["method"], error.Code, ex.GetType().Name, error.Message);

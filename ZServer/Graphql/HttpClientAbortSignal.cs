@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Net;
 using IZ.Schema.Errors;
 using Microsoft.AspNetCore.Http;
 
@@ -19,6 +20,9 @@ public sealed class HttpClientAbortSignal : IClientAbortSignal {
   public HttpClientAbortSignal(IHttpContextAccessor http) { _http = http; }
 
   public bool IsClientAbort(Exception ex) => IsClientAbort(ex, _http.HttpContext);
+
+  public HttpStatusCode? GetClientRefusalStatus(Exception ex) =>
+    ex is BadHttpRequestException { StatusCode: StatusCodes.Status400BadRequest } ? HttpStatusCode.BadRequest : null;
 
   public static bool IsClientAbort(Exception ex, HttpContext? http) =>
     ex is OperationCanceledException && http is { RequestAborted.IsCancellationRequested: true };

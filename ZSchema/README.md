@@ -36,6 +36,10 @@ uses HotChocolate's `[UseProjection]`/`[UseFiltering]`/`[UseSorting]` attributes
   `ParameterZException` or `NotFoundZException`, HotChocolate's `AUTH_NOT_AUTHORIZED`/`AUTH_NOT_AUTHENTICATED`)
   at Warning and every server fault at Error (`GraphqlErrorFilter.IsRefusal`; a bare
   `InvalidOperationException` is a fault even though the client sees `NotFound`);
+  the existing HTTP-free host signal also supplies `BadRequest` for a typed HTTP malformed-request
+  exception with status400, logging it at Warning. Other transport statuses and unclassified faults
+  remain Error; cancellation is a client abort only with `OperationCanceledException` and an aborted
+  request. A hostless filter does not infer transport status or cancellation from exception messages.
   `ApiExecutionEventListener` emits per-operation diagnostics.
 - Enums bind via `ZEnumType<T>` as GraphQL enums whose values are only the *declared* members —
   a `[Flags]` combination (e.g. `A|B == 3`) has no name: `EnumType.Serialize` throws and variable

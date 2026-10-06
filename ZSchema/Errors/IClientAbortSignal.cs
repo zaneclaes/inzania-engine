@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Net;
 
 #endregion
 
@@ -14,4 +15,7 @@ namespace IZ.Schema.Errors;
 public interface IClientAbortSignal {
   /// <summary>True only for a cancellation the client caused. A cancellation from the server's own timeout is not one.</summary>
   bool IsClientAbort(Exception ex);
+
+  /// <summary>A typed malformed-request refusal supplied by the HTTP host, independently of client cancellation.</summary>
+  HttpStatusCode? GetClientRefusalStatus(Exception ex) => null;
 }
