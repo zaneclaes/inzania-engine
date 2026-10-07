@@ -18,6 +18,9 @@ uses HotChocolate's `[UseProjection]`/`[UseFiltering]`/`[UseSorting]` attributes
   per method on `ZQueryBase`/`ZMutationBase`/`ZSubscriptionBase` subclasses) and one
   `ZObjectType<T>` per `ZApi.TypeMap.ApiObjects` entry. Binding is **explicit**
   (`DefaultBindingBehavior = Explicit`): only descriptor properties/methods become fields.
+  An integer input property with an explicit CLR `[DefaultValue]` keeps its required type and
+  declares that GraphQL default, so older callers can omit it. Implicit descriptor zeros and
+  defaults on other scalar or enum types do not change input requirements.
   `AddFiltering()`/`AddSorting()` are registered but no field uses them; paging options
   (`MaxPageSize 100`, `DefaultPageSize 10`) apply only to fields that opt in (none today).
 - `ZObjectType<T>.Configure` → `AddZRequestProperty` (field resolver = `prop.GetValue(parent)`,

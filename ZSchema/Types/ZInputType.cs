@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using HotChocolate;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
@@ -37,6 +38,11 @@ public class ZInputType<TData> : InputObjectType<TData> where TData : ApiObject 
 
       var t = ZSchema.GetZSchemaType(prop.FieldType, typeof(ZInputType<>), prop.EnforceOptional);
       var d = descriptor.Field(inputName).Type(t);
+      // An explicitly declared integer default permits omission without weakening a required field.
+      // Descriptor numeric defaults are not declarations: applying their implicit zero would change every input.
+      if (prop.FieldType == typeof(int) &&
+          typeof(TData).GetProperty(prop.Name)?.GetCustomAttribute<System.ComponentModel.DefaultValueAttribute>()?.Value is int defaultValue)
+        d.DefaultValue(defaultValue);
     }
     base.Configure(descriptor);
   }
