@@ -74,12 +74,12 @@ public class ExecutionPlan : TransientObject, IExecutionPlan {
   public static ExecutionPlan Load(IZContext context, ApiExecutionType op, string operationName, ResultSet resultSet) =>
     Load(context, context.GetRequiredService<IFragmentProvider>(), op, operationName, resultSet);
 
-  public Dictionary<string, Tuple<ZTypeDescriptor, object?>> CoerceArgs(List<object?> args) {
+  public Dictionary<string, Tuple<ZTypeDescriptor, object?>> CoerceArgs(IZContext invocationContext, List<object?> args) {
     Dictionary<string, Tuple<ZTypeDescriptor, object?>> ret = new Dictionary<string, Tuple<ZTypeDescriptor, object?>>();
 
     if (args.Count > _method.Parameters.Count) throw new ArgumentException($"Too many args for {OperationName}");
 
-    var converter = Context.GetService<IParameterConverter>();
+    var converter = invocationContext.GetService<IParameterConverter>();
 
     for (int i = 0; i < _method.Parameters.Count; i++) {
       var zType = ZApi.LoadTypeDescriptor(_method.Parameters[i].ParameterType);

@@ -93,6 +93,20 @@ bool InstallGitHooks() {
     Console.Error.WriteLine("[install] cannot establish the durable Git-hook owner.");
     return false;
   }
+  string commonDirectory = Path.GetFullPath(commonResult.Output.Trim());
+  if (Path.GetFullPath(primary) == commonDirectory) {
+    // An absorbed submodule can report its Git metadata directory as the primary
+    // worktree. Its own core.worktree names the source owner; verify that owner
+    // against the common directory before retaining the normal durability checks.
+    var configuredWorktree = Run("git", ["config", "--get", "core.worktree"]);
+    if (configuredWorktree.Code == 0 && !string.IsNullOrWhiteSpace(configuredWorktree.Output)) {
+      string sourceOwner = Path.GetFullPath(configuredWorktree.Output.Trim(), commonDirectory);
+      if (Directory.Exists(sourceOwner)) {
+        var sourceGit = Run("git", ["-C", sourceOwner, "rev-parse", "--path-format=absolute", "--git-dir"]);
+        if (sourceGit.Code == 0 && Path.GetFullPath(sourceGit.Output.Trim()) == commonDirectory) primary = sourceOwner;
+      }
+    }
+  }
   var primaryGit = Run("git", ["-C", primary, "rev-parse", "--path-format=absolute", "--git-dir"]);
   if (primaryGit.Code != 0 || Path.GetFullPath(primaryGit.Output.Trim()) != Path.GetFullPath(commonResult.Output.Trim())) {
     Console.Error.WriteLine("[install] primary worktree does not own the common Git directory.");

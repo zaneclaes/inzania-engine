@@ -18,7 +18,7 @@ public class ExecutionResult : TransientObject {
   ) : base(context) {
     // OperationType = op;
     Plan = plan;
-    Args = plan.CoerceArgs(args);
+    Args = plan.CoerceArgs(context, args);
 
     var keys = Args.Keys.ToList();
     keys.Sort();

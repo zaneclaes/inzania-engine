@@ -16,6 +16,10 @@ Every object carries an `IZContext` (`Context`) — the unit of work: `Context.D
 batching loader, `Context.QueryFor<T>()` opens a query. Objects loaded from the DB get their
 context set by `LoadDataModelsAsync` → `EnforceContext`.
 
+Execution plans cache operation metadata across requests. Argument coercion receives the
+current invocation context from `ExecutionResult`, so its parameter converter belongs to
+that request even when the context that first created the cached plan has been disposed.
+
 ## Attributes that shape the schema (`Data/Attributes/`)
 
 | Attribute | On | Effect (see ZData for the EF side) |
