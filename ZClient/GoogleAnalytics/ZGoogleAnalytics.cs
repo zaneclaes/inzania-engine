@@ -9,6 +9,7 @@ using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
 using IZ.Core.Utils;
+using IZ.Core.Json;
 #region
 
 #endregion
@@ -18,7 +19,12 @@ namespace IZ.Client.GoogleAnalytics;
 public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   private const double EngagementSampling = 10.0;
 
-  private readonly Queue<AnalyticsEvent> _queue = new Queue<AnalyticsEvent>();
+  private sealed class PendingEvent {
+    public PendingEvent(AnalyticsEvent e, AnalyticsCapture capture) { Event = e; Capture = capture; }
+    public AnalyticsEvent Event { get; }
+    public AnalyticsCapture Capture { get; }
+  }
+  private readonly Queue<PendingEvent> _queue = new Queue<PendingEvent>();
 
   private string? _path;
 
@@ -55,6 +61,14 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
 
   public async ZTask Configure(IAnalyticsSink? sink, Installation install, IZIdentity? identity = null, Dictionary<string, object>? userProps = null) {
     if (sink == null) return;
+    if (sink is IAnalyticsCaptureSink) {
+      // Capture delegates permission to the first-party owner, never to a GA transport or visitor fallback.
+      await sink.Config(StreamOptions ?? new AnalyticsOptions(), install, identity, userProps);
+      _sink = sink;
+      _native = true;
+      ProcessQueue();
+      return;
+    }
     bool browser = install.DeviceType == DeviceType.Browser;
     _native = !browser;
     // A native sink's Config opens a Measurement Protocol session (`session_start`), so under a refusal it waits for
@@ -98,7 +112,7 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
     _identity = identity;
     var merged = MergeUserProps(props);
     // The native sink's SetIdentity opens a new Measurement Protocol session: under a refusal it waits for the grant.
-    if (_refused && _native) {
+    if (_refused && _native && _sink is not IAnalyticsCaptureSink) {
       _identityPending = true;
       return ZTask.CompletedTask;
     }
@@ -167,12 +181,23 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   }
 
   public async ZTask SendEvent<T>(AnalyticsEvent<T> e) where T : IEventParams {
+    if (_sink is IAnalyticsCaptureSink captureSink) {
+      await captureSink.Capture(CaptureOf(e));
+      return;
+    }
     if (_trafficStatus == AnalyticsTrafficStatus.Internal || _refused) return;
     if (_sink == null || _trafficStatus != AnalyticsTrafficStatus.External) {
-      if (_queue.Count < MaxPending) _queue.Enqueue(e);
+      if (_queue.Count < MaxPending) _queue.Enqueue(new PendingEvent(e, CaptureOf(e)));
     } else {
       await _sink.SendEvent(e);
     }
+  }
+
+  private AnalyticsCapture CaptureOf(AnalyticsEvent e) {
+    string? parameters = null;
+    try { if (e.EventParams != null) parameters = ZJson.SerializeObject<object>(e.EventParams); }
+    catch (Exception) { /* Capture is best effort; a malformed event cannot break gameplay. */ }
+    return new AnalyticsCapture(e.Name, parameters, e.EventParams?.SessionId ?? 0, ZEnv.Now, _trafficStatus, !_refused);
   }
 
   public ZTask PageView(string path, string? title = null) {
@@ -299,10 +324,14 @@ public class ZGoogleAnalytics : LogicBase, IZAnalytics {
   }
 
   private void ProcessQueue() {
+    if (_sink is IAnalyticsCaptureSink captureSink) {
+      while (_queue.Any()) captureSink.Capture(_queue.Dequeue().Capture).Forget();
+      return;
+    }
     if (_trafficStatus != AnalyticsTrafficStatus.External || _sink == null || !_queue.Any()) return;
     while (_queue.Any()) {
       var o = _queue.Dequeue();
-      _sink.SendEvent(o).Forget();
+      _sink.SendEvent(o.Event).Forget();
     }
   }
 }

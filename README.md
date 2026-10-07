@@ -10,6 +10,12 @@ reconnect also rebuilds `connection_init`. `StallHandler` accepts an optional be
 without changing transfer retry, stall or cancellation policy. Credential values are never logged.
 Separate repo (`git@github.com:zaneclaes/inzania-engine.git`): commit here **and** bump the
 pointer in the parent. `git submodule update --init --recursive` after clone.
+
+`IAnalyticsCaptureSink` is the optional first-party adapter at the existing analytics injection point.
+It receives immutable emission-time values and owns purpose permission, raw storage and exclusion;
+it has no Google transport. Generic/browser sinks keep their existing internal/unknown/refusal rules.
+The existing bounded startup queue retains capture values until the adapter is configured; a later
+verdict cannot turn an unknown/refused capture into eligible Google traffic.
 Build via the parent `Chordzy.sln` — `inzania-engine.sln` is stale (wrong paths).
 Directory prefix `Z*` ↔ assembly/namespace `IZ.*`. net10 / C# 13 / nullable and warnings-as-errors via
 `Directory.Build.props` (`NETSDK1188` alone is suppressed for the .NET 10.0.100 Linux SDK's invalid
