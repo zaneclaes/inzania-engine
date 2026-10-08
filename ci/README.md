@@ -153,11 +153,21 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    translates Codex's `apply_patch` and Grok's camelCase payload into the Claude shape the guards read. Each
    rendered command names its runtime (`--runtime claude|codex|grok`), and the adapter passes it to the guard as
    `AGENT_HOOK_RUNTIME`, so a guard that must know which runtime fired it reads that rather than guessing from
-   the payload.
-3. **Pre-build** — builds each engine hook script once, one at a time. Every hook references `ZCore`
-   (`#:project`, so it can use `ZJson`), and several run at once on each edit. Cold, they would all build
-   `ZCore` at the same moment, and concurrent builds of one project fail at random (1 in 5 when measured).
-   Warm, they start in about a second.
+   the payload. The adapter drains stdout and stderr concurrently from process start, including while
+   sending stdin, so verbose guard diagnostics cannot deadlock the hook. Output and denial exit codes
+   are preserved.
+3. **Compiled execution** — prepares private hook bundles under `out/agent-hooks` before rendering
+   direct `dotnet <adapter.dll>` commands. The adapter also invokes compiled guard DLLs, avoiding
+   two SDK/MSBuild startups per guard. Source, ZCore inputs, ancestor build configuration (including
+   absent overrides), runtime and output hashes qualify each bundle. Changed inputs rebuild under
+   one cold-build lease; publication is atomic and failures never execute a stale guard. An old
+   adapter forwards to its current qualified replacement. Unsupported build customization keeps
+   the SDK path. Hook-triggered compilation has a shared 45-second budget across adapter handoff;
+   exhaustion denies with a diagnostic instead of waiting for the runtime to ignore a timeout.
+   Installation prepares cold bundles outside that tool-call budget; `--check` validates freshness
+   without building. Missing installed output bootstraps through the source adapter.
+   The installer also retains normal sequential script builds for existing watcher `--no-build`
+   commands. This is a local cache, not CI offload.
 
 The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.json`, `settings.json`,
 `hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
