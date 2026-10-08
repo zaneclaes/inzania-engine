@@ -29,7 +29,7 @@ public static class HttpExtensions {
       // ctxt.Log.Information("[CTXT] {type} {ra}", ctxt.Root.GetType().Name, ctxt.Root.ResourceAction);
       var identity = await auth.Authenticate(ctxt, installId, authToken, http.User);
       http.ClaimZIdentity(identity);
-      ctxt.Log.Debug("[AUTH] session is now {@id}", identity.UserSession);
+      ctxt.Log.Debug("[AUTH] session is now {userId}", identity.UserSession?.IZUser.Id);
       return identity;
     } catch (Exception e) {
       ctxt.Log.Error(e, "Auth Error");

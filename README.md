@@ -8,6 +8,8 @@ Legacy implementations keep their original interfaces and extension dispatch is 
 and GraphQL socket owners await that callback before constructing current bearer headers; socket
 reconnect also rebuilds `connection_init`. `StallHandler` accepts an optional before-send delegate
 without changing transfer retry, stall or cancellation policy. Credential values are never logged.
+`ZContextConverter`'s property diagnostic keeps a credential property's name and omits its value.
+Request authentication logs the session user id, not the session object.
 Separate repo (`git@github.com:zaneclaes/inzania-engine.git`): commit here **and** bump the
 pointer in the parent. `git submodule update --init --recursive` after clone.
 

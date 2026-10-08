@@ -206,7 +206,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
           }
         }
 
-        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {r}", propName, val, prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
+        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {r}", propName, CredentialDiagnostic(propName, prop, val), prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
       }
       if (prop != null) {
         if (prop.IsSettable) {
@@ -214,7 +214,7 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
           // prop.SetValue(ret, val);
           vals[prop] = val;
         } else {
-          Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {r}", propName, val, val?.GetType(), typeDescriptor);
+          Context.Log.Warning("INVALID SET {key} = {val} ({type}) on {r}", propName, CredentialDiagnostic(propName, prop, val), val?.GetType(), typeDescriptor);
         }
       } else {
         Context.Log.Verbose("[JSON] SET {key} MISSING FROM {desc} AMONG {fields}", propName, typeDescriptor.ObjectDescriptor, typeDescriptor.ObjectDescriptor.AllProperties.Select(p => p.FieldName));
@@ -271,5 +271,24 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
       }
       writer.WriteEndObject();
     }
+  }
+
+  // Passwords, access and refresh tokens, the session bearer, private keys and authorization
+  // values stay in the object. This diagnostic keeps the property name only.
+  private static object? CredentialDiagnostic(string? jsonName, ZPropertyDescriptor? prop, object? val) =>
+    IsCredentialName(jsonName) || IsCredentialName(prop?.Name) || IsCredentialName(prop?.FieldName) ? null : val;
+
+  private static bool IsCredentialName(string? name) {
+    if (string.IsNullOrEmpty(name)) return false;
+    string normalized = name.Replace("_", "").Replace("-", "");
+    return normalized.Equals("accessToken", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("refreshToken", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("token", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("password", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("passwordAgain", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("currentPassword", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("newPassword", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("privateKey", StringComparison.OrdinalIgnoreCase)
+      || normalized.Equals("authorization", StringComparison.OrdinalIgnoreCase);
   }
 }
