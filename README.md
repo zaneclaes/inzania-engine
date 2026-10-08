@@ -170,7 +170,7 @@ with `#:project` and starts a `ZScriptApp` before touching JSON (`ZCore/README.m
   Logic classes take `IZContext` and extend `LogicBase`.
 - No source generators or partial classes: codegen is out-of-band and destructive
   (`ZApiTypeGenerator.GenerateSourceFiles`, `ci/schema.sh`). Never hand-edit generated output.
-- HotChocolate / StrawberryShake pinned at 15.1.12 across ZExt/ZSchema/ZServer/ZClient — keep in lockstep.
+- HotChocolate / StrawberryShake pinned at 15.1.18 across ZExt/ZSchema/ZServer/ZClient — keep in lockstep.
 - `ZApiTypeGenerator.IsExternal()` filters assemblies by hardcoded name prefixes; add new
   third-party deps there if their types leak into the schema scan. Only public, non-abstract,
   non-generic types are included. A `[TYPES] generating type-map` warning at runtime means the
