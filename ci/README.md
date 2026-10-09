@@ -169,6 +169,9 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    without building. Missing installed output bootstraps through the source adapter.
    The installer also retains normal sequential script builds for existing watcher `--no-build`
    commands. This is a local cache, not CI offload.
+   Unity `.meta` import files are excluded from SDK dependency fingerprints; ordinary source,
+   resources, project files and ancestor build overrides still invalidate the cache. The two-root
+   fixture includes a real ZCore project reference and asymmetric Unity metadata.
    Script keys and fingerprint input identities are normalized relative to the consuming Git
    repository (or standalone engine); configuration lookup stops there. Identical source/runtime
    produces identical relative manifest commands across worktrees, while cache storage remains

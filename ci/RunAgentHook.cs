@@ -363,7 +363,10 @@ static class HookCache {
   }
 
   static IEnumerable<string> SourceFiles(string directory) {
-    foreach (var file in Directory.EnumerateFiles(directory)) yield return file;
+    foreach (var file in Directory.EnumerateFiles(directory)) {
+      // Unity import metadata does not participate in the ordinary SDK compilation.
+      if (!Path.GetExtension(file).Equals(".meta", StringComparison.OrdinalIgnoreCase)) yield return file;
+    }
     foreach (var child in Directory.EnumerateDirectories(directory)) {
       if (Path.GetFileName(child) is "bin" or "obj" or ".git") continue;
       if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0)
@@ -402,7 +405,18 @@ static class HookCache {
         fixtureSource = Path.Combine(engineCi, "RunAgentHook.cs");
         File.WriteAllText(fixtureSource, "// fixture adapter source owner\n");
         string script = Path.Combine(engineCi, "Fixture.cs");
-        const string contents = "using System; Console.WriteLine(\"fixture\");\n";
+        string dependencyDirectory = Path.Combine(repository, "inzania-engine", "ZCore");
+        Directory.CreateDirectory(dependencyDirectory);
+        File.WriteAllText(Path.Combine(dependencyDirectory, "ZCore.csproj"),
+          "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
+        string dependency = Path.Combine(dependencyDirectory, "Dependency.cs");
+        const string dependencyContents = "public static class Dependency { public const string Value = \"fixture\"; }\n";
+        File.WriteAllText(dependency, dependencyContents);
+        if (name == "primary") {
+          File.WriteAllText(dependency + ".meta", "fileFormatVersion: 2\nguid: fixture\n");
+          File.WriteAllText(Path.Combine(dependencyDirectory, "obj.meta"), "fileFormatVersion: 2\nguid: folder\n");
+        }
+        const string contents = "#:project ../ZCore/ZCore.csproj\nusing System; Console.WriteLine(Dependency.Value);\n";
         const string overrides = "<Project><PropertyGroup><Nullable>enable</Nullable></PropertyGroup></Project>";
         File.WriteAllText(script, contents);
         string props = Path.Combine(repository, "Directory.Build.props");
@@ -415,6 +429,15 @@ static class HookCache {
         expected = relative;
         expectedFingerprint = fingerprint;
         if (Resolve(script, build: false) != executable) throw new InvalidOperationException("warm fixture cache did not qualify");
+        File.AppendAllText(dependency, "// changed dependency content\n");
+        if (Fingerprint(script) == fingerprint || Resolve(script, build: false) != null)
+          throw new InvalidOperationException("changed C# dependency retained a qualified cache entry");
+        File.WriteAllText(dependency, dependencyContents);
+        string resource = Path.Combine(dependencyDirectory, "Added.resx");
+        File.WriteAllText(resource, "<root />");
+        if (Fingerprint(script) == fingerprint || Resolve(script, build: false) != null)
+          throw new InvalidOperationException("new resource retained a qualified cache entry");
+        File.Delete(resource);
         File.AppendAllText(script, "// changed content\n");
         if (Fingerprint(script) == fingerprint || Resolve(script, build: false) != null)
           throw new InvalidOperationException("changed source retained a qualified cache entry");
@@ -432,7 +455,7 @@ static class HookCache {
           throw new InvalidOperationException("outside-root script was admitted");
       }
       Console.WriteLine("CACHE_IDENTITY_PATH " + expected);
-      Console.WriteLine("PASS compiled cross-worktree cache identity, warm qualification, source/build override invalidation and outside-root refusal");
+      Console.WriteLine("PASS compiled cross-worktree cache identity with asymmetric Unity metadata, warm qualification, source/dependency/build override invalidation and outside-root refusal");
     } finally {
       fixtureSource = previousSource;
       Directory.Delete(fixtures, recursive: true);
