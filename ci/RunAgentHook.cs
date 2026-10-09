@@ -14,6 +14,10 @@ using IZ.Core.Json;
 
 ZScriptApp.Start("RunAgentHook");
 try {
+if (args.FirstOrDefault() == "--self-test-cache-identity") {
+  HookCache.TestCacheIdentity();
+  return 0;
+}
 if (args.FirstOrDefault() is "--prepare-hooks" or "--check-hooks") {
   var entries = new Dictionary<string, string>();
   foreach (var script in args.Skip(1).Distinct(StringComparer.Ordinal)) {
@@ -189,6 +193,7 @@ static string GitRoot() {
 // Its fast path hashes inputs and the complete private output bundle without starting the SDK.
 // Unsupported MSBuild customization retains the original SDK path instead of guessing inputs.
 static class HookCache {
+  static string? fixtureSource;
   public static bool Supports(string script) => Inputs(Path.GetFullPath(script)) != null;
   public static readonly DateTime Deadline = BuildDeadline();
   static DateTime BuildDeadline() {
@@ -199,14 +204,23 @@ static class HookCache {
       ? inherited : local;
   }
   static int BuildMilliseconds => (int)Math.Clamp((Deadline - DateTime.UtcNow).TotalMilliseconds, 0, 120_000);
-  public static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
+  public static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => fixtureSource ?? path;
+  static string RepositoryRoot() {
+    string engine = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, ".."));
+    string consumer = Path.GetDirectoryName(engine)!;
+    return File.Exists(Path.Combine(consumer, ".git")) || Directory.Exists(Path.Combine(consumer, ".git")) ? consumer : engine;
+  }
+  static string? InputIdentity(string path) {
+    string relative = Path.GetRelativePath(RepositoryRoot(), Path.GetFullPath(path)).Replace('\\', '/');
+    return Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith("../", StringComparison.Ordinal) ? null : relative;
+  }
   static string CacheRoot => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, "..", "out", "agent-hooks"));
 
   public static string? Resolve(string script, bool build = true) {
     script = Path.GetFullPath(script);
     string? fingerprint = Fingerprint(script);
     if (fingerprint == null) return null;
-    string parent = Path.Combine(CacheRoot, Hash(Encoding.UTF8.GetBytes(script)));
+    string parent = Path.Combine(CacheRoot, Hash(Encoding.UTF8.GetBytes(InputIdentity(script)!)));
     string destination = Path.Combine(parent, fingerprint);
     string? ready = ReadReady(destination, fingerprint);
     if (ready != null || !build) return ready;
@@ -302,6 +316,7 @@ static class HookCache {
   }
 
   static SortedSet<string>? Inputs(string script) {
+    if (InputIdentity(script) == null) return null;
     var inputs = new SortedSet<string>(StringComparer.Ordinal) { script };
     string source = File.ReadAllText(script);
     var directives = source.Split('\n').Where(line => line.TrimStart().StartsWith("#:", StringComparison.Ordinal)).ToArray();
@@ -309,6 +324,7 @@ static class HookCache {
     foreach (var directive in directives) {
       string reference = directive.Trim()[10..].Trim().Trim('"');
       string project = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(script)!, reference));
+      if (InputIdentity(project) == null) return null;
       // All current guards share this single, ordinary SDK project. Don't cache a newly added
       // project/import/analyzer/linked-source arrangement without an actual input inventory.
       if (Path.GetFileName(project) != "ZCore.csproj" || !OrdinaryProject(project)) return null;
@@ -317,6 +333,8 @@ static class HookCache {
       foreach (string file in SourceFiles(projectDirectory)) inputs.Add(file);
     }
     var visited = new HashSet<string>(StringComparer.Ordinal);
+    string repository = RepositoryRoot();
+    if (inputs.Any(input => InputIdentity(input) == null)) return null;
     foreach (string start in inputs.Select(Path.GetDirectoryName).OfType<string>().Distinct().ToArray()) {
       for (string? directory = start; directory != null; directory = Path.GetDirectoryName(directory)) {
         if (!visited.Add(directory)) break;
@@ -326,6 +344,7 @@ static class HookCache {
           if (File.Exists(path) && (name.EndsWith(".props", StringComparison.Ordinal) || name.EndsWith(".targets", StringComparison.Ordinal)) && !OrdinaryProject(path)) return null;
           inputs.Add(path); // Missing files are inputs too: adding a build override invalidates the bundle.
         }
+        if (directory == repository) break;
       }
     }
     return inputs;
@@ -335,9 +354,9 @@ static class HookCache {
     var inputs = Inputs(script);
     if (inputs == null) return null;
     using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-    hash.AppendData(Encoding.UTF8.GetBytes("agent-hooks-v2\n" + System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier + "\n" + Environment.Version + "\n"));
-    foreach (string path in inputs) {
-      hash.AppendData(Encoding.UTF8.GetBytes(path + "\0"));
+    hash.AppendData(Encoding.UTF8.GetBytes("agent-hooks-v3\n" + System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier + "\n" + Environment.Version + "\n"));
+    foreach (string path in inputs.OrderBy(path => InputIdentity(path), StringComparer.Ordinal)) {
+      hash.AppendData(Encoding.UTF8.GetBytes(InputIdentity(path) + "\0"));
       hash.AppendData(Encoding.UTF8.GetBytes(File.Exists(path) ? FileHash(snapshotPath?.Invoke(path) ?? path) : "missing"));
     }
     return Convert.ToHexString(hash.GetHashAndReset());
@@ -358,6 +377,67 @@ static class HookCache {
     element.Attributes().Any(attribute => attribute.Name.LocalName is "Condition" && attribute.Value.Contains("Exists(", StringComparison.OrdinalIgnoreCase)));
   static string FileHash(string path) { using var stream = File.OpenRead(path); return Convert.ToHexString(SHA256.HashData(stream)); }
   static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+
+  public static void TestCacheIdentity() {
+    string fixtures = Path.Combine(RepositoryRoot(), ".scratch", "cache-identity-fixtures", Guid.NewGuid().ToString("N"));
+    string? previousSource = fixtureSource;
+    Directory.CreateDirectory(fixtures);
+    try {
+      string? expected = null;
+      string? expectedFingerprint = null;
+      foreach (string name in new[] { "candidate", "primary" }) {
+        string repository = Path.Combine(fixtures, name);
+        string engineCi = Path.Combine(repository, "inzania-engine", "ci");
+        Directory.CreateDirectory(engineCi);
+        var initialize = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (string argument in new[] { "init", "-q", repository }) initialize.ArgumentList.Add(argument);
+        foreach (string key in initialize.Environment.Keys.Where(key => key.StartsWith("GIT_", StringComparison.Ordinal)).ToArray()) initialize.Environment.Remove(key);
+        using (var process = Process.Start(initialize)!) {
+          var stdout = process.StandardOutput.ReadToEndAsync();
+          var stderr = process.StandardError.ReadToEndAsync();
+          if (!process.WaitForExit(10000)) { process.Kill(true); process.WaitForExit(); throw new InvalidOperationException("fixture Git initialization timed out"); }
+          Task.WhenAll(stdout, stderr).GetAwaiter().GetResult();
+          if (process.ExitCode != 0) throw new InvalidOperationException("fixture Git initialization failed");
+        }
+        fixtureSource = Path.Combine(engineCi, "RunAgentHook.cs");
+        File.WriteAllText(fixtureSource, "// fixture adapter source owner\n");
+        string script = Path.Combine(engineCi, "Fixture.cs");
+        const string contents = "using System; Console.WriteLine(\"fixture\");\n";
+        const string overrides = "<Project><PropertyGroup><Nullable>enable</Nullable></PropertyGroup></Project>";
+        File.WriteAllText(script, contents);
+        string props = Path.Combine(repository, "Directory.Build.props");
+        File.WriteAllText(props, overrides);
+        string fingerprint = Fingerprint(script) ?? throw new InvalidOperationException("fixture inputs unsupported");
+        string executable = Resolve(script, build: true) ?? throw new InvalidOperationException("fixture did not compile");
+        string relative = Path.GetRelativePath(repository, executable).Replace('\\', '/');
+        if (expected != null && (relative != expected || fingerprint != expectedFingerprint))
+          throw new InvalidOperationException("identical source in different worktrees produces different manifest executable paths");
+        expected = relative;
+        expectedFingerprint = fingerprint;
+        if (Resolve(script, build: false) != executable) throw new InvalidOperationException("warm fixture cache did not qualify");
+        File.AppendAllText(script, "// changed content\n");
+        if (Fingerprint(script) == fingerprint || Resolve(script, build: false) != null)
+          throw new InvalidOperationException("changed source retained a qualified cache entry");
+        File.WriteAllText(script, contents);
+        File.WriteAllText(props, "<Project><PropertyGroup><Nullable>disable</Nullable></PropertyGroup></Project>");
+        if (Fingerprint(script) == fingerprint) throw new InvalidOperationException("build override was omitted");
+        File.WriteAllText(props, overrides);
+        string targets = Path.Combine(repository, "Directory.Build.targets");
+        File.WriteAllText(targets, "<Project><PropertyGroup><Fixture>changed</Fixture></PropertyGroup></Project>");
+        if (Fingerprint(script) == fingerprint) throw new InvalidOperationException("new build override was omitted");
+        File.Delete(targets);
+        string outside = Path.Combine(fixtures, "Outside.cs");
+        File.WriteAllText(outside, contents);
+        if (Fingerprint(outside) != null || Resolve(outside, build: false) != null)
+          throw new InvalidOperationException("outside-root script was admitted");
+      }
+      Console.WriteLine("CACHE_IDENTITY_PATH " + expected);
+      Console.WriteLine("PASS compiled cross-worktree cache identity, warm qualification, source/build override invalidation and outside-root refusal");
+    } finally {
+      fixtureSource = previousSource;
+      Directory.Delete(fixtures, recursive: true);
+    }
+  }
   sealed class Qualification {
     public string Fingerprint { get; set; } = "";
     public string Assembly { get; set; } = "";

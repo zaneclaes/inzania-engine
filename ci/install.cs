@@ -65,6 +65,44 @@ bool engineIsRoot = engineRel is "." or "";
 Console.WriteLine($"[install] repo {root}");
 Console.WriteLine($"[install] engine {(engineIsRoot ? "(this repo)" : engineRel)}");
 
+if (Args().Contains("--self-test-hook-relocation")) {
+  string fixture = Path.Combine(root, ".scratch", "hook-render-fixtures", Guid.NewGuid().ToString("N"));
+  string originalRoot = root;
+  bool originalCheck = check;
+  try {
+    var entries = new[] { (new ManifestHook { Event = "PreToolUse", Matcher = "Edit", Script = ".agents/hooks/Fixture.cs", Arguments = new List<string> { "--hook" } }, "") };
+    const string adapter = "inzania-engine/ci/RunAgentHook.cs";
+    const string executable = "inzania-engine/out/agent-hooks/relative-key/fingerprint/RunAgentHook.dll";
+    foreach (var (agent, relative, prefix, runtime) in new[] {
+        ("Claude", ".claude/settings.json", "$CLAUDE_PROJECT_DIR/", "claude"),
+        ("Codex", ".codex/hooks.json", "$(git rev-parse --show-toplevel)/", "codex"),
+        ("Grok", ".grok/hooks/agent-guards.json", "$CLAUDE_PROJECT_DIR/", "grok") }) {
+      root = Path.Combine(fixture, "candidate");
+      check = false;
+      string generated = Path.Combine(root, relative);
+      if (!RenderAgentHooks(agent, generated, entries, prefix + adapter,
+          (script, arguments) => HookCommand(prefix, adapter, executable, script, arguments, runtime), true, null))
+        throw new InvalidOperationException("fixture manifest generation failed");
+      root = Path.Combine(fixture, "primary");
+      string copied = Path.Combine(root, relative);
+      Directory.CreateDirectory(Path.GetDirectoryName(copied)!);
+      File.Copy(generated, copied);
+      changes.Clear();
+      check = true;
+      if (!RenderAgentHooks(agent, copied, entries, prefix + adapter,
+          (script, arguments) => HookCommand(prefix, adapter, executable, script, arguments, runtime), true, null) || changes.Count != 0 ||
+          File.ReadAllText(generated) != File.ReadAllText(copied))
+        throw new InvalidOperationException("relocated fixture manifest failed production renderer --check");
+    }
+    Console.WriteLine("PASS Claude/Codex/Grok production manifest renderer relocation --check, no writes or drift");
+    return 0;
+  } finally {
+    root = originalRoot;
+    check = originalCheck;
+    Directory.Delete(fixture, recursive: true);
+  }
+}
+
 if (!InstallGitHooks()) return 1;
 if (!InstallAgentHooks(out var hookScripts)) return 1;
 if (!InstallCodexMcp()) return 1;

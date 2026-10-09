@@ -169,6 +169,12 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    without building. Missing installed output bootstraps through the source adapter.
    The installer also retains normal sequential script builds for existing watcher `--no-build`
    commands. This is a local cache, not CI offload.
+   Script keys and fingerprint input identities are normalized relative to the consuming Git
+   repository (or standalone engine); configuration lookup stops there. Identical source/runtime
+   produces identical relative manifest commands across worktrees, while cache storage remains
+   private to each worktree. Outside-root inputs require an explicit inventory. Regression checks
+   are `RunAgentHook.cs --self-test-cache-identity` (real compiled fixture caches) and
+   `install.cs --self-test-hook-relocation` (all three production renderers' relocated `--check`).
 
 The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.json`, `settings.json`,
 `hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
