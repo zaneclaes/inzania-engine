@@ -150,7 +150,8 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
 2. **Agent hooks** — renders this directory's `agent-hooks.json`, plus an optional consuming-repo
    `ci/agent-hooks.json`, into Claude Code's `.claude/settings.json`, Codex's `.codex/hooks.json` and Grok's
    `.grok/hooks/agent-guards.json`. All three runtimes call the same guard files through `ci/RunAgentHook.cs`, which
-   translates Codex's `apply_patch` and Grok's camelCase payload into the Claude shape the guards read. Each
+   translates Codex's `apply_patch` and `exec_command` (`cmd`), and Grok's camelCase payload,
+   into the Claude shape the guards read. Terminal commands reach the same Bash guards. Each
    rendered command names its runtime (`--runtime claude|codex|grok`), and the adapter passes it to the guard as
    `AGENT_HOOK_RUNTIME`, so a guard that must know which runtime fired it reads that rather than guessing from
    the payload. The adapter drains stdout and stderr concurrently from process start, including while
