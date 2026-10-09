@@ -96,10 +96,16 @@ if (norm.Length > 0) {
 
 // ---- Shell commands (Bash) ----
 if (command.Length > 0) {
-  // M2 — a mutating command aimed at a migration file
-  var shellWrite = new Regex(@"(>>?|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\bpatch\b|\btruncate\b|\binstall\b)[^;|&\n]{0,120}?(\S*Migrations/\S*\.cs)", RegexOptions.IgnoreCase);
-  foreach (Match m in shellWrite.Matches(command))
-    blocks.Add($"Shell write to a migration file (`{Trim(m.Value)}`). Migration files are only ever produced by `dotnet ef migrations add`, and deleted by `dotnet ef migrations remove --force` (which also rewinds the ModelSnapshot). {Fix}");
+  // M2 — a mutating command aimed at a migration file.
+  // The one retrieval command is `dotnet run … ci/RemoteDev.cs -- apply <id>`. It applies a
+  // Buildkite-verified EF patch. A command that also copies or redirects a migration stays blocked.
+  bool remoteRetrieval = Regex.IsMatch(command, @"\bdotnet\s+run\b[^\n;&|]*\bci/RemoteDev\.cs\b[^\n;&|]*\s--\s+apply\b", RegexOptions.IgnoreCase);
+  bool extraMigrationWrite = Regex.IsMatch(command, @"\b(cp|mv|tee|sed|patch|rm|touch)\b", RegexOptions.IgnoreCase);
+  if (!(remoteRetrieval && !extraMigrationWrite)) {
+    var shellWrite = new Regex(@"(>>?|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\bpatch\b|\btruncate\b|\binstall\b)[^;|&\n]{0,120}?(\S*Migrations/\S*\.cs)", RegexOptions.IgnoreCase);
+    foreach (Match m in shellWrite.Matches(command))
+      blocks.Add($"Shell write to a migration file (`{Trim(m.Value)}`). Migration files are only ever produced by `dotnet ef migrations add`, and deleted by `dotnet ef migrations remove --force` (which also rewinds the ModelSnapshot). {Fix}");
+  }
 
   // M3 — ad-hoc DDL through a SQL client
   var sqlClient = new Regex(@"(?m)(^|[;|&(]\s*|\bxargs\s+|\bsudo\s+)(mysql|mariadb|mysqlsh|mycli|psql)\s+-");

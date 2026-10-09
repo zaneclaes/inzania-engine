@@ -214,15 +214,40 @@ bool InstallAgentHooks(out List<string> scripts) {
     compiled = ZJson.DeserializeObject<Dictionary<string, string>>(null, File.ReadAllText(registry));
   }
   string adapterSource = Path.GetFullPath(Path.Combine(root, adapter));
-  string? installedAdapter = compiled?.GetValueOrDefault(adapterSource);
-  if (check && (installedAdapter == null || !File.Exists(installedAdapter))) {
-    Console.Error.WriteLine("[install] compiled agent hooks missing; run without --check to prepare them.");
+  string? bundle = Environment.GetEnvironmentVariable("CHORDZY_HOOK_BUNDLE");
+  bool bundleRequired = Environment.GetEnvironmentVariable("CHORDZY_HOOK_BUNDLE_REQUIRED") == "1";
+  if (bundleRequired && string.IsNullOrWhiteSpace(bundle)) {
+    Console.Error.WriteLine("[install] a hook bundle is required and none was provided.");
     return false;
   }
-  var prepareArgs = check ? new List<string> { installedAdapter! } : new List<string> { "run", adapterSource, "--" };
-  prepareArgs.Add(check ? "--check-hooks" : "--prepare-hooks");
-  prepareArgs.AddRange(scripts.Distinct().Where(s => Path.GetExtension(s) == ".cs").Select(s => Path.Combine(root, s)));
-  var prepared = Run("dotnet", prepareArgs.ToArray());
+  var scriptPaths = scripts.Distinct().Where(s => Path.GetExtension(s) == ".cs").Select(s => Path.Combine(root, s)).ToArray();
+  (int Code, string Output) prepared;
+  if (!string.IsNullOrWhiteSpace(bundle)) {
+    string bootstrap = Path.Combine(bundle, "bootstrap", "RunAgentHook.dll");
+    if (!File.Exists(bootstrap)) {
+      Console.Error.WriteLine("[install] hook bundle has no bootstrap; refusing to compile.");
+      return false;
+    }
+    Environment.SetEnvironmentVariable("CHORDZY_HOOK_CACHE", Path.Combine(engine, "out", "agent-hooks"));
+    var imported = Run("dotnet", new[] { "exec", bootstrap, "--import-bundle", bundle, root });
+    if (imported.Code != 0) {
+      Console.Error.WriteLine("[install] hook bundle was not accepted.");
+      return false;
+    }
+    var checkArgs = new List<string> { "exec", bootstrap, "--check-hooks" };
+    checkArgs.AddRange(scriptPaths);
+    prepared = Run("dotnet", checkArgs);
+  } else {
+    string? installedAdapter = compiled?.GetValueOrDefault(adapterSource);
+    if (check && (installedAdapter == null || !File.Exists(installedAdapter))) {
+      Console.Error.WriteLine("[install] compiled agent hooks missing; run without --check to prepare them.");
+      return false;
+    }
+    var prepareArgs = check ? new List<string> { installedAdapter! } : new List<string> { "run", adapterSource, "--" };
+    prepareArgs.Add(check ? "--check-hooks" : "--prepare-hooks");
+    prepareArgs.AddRange(scriptPaths);
+    prepared = Run("dotnet", prepareArgs.ToArray());
+  }
   if (prepared.Code != 0) {
     Console.Error.WriteLine("[install] could not qualify compiled agent hooks: " + prepared.Output);
     return false;
