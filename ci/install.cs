@@ -241,30 +241,24 @@ bool InstallAgentHooks(out List<string> scripts) {
     }
     string originalBundle = bundle;
     bundle = Path.Combine(root, ".scratch", "hook-import", Guid.NewGuid().ToString("N"));
-    Directory.CreateDirectory(bundle);
-    foreach (string file in Directory.GetFiles(originalBundle, "*", SearchOption.AllDirectories)) {
-      string target = Path.Combine(bundle, Path.GetRelativePath(originalBundle, file));
-      Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-      File.Copy(file, target);
-    }
-    if (CryptographyUtils.DirectorySha256(bundle) != pinned.Output.Trim()) {
+    if (CryptographyUtils.CopyDirectorySha256(originalBundle, bundle) != pinned.Output.Trim() || CryptographyUtils.DirectorySha256(bundle) != pinned.Output.Trim()) {
       Console.Error.WriteLine("[install] bundle changed during private retrieval; retained evidence and refused activation.");
       return false;
     }
-    string bootstrap = Path.Combine(bundle, "bootstrap", "RunAgentHook.dll");
+    string bootstrap = Path.Combine(bundle, "bootstrap", "RunAgentHook" + (OperatingSystem.IsWindows() ? ".exe" : ""));
     if (!File.Exists(bootstrap)) {
       Console.Error.WriteLine("[install] hook bundle has no bootstrap; refusing to compile.");
       return false;
     }
     Environment.SetEnvironmentVariable("CHORDZY_HOOK_CACHE", Path.Combine(engine, "out", "agent-hooks"));
-    var imported = Run("dotnet", new[] { "exec", bootstrap, "--source", adapterSource, "--import-bundle", bundle, root });
+    var imported = Run(bootstrap, new[] { "--source", adapterSource, "--import-bundle", bundle, root });
     if (imported.Code != 0) {
       Console.Error.WriteLine("[install] hook bundle was not accepted.");
       return false;
     }
-    var checkArgs = new List<string> { "exec", bootstrap, "--source", adapterSource, "--check-hooks" };
+    var checkArgs = new List<string> { "--source", adapterSource, "--check-hooks" };
     checkArgs.AddRange(scriptPaths);
-    prepared = Run("dotnet", checkArgs);
+    prepared = Run(bootstrap, checkArgs);
   } else {
     string? installedAdapter = compiled?.GetValueOrDefault(adapterSource);
     if ((check || remoteRequired) && (installedAdapter == null || !File.Exists(installedAdapter))) {

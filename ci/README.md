@@ -174,8 +174,11 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    `RunAgentHook --export-bundle <directory> <repository>`. Import requires the actual host RID,
    exact runtime and source/dependency hashes, plus a complete-package SHA-256 committed at
    `ci/hook-bootstrap/<RID>.sha256` in the consuming repository. An uncommitted pin is rejected.
-   `CHORDZY_HOOK_BUNDLE` supplies the package to the installer; it verifies the pin before
-   executing a privately copied bootstrap and activates source-qualified cache entries through
+   Export publishes a framework-dependent single-file native bootstrap and reports its SHA-256.
+   A consuming thin installer verifies that executable against a separate committed
+   `ci/hook-bootstrap/<RID>.bootstrap.sha256` before executing a privately copied binary.
+   `CHORDZY_HOOK_BUNDLE` supplies the package to the installer; it verifies the complete-package
+   pin, snapshots bounded regular bytes into a private directory, and activates entries through
    the generated installed registry. `--check` does not import or rebuild. With
    `CHORDZY_REMOTE_TOOLS=1`, unavailable guard/control binaries deny instead of compiling;
    `--run-tool <source.cs> [arguments]` also requires already qualified binaries.

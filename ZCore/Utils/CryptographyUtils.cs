@@ -65,7 +65,14 @@ public static class CryptographyUtils {
 
 #if !Z_UNITY
   /// <summary>A bounded, portable digest of regular files. Links are never followed.</summary>
-  public static string DirectorySha256(string root, int maxFiles = 4000, long maxBytes = 256L * 1024 * 1024) {
+  public static string DirectorySha256(string root, int maxFiles = 4000, long maxBytes = 256L * 1024 * 1024) =>
+    DirectoryDigest(root, null, maxFiles, maxBytes);
+
+  /// <summary>Copies bounded regular-file bytes into a new private directory and returns their digest.</summary>
+  public static string CopyDirectorySha256(string root, string destination, int maxFiles = 4000, long maxBytes = 256L * 1024 * 1024) =>
+    DirectoryDigest(root, destination, maxFiles, maxBytes);
+
+  private static string DirectoryDigest(string root, string? destination, int maxFiles, long maxBytes) {
     if (maxFiles < 1 || maxBytes < 1) throw new ArgumentOutOfRangeException(nameof(maxFiles));
     root = System.IO.Path.GetFullPath(root);
     if (new System.IO.DirectoryInfo(root).LinkTarget != null)
@@ -87,12 +94,22 @@ public static class CryptographyUtils {
       }
     }
     Visit(root, 0);
+    if (destination != null) {
+      destination = System.IO.Path.GetFullPath(destination);
+      if (System.IO.Directory.Exists(destination) || destination.StartsWith(root + System.IO.Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        throw new System.IO.IOException("Digest copy requires a new destination outside its source");
+      System.IO.Directory.CreateDirectory(destination);
+    }
     using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
     long readBytes = 0;
     foreach (var file in paths.OrderBy(file => System.IO.Path.GetRelativePath(root, file).Replace('\\', '/'), StringComparer.Ordinal)) {
       string relative = System.IO.Path.GetRelativePath(root, file).Replace('\\', '/');
       digest.AppendData(Encoding.UTF8.GetBytes(relative + "\0"));
+      if (new System.IO.FileInfo(file).LinkTarget != null) throw new System.IO.IOException("Digest payload became a link");
       using var stream = System.IO.File.OpenRead(file);
+      string? target = destination == null ? null : System.IO.Path.Combine(destination, relative);
+      if (target != null) System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);
+      using var output = target == null ? null : new System.IO.FileStream(target, System.IO.FileMode.CreateNew, System.IO.FileAccess.Write);
       using var fileDigest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
       var buffer = new byte[65536];
       int count;
@@ -100,6 +117,12 @@ public static class CryptographyUtils {
         readBytes = checked(readBytes + count);
         if (readBytes > maxBytes) throw new System.IO.IOException("Digest payload grew beyond its byte bound");
         fileDigest.AppendData(buffer, 0, count);
+        output?.Write(buffer, 0, count);
+      }
+      if (target != null && !OperatingSystem.IsWindows()) {
+        var mode = System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite | System.IO.UnixFileMode.GroupRead | System.IO.UnixFileMode.OtherRead;
+        if ((System.IO.File.GetUnixFileMode(file) & System.IO.UnixFileMode.UserExecute) != 0) mode |= System.IO.UnixFileMode.UserExecute;
+        System.IO.File.SetUnixFileMode(target, mode);
       }
       digest.AppendData(fileDigest.GetHashAndReset());
     }

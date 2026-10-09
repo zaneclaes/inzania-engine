@@ -21,6 +21,17 @@ if (sourceAt >= 0) {
   HookCache.AdapterSource = Path.GetFullPath(args[sourceAt + 1]);
   args = args.Where((_, index) => index != sourceAt && index != sourceAt + 1).ToArray();
 }
+if (args.FirstOrDefault() == "--install-bundle") {
+  if (args.Length is not (3 or 4) || (args.Length == 4 && args[3] != "--check"))
+    throw new InvalidOperationException("usage: --install-bundle <directory> <repository> [--check]");
+  if (args.Length == 4) HookCache.VerifyBundlePin(args[1], args[2]);
+  else HookCache.ImportBundle(args[1], args[2]);
+  Environment.SetEnvironmentVariable("CHORDZY_REMOTE_TOOLS", "1");
+  Environment.SetEnvironmentVariable("CHORDZY_HOOK_BUNDLE_REQUIRED", "1");
+  Environment.SetEnvironmentVariable("CHORDZY_HOOK_BUNDLE", Path.GetFullPath(args[1]));
+  string installer = Path.Combine(Path.GetDirectoryName(HookCache.SourcePath())!, "install.cs");
+  args = new[] { "--run-tool", installer }.Concat(args.Length == 4 ? new[] { "--check" } : Array.Empty<string>()).ToArray();
+}
 if (args.FirstOrDefault() == "--run-tool") {
   if (args.Length < 2) throw new InvalidOperationException("missing control-tool source");
   string executable = HookCache.Resolve(args[1], build: false) ?? throw new InvalidOperationException("no source-qualified control-tool bundle; remote qualification required");
@@ -449,14 +460,7 @@ static class HookCache {
       }
       payloads.Add(new HookPayload { Script = scriptRel, Assembly = Path.GetFileName(dll), Files = files });
       if (Path.GetFileName(dll) == "RunAgentHook.dll") {
-        string boot = Path.Combine(directory, "bootstrap");
-        Directory.CreateDirectory(boot);
-        foreach (string file in Directory.GetFiles(cacheDir, "*", SearchOption.AllDirectories)) {
-          string name = Path.GetRelativePath(cacheDir, file);
-          if (name == "qualification.json") continue;
-          Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(boot, name))!);
-          File.Copy(file, Path.Combine(boot, name), true);
-        }
+        PublishBootstrap(full, Path.Combine(directory, "bootstrap"));
       }
     }
     File.WriteAllText(Path.Combine(directory, "bundle.json"), ZJson.SerializeObject(new HookBundle {
@@ -465,9 +469,32 @@ static class HookCache {
       Sources = sources,
       Payloads = payloads,
     }));
+    Console.WriteLine("HOOK_BUNDLE_DIGEST " + CryptographyUtils.DirectorySha256(directory));
   }
 
-  public static void ImportBundle(string directory, string repoRoot) {
+  static void PublishBootstrap(string script, string directory) {
+    string? fingerprint = Fingerprint(script);
+    var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
+    foreach (string argument in new[] { "publish", script, "--runtime", System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier,
+        "--self-contained", "false", "--output", directory, "--nologo", "--disable-build-servers",
+        "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true" }) start.ArgumentList.Add(argument);
+    start.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+    start.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] = "0";
+    using var process = Process.Start(start)!;
+    var stdout = process.StandardOutput.ReadToEndAsync();
+    var stderr = process.StandardError.ReadToEndAsync();
+    if (!process.WaitForExit(120000)) { process.Kill(true); process.WaitForExit(); throw new InvalidOperationException("bootstrap publication timed out"); }
+    Task.WhenAll(stdout, stderr).GetAwaiter().GetResult();
+    if (process.ExitCode != 0 || fingerprint != Fingerprint(script))
+      throw new InvalidOperationException("bootstrap publication failed or its source changed: " + stderr.Result);
+    string executable = Path.Combine(directory, "RunAgentHook" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+    if (!File.Exists(executable)) throw new InvalidOperationException("bootstrap publication produced no executable");
+    string digest = FileHash(executable);
+    File.WriteAllText(Path.Combine(directory, "bootstrap.sha256"), digest + "\n");
+    Console.WriteLine("HOOK_BUNDLE_BOOTSTRAP " + digest);
+  }
+
+  public static string VerifyBundlePin(string directory, string repoRoot) {
     repoRoot = Path.GetFullPath(repoRoot);
     string rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
     string pin = Path.Combine(repoRoot, "ci", "hook-bootstrap", rid + ".sha256");
@@ -480,6 +507,16 @@ static class HookCache {
     readPin.WaitForExit();
     if (readPin.ExitCode != 0 || !File.Exists(pin) || File.ReadAllText(pin).Trim() != trusted || trusted != CryptographyUtils.DirectorySha256(directory))
       throw new InvalidOperationException("hook bundle does not match its trusted repository pin");
+    return trusted;
+  }
+
+  public static void ImportBundle(string directory, string repoRoot) {
+    repoRoot = Path.GetFullPath(repoRoot);
+    string trusted = VerifyBundlePin(directory, repoRoot);
+    string privateCopy = Path.Combine(repoRoot, ".scratch", "hook-import", Guid.NewGuid().ToString("N"));
+    if (CryptographyUtils.CopyDirectorySha256(directory, privateCopy) != trusted || CryptographyUtils.DirectorySha256(privateCopy) != trusted)
+      throw new InvalidOperationException("hook bundle changed during private retrieval; refused activation");
+    directory = privateCopy;
     var bundle = ZJson.DeserializeObject<HookBundle>(File.ReadAllText(Path.Combine(directory, "bundle.json")))
       ?? throw new InvalidOperationException("hook bundle manifest is missing");
     if (bundle.Rid != System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier)
