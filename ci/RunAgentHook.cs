@@ -71,6 +71,12 @@ static IEnumerable<string> Payloads(string stdin) {
     yield return ZJson.SerializeObject(grok);
     yield break;
   }
+  if (hook?.ToolName == "exec_command") {
+    hook.ToolName = "Bash";
+    if (hook.ToolInput != null) hook.ToolInput.Command ??= hook.ToolInput.Cmd;
+    yield return ZJson.SerializeObject(hook);
+    yield break;
+  }
   if (hook?.ToolName != "apply_patch" || string.IsNullOrWhiteSpace(hook.ToolInput?.Command)) {
     yield return stdin;
     yield break;
@@ -362,13 +368,16 @@ static class HookCache {
 class HookEnvelope {
   [JsonPropertyName("tool_name")] public string? ToolName { get; set; }
   [JsonPropertyName("tool_input")] public HookToolInput? ToolInput { get; set; }
+  [JsonExtensionData] public Dictionary<string, object>? Metadata { get; set; }
 }
 
 class HookToolInput {
+  [JsonPropertyName("cmd")] public string? Cmd { get; set; }
   [JsonPropertyName("command")] public string? Command { get; set; }
   [JsonPropertyName("file_path")] public string? FilePath { get; set; }
   [JsonPropertyName("old_string")] public string? OldString { get; set; }
   [JsonPropertyName("new_string")] public string? NewString { get; set; }
+  [JsonExtensionData] public Dictionary<string, object>? Metadata { get; set; }
 }
 
 record PatchFile(string Path, string Added, string Removed);
