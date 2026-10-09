@@ -62,4 +62,48 @@ public static class CryptographyUtils {
   }
 
   public static string ToChecksum(this string str) => Encoding.UTF8.GetBytes(str).ToChecksum();
+
+#if !Z_UNITY
+  /// <summary>A bounded, portable digest of regular files. Links are never followed.</summary>
+  public static string DirectorySha256(string root, int maxFiles = 4000, long maxBytes = 256L * 1024 * 1024) {
+    if (maxFiles < 1 || maxBytes < 1) throw new ArgumentOutOfRangeException(nameof(maxFiles));
+    root = System.IO.Path.GetFullPath(root);
+    if (new System.IO.DirectoryInfo(root).LinkTarget != null)
+      throw new System.IO.IOException("Digest root must not be a link");
+    var paths = new System.Collections.Generic.List<string>();
+    long bytes = 0;
+    int entries = 0;
+    void Visit(string directory, int depth) {
+      if (depth > 32) throw new System.IO.IOException("Digest payload exceeds its depth bound");
+      foreach (var entry in new System.IO.DirectoryInfo(directory).EnumerateFileSystemInfos()) {
+        if (++entries > maxFiles * 2L) throw new System.IO.IOException("Digest payload exceeds its entry bound");
+        if (entry.LinkTarget != null) throw new System.IO.IOException("Digest payload contains a link");
+        if (entry is System.IO.DirectoryInfo child) Visit(child.FullName, depth + 1);
+        else if (entry is System.IO.FileInfo file) {
+          paths.Add(file.FullName);
+          bytes = checked(bytes + file.Length);
+          if (paths.Count > maxFiles || bytes > maxBytes) throw new System.IO.IOException("Digest payload exceeds its bounds");
+        }
+      }
+    }
+    Visit(root, 0);
+    using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+    long readBytes = 0;
+    foreach (var file in paths.OrderBy(file => System.IO.Path.GetRelativePath(root, file).Replace('\\', '/'), StringComparer.Ordinal)) {
+      string relative = System.IO.Path.GetRelativePath(root, file).Replace('\\', '/');
+      digest.AppendData(Encoding.UTF8.GetBytes(relative + "\0"));
+      using var stream = System.IO.File.OpenRead(file);
+      using var fileDigest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+      var buffer = new byte[65536];
+      int count;
+      while ((count = stream.Read(buffer, 0, buffer.Length)) != 0) {
+        readBytes = checked(readBytes + count);
+        if (readBytes > maxBytes) throw new System.IO.IOException("Digest payload grew beyond its byte bound");
+        fileDigest.AppendData(buffer, 0, count);
+      }
+      digest.AppendData(fileDigest.GetHashAndReset());
+    }
+    return Convert.ToHexString(digest.GetHashAndReset());
+  }
+#endif
 }

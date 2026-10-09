@@ -35,9 +35,17 @@
 using System.Diagnostics;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
+using IZ.Core.Utils;
 
 ZScriptApp.Start("install");
 bool check = Args().Contains("--check");
+var installerArguments = Args();
+int installerSourceAt = Array.IndexOf(installerArguments, "--source");
+if (installerSourceAt >= 0 && installerSourceAt + 1 >= installerArguments.Length) {
+  Console.Error.WriteLine("[install] missing installer source path.");
+  return 1;
+}
+string installerSource = installerSourceAt >= 0 ? Path.GetFullPath(installerArguments[installerSourceAt + 1]) : ScriptPath();
 var changes = new List<string>();
 
 string root = Run("git", ["rev-parse", "--show-toplevel"]).Output.Trim();
@@ -51,7 +59,7 @@ if (root.Length <= 0) {
 // different name works with no configuration. AppContext.BaseDirectory is no use here — a file-based
 // app runs out of a build cache, nowhere near its source — so the path comes from [CallerFilePath],
 // with a search from the repo root as the fallback for a repo moved since that path was baked in.
-string engine = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(ScriptPath()) ?? ".", ".."));
+string engine = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(installerSource) ?? ".", ".."));
 if (!File.Exists(Path.Combine(engine, "ci", "agent-hooks.json"))) {
   engine = Directory.EnumerateFiles(root, "agent-hooks.json", SearchOption.AllDirectories)
              .Where(f => Path.GetFileName(Path.GetDirectoryName(f)) == "ci")
@@ -68,7 +76,8 @@ Console.WriteLine($"[install] engine {(engineIsRoot ? "(this repo)" : engineRel)
 if (!InstallGitHooks()) return 1;
 if (!InstallAgentHooks(out var hookScripts)) return 1;
 if (!InstallCodexMcp()) return 1;
-if (!check) PrebuildHookScripts(hookScripts);
+if (!check && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CHORDZY_HOOK_BUNDLE")) &&
+    Environment.GetEnvironmentVariable("CHORDZY_REMOTE_TOOLS") != "1") PrebuildHookScripts(hookScripts);
 
 if (changes.Count <= 0) {
   Console.WriteLine("[install] everything already current.");
@@ -210,19 +219,64 @@ bool InstallAgentHooks(out List<string> scripts) {
   string adapter = (engineIsRoot ? "" : engineRel + "/") + "ci/RunAgentHook.cs";
   string registry = Path.Combine(engine, "out", "agent-hooks", "installed.json");
   Dictionary<string, string>? compiled = null;
-  if (check && File.Exists(registry)) {
+  bool remoteRequired = Environment.GetEnvironmentVariable("CHORDZY_REMOTE_TOOLS") == "1";
+  if ((check || remoteRequired) && File.Exists(registry)) {
     compiled = ZJson.DeserializeObject<Dictionary<string, string>>(null, File.ReadAllText(registry));
   }
   string adapterSource = Path.GetFullPath(Path.Combine(root, adapter));
-  string? installedAdapter = compiled?.GetValueOrDefault(adapterSource);
-  if (check && (installedAdapter == null || !File.Exists(installedAdapter))) {
-    Console.Error.WriteLine("[install] compiled agent hooks missing; run without --check to prepare them.");
+  string? bundle = Environment.GetEnvironmentVariable("CHORDZY_HOOK_BUNDLE");
+  bool bundleRequired = Environment.GetEnvironmentVariable("CHORDZY_HOOK_BUNDLE_REQUIRED") == "1";
+  if (bundleRequired && string.IsNullOrWhiteSpace(bundle)) {
+    Console.Error.WriteLine("[install] a hook bundle is required and none was provided.");
     return false;
   }
-  var prepareArgs = check ? new List<string> { installedAdapter! } : new List<string> { "run", adapterSource, "--" };
-  prepareArgs.Add(check ? "--check-hooks" : "--prepare-hooks");
-  prepareArgs.AddRange(scripts.Distinct().Where(s => Path.GetExtension(s) == ".cs").Select(s => Path.Combine(root, s)));
-  var prepared = Run("dotnet", prepareArgs.ToArray());
+  var scriptPaths = scripts.Distinct().Where(s => Path.GetExtension(s) == ".cs").Select(s => Path.Combine(root, s)).ToArray();
+  (int Code, string Output) prepared;
+  if (!string.IsNullOrWhiteSpace(bundle) && !check) {
+    string pin = Path.Combine(root, "ci", "hook-bootstrap", System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier + ".sha256");
+    var pinned = Run("git", new[] { "-C", root, "show", "HEAD:ci/hook-bootstrap/" + System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier + ".sha256" });
+    if (pinned.Code != 0 || !File.Exists(pin) || File.ReadAllText(pin).Trim() != pinned.Output.Trim() || pinned.Output.Trim() != CryptographyUtils.DirectorySha256(bundle)) {
+      Console.Error.WriteLine("[install] hook bundle lacks a matching trusted repository pin; refusing to execute its bootstrap.");
+      return false;
+    }
+    string originalBundle = bundle;
+    bundle = Path.Combine(root, ".scratch", "hook-import", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(bundle);
+    foreach (string file in Directory.GetFiles(originalBundle, "*", SearchOption.AllDirectories)) {
+      string target = Path.Combine(bundle, Path.GetRelativePath(originalBundle, file));
+      Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+      File.Copy(file, target);
+    }
+    if (CryptographyUtils.DirectorySha256(bundle) != pinned.Output.Trim()) {
+      Console.Error.WriteLine("[install] bundle changed during private retrieval; retained evidence and refused activation.");
+      return false;
+    }
+    string bootstrap = Path.Combine(bundle, "bootstrap", "RunAgentHook.dll");
+    if (!File.Exists(bootstrap)) {
+      Console.Error.WriteLine("[install] hook bundle has no bootstrap; refusing to compile.");
+      return false;
+    }
+    Environment.SetEnvironmentVariable("CHORDZY_HOOK_CACHE", Path.Combine(engine, "out", "agent-hooks"));
+    var imported = Run("dotnet", new[] { "exec", bootstrap, "--source", adapterSource, "--import-bundle", bundle, root });
+    if (imported.Code != 0) {
+      Console.Error.WriteLine("[install] hook bundle was not accepted.");
+      return false;
+    }
+    var checkArgs = new List<string> { "exec", bootstrap, "--source", adapterSource, "--check-hooks" };
+    checkArgs.AddRange(scriptPaths);
+    prepared = Run("dotnet", checkArgs);
+  } else {
+    string? installedAdapter = compiled?.GetValueOrDefault(adapterSource);
+    if ((check || remoteRequired) && (installedAdapter == null || !File.Exists(installedAdapter))) {
+      Console.Error.WriteLine("[install] compiled agent hooks missing; run without --check to prepare them.");
+      return false;
+    }
+    var prepareArgs = check || remoteRequired ? new List<string> { installedAdapter! } : new List<string> { "run", adapterSource, "--" };
+    prepareArgs.AddRange(new[] { "--source", adapterSource });
+    prepareArgs.Add(check || remoteRequired ? "--check-hooks" : "--prepare-hooks");
+    prepareArgs.AddRange(scriptPaths);
+    prepared = Run("dotnet", prepareArgs.ToArray());
+  }
   if (prepared.Code != 0) {
     Console.Error.WriteLine("[install] could not qualify compiled agent hooks: " + prepared.Output);
     return false;
@@ -417,6 +471,7 @@ bool ReadManifest(string path, string prefix, List<(ManifestHook Hook, string Pr
 
 static string HookCommand(string projectRoot, string adapter, string executable, string guard, IEnumerable<string>? arguments, string runtime) =>
   "if [ -f \"" + projectRoot + executable + "\" ]; then dotnet \"" + projectRoot + executable + "\" --source \"" + projectRoot + adapter + "\" --runtime " + runtime + " --guard \"" + projectRoot + guard + "\"" + Arguments(arguments) +
+  "; elif [ \"${CHORDZY_REMOTE_TOOLS:-}\" = \"1\" ]; then echo 'AGENT_HOOK_UNAVAILABLE: remote-qualified adapter required' >&2; exit 2" +
   "; else dotnet run \"" + projectRoot + adapter + "\" -- --runtime " + runtime + " --guard \"" + projectRoot + guard + "\"" + Arguments(arguments) + "; fi";
 
 static string Arguments(IEnumerable<string>? arguments) => string.Concat((arguments ?? []).Select(arg => " \"" + arg.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\""));

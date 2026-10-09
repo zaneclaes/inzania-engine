@@ -170,6 +170,18 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    The installer also retains normal sequential script builds for existing watcher `--no-build`
    commands. This is a local cache, not CI offload.
 
+   The optional remote-delivery path exports the canonical guard/control source set with
+   `RunAgentHook --export-bundle <directory> <repository>`. Import requires the actual host RID,
+   exact runtime and source/dependency hashes, plus a complete-package SHA-256 committed at
+   `ci/hook-bootstrap/<RID>.sha256` in the consuming repository. An uncommitted pin is rejected.
+   `CHORDZY_HOOK_BUNDLE` supplies the package to the installer; it verifies the pin before
+   executing a privately copied bootstrap and activates source-qualified cache entries through
+   the generated installed registry. `--check` does not import or rebuild. With
+   `CHORDZY_REMOTE_TOOLS=1`, unavailable guard/control binaries deny instead of compiling;
+   `--run-tool <source.cs> [arguments]` also requires already qualified binaries.
+   These source paths do not establish authenticated CI production of a package or SDK-free
+   cold installation. The consuming repository must qualify those steps before cutover.
+
 The installer and `ci/hooks/PendingMigrations.cs` read their JSON (`agent-hooks.json`, `settings.json`,
 `hooks.json`, `migration-check.json`, all with `//` comments and trailing commas where supported) through
 `ZJson` like any other code. Every runtime file is read as plain dictionaries, so keys the installer

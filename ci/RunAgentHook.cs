@@ -11,14 +11,54 @@ using System.Xml.Linq;
 using System.Text.Json.Serialization;
 using IZ.Core.Contexts;
 using IZ.Core.Json;
+using IZ.Core.Utils;
 
 ZScriptApp.Start("RunAgentHook");
 try {
+int sourceAt = Array.IndexOf(args, "--source");
+if (sourceAt >= 0) {
+  if (sourceAt + 1 >= args.Length) throw new InvalidOperationException("missing adapter source path");
+  HookCache.AdapterSource = Path.GetFullPath(args[sourceAt + 1]);
+  args = args.Where((_, index) => index != sourceAt && index != sourceAt + 1).ToArray();
+}
+if (args.FirstOrDefault() == "--run-tool") {
+  if (args.Length < 2) throw new InvalidOperationException("missing control-tool source");
+  string executable = HookCache.Resolve(args[1], build: false) ?? throw new InvalidOperationException("no source-qualified control-tool bundle; remote qualification required");
+  var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
+  start.ArgumentList.Add(executable);
+  if (Path.GetFileName(args[1]) == "install.cs") {
+    start.ArgumentList.Add("--source");
+    start.ArgumentList.Add(Path.GetFullPath(args[1]));
+  }
+  foreach (var argument in args.Skip(2)) start.ArgumentList.Add(argument);
+  using var process = Process.Start(start)!;
+  var stdout = process.StandardOutput.ReadToEndAsync();
+  var stderr = process.StandardError.ReadToEndAsync();
+  process.WaitForExit();
+  Console.Write(stdout.GetAwaiter().GetResult());
+  Console.Error.Write(stderr.GetAwaiter().GetResult());
+  return process.ExitCode;
+}
+if (args.FirstOrDefault() is "--export-bundle" or "--import-bundle") {
+  if (args.Length != 3) {
+    Console.Error.WriteLine("Usage: --export-bundle|--import-bundle <directory> <repository>");
+    return 2;
+  }
+  try {
+    if (args[0] == "--export-bundle") HookCache.ExportBundle(args[1], args[2]);
+    else HookCache.ImportBundle(args[1], args[2]);
+  } catch (Exception ex) {
+    Console.Error.WriteLine("HOOK_BUNDLE_FAILED: " + ex.Message);
+    return 1;
+  }
+  Console.WriteLine("HOOK_BUNDLE ok");
+  return 0;
+}
 if (args.FirstOrDefault() is "--prepare-hooks" or "--check-hooks") {
   var entries = new Dictionary<string, string>();
   foreach (var script in args.Skip(1).Distinct(StringComparer.Ordinal)) {
     var executable = HookCache.Resolve(script, args[0] == "--prepare-hooks");
-    if (executable == null && !HookCache.Supports(script)) executable = Path.GetFullPath(script);
+    if (executable == null && !HookCache.RemoteRequired && !HookCache.Supports(script)) executable = Path.GetFullPath(script);
     if (executable == null) throw new InvalidOperationException($"No current compiled hook: {script}");
     entries.Add(Path.GetFullPath(script), executable);
   }
@@ -40,7 +80,7 @@ string stdin = Console.In.ReadToEnd();
 // adapter validates its source/dependencies too, then hands off before interpreting the payload.
 string? currentAdapter = HookCache.Resolve(HookCache.SourcePath());
 if (currentAdapter != null && Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "RunAgentHook.dll")) != currentAdapter) {
-  var forwarded = RunGuard(HookCache.SourcePath(), args, stdin, runtime);
+  var forwarded = RunGuard(HookCache.SourcePath(), args.Concat(new[] { "--source", HookCache.SourcePath() }).ToArray(), stdin, runtime);
   Console.Error.Write(forwarded.Output);
   return forwarded.Code;
 }
@@ -150,6 +190,8 @@ static IEnumerable<PatchFile> ParsePatch(string patch) {
 static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guardArgs, string input, string? runtime) {
   bool csharp = Path.GetExtension(guard).Equals(".cs", StringComparison.OrdinalIgnoreCase);
   string? compiled = csharp ? HookCache.Resolve(guard) : null;
+  if (csharp && compiled == null && HookCache.RemoteRequired)
+    throw new InvalidOperationException("remote guard bundle is missing or stale; SDK fallback is disabled");
   var start = new ProcessStartInfo(csharp ? "dotnet" : "sh") {
     RedirectStandardInput = true,
     RedirectStandardOutput = true,
@@ -189,18 +231,32 @@ static string GitRoot() {
 // Its fast path hashes inputs and the complete private output bundle without starting the SDK.
 // Unsupported MSBuild customization retains the original SDK path instead of guessing inputs.
 static class HookCache {
+  public static string? AdapterSource { get; set; }
+  public static bool RemoteRequired => Environment.GetEnvironmentVariable("CHORDZY_REMOTE_TOOLS") == "1";
   public static bool Supports(string script) => Inputs(Path.GetFullPath(script)) != null;
   public static readonly DateTime Deadline = BuildDeadline();
   static DateTime BuildDeadline() {
     DateTime local = DateTime.UtcNow.AddSeconds(45);
-    if (Environment.GetCommandLineArgs().Contains("--prepare-hooks")) return DateTime.MaxValue;
+    if (Environment.GetCommandLineArgs().Any(argument => argument is "--prepare-hooks" or "--export-bundle")) return DateTime.MaxValue;
     return DateTime.TryParse(Environment.GetEnvironmentVariable("AGENT_HOOK_BUILD_DEADLINE"),
       System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var inherited) && inherited < local
       ? inherited : local;
   }
   static int BuildMilliseconds => (int)Math.Clamp((Deadline - DateTime.UtcNow).TotalMilliseconds, 0, 120_000);
-  public static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
-  static string CacheRoot => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, "..", "out", "agent-hooks"));
+  public static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => AdapterSource ?? path;
+  static string CacheRoot {
+    get {
+      string? over = Environment.GetEnvironmentVariable("CHORDZY_HOOK_CACHE");
+      string cache = !string.IsNullOrWhiteSpace(over) ? Path.GetFullPath(over) : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, "..", "out", "agent-hooks"));
+      string engine = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, ".."));
+      string repo = Path.GetFileName(engine) == "inzania-engine" ? Path.GetDirectoryName(engine)! : engine;
+      string pin = Path.Combine(repo, "ci", "hook-bootstrap", System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier + ".sha256");
+      if (!File.Exists(pin)) return cache;
+      string digest = File.ReadAllText(pin).Trim();
+      if (!System.Text.RegularExpressions.Regex.IsMatch(digest, "^[0-9A-F]{64}$")) throw new InvalidOperationException("invalid bundle pin");
+      return Path.Combine(cache, "bundle-" + digest);
+    }
+  }
 
   public static string? Resolve(string script, bool build = true) {
     script = Path.GetFullPath(script);
@@ -209,7 +265,7 @@ static class HookCache {
     string parent = Path.Combine(CacheRoot, Hash(Encoding.UTF8.GetBytes(script)));
     string destination = Path.Combine(parent, fingerprint);
     string? ready = ReadReady(destination, fingerprint);
-    if (ready != null || !build) return ready;
+    if (ready != null || !build || RemoteRequired) return ready;
     Directory.CreateDirectory(parent);
     // Serialize cold SDK builds only. Warm checks never acquire this lease, and concurrent
     // installers/hooks cannot publish partial output or race on the shared project compiler.
@@ -317,6 +373,10 @@ static class HookCache {
       foreach (string file in SourceFiles(projectDirectory)) inputs.Add(file);
     }
     var visited = new HashSet<string>(StringComparer.Ordinal);
+    string engineRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, ".."));
+    string consumerRoot = Path.GetDirectoryName(engineRoot)!;
+    string repository = File.Exists(Path.Combine(consumerRoot, ".git")) || Directory.Exists(Path.Combine(consumerRoot, ".git"))
+      ? consumerRoot : engineRoot;
     foreach (string start in inputs.Select(Path.GetDirectoryName).OfType<string>().Distinct().ToArray()) {
       for (string? directory = start; directory != null; directory = Path.GetDirectoryName(directory)) {
         if (!visited.Add(directory)) break;
@@ -326,6 +386,7 @@ static class HookCache {
           if (File.Exists(path) && (name.EndsWith(".props", StringComparison.Ordinal) || name.EndsWith(".targets", StringComparison.Ordinal)) && !OrdinaryProject(path)) return null;
           inputs.Add(path); // Missing files are inputs too: adding a build override invalidates the bundle.
         }
+        if (directory == repository) break;
       }
     }
     return inputs;
@@ -358,10 +419,165 @@ static class HookCache {
     element.Attributes().Any(attribute => attribute.Name.LocalName is "Condition" && attribute.Value.Contains("Exists(", StringComparison.OrdinalIgnoreCase)));
   static string FileHash(string path) { using var stream = File.OpenRead(path); return Convert.ToHexString(SHA256.HashData(stream)); }
   static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+  public static void ExportBundle(string directory, string repoRoot) {
+    repoRoot = Path.GetFullPath(repoRoot);
+    if (Directory.Exists(directory)) throw new InvalidOperationException("bundle destination already exists; preserve the previous attempt");
+    Directory.CreateDirectory(directory);
+    var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+    var payloads = new List<HookPayload>();
+    foreach (string script in BundleScripts(repoRoot)) {
+      string full = Path.GetFullPath(script);
+      var inputs = Inputs(full) ?? throw new InvalidOperationException("hook inputs are not a supported project");
+      foreach (string input in inputs) {
+        string relative = Path.GetRelativePath(repoRoot, input).Replace('\\', '/');
+        if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+          throw new InvalidOperationException("hook input is outside the repository");
+        sources[relative] = File.Exists(input) ? FileHash(input) : "missing";
+      }
+      string dll = Resolve(full, true) ?? throw new InvalidOperationException("hook did not compile");
+      string cacheDir = Path.GetDirectoryName(dll)!;
+      string scriptRel = Path.GetRelativePath(repoRoot, full).Replace('\\', '/');
+      string payloadDir = Path.Combine(directory, "payloads", Hash(Encoding.UTF8.GetBytes(scriptRel)));
+      Directory.CreateDirectory(payloadDir);
+      var files = new Dictionary<string, string>(StringComparer.Ordinal);
+      foreach (string file in Directory.GetFiles(cacheDir, "*", SearchOption.AllDirectories)) {
+        string name = Path.GetRelativePath(cacheDir, file).Replace('\\', '/');
+        if (name == "qualification.json") continue;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(payloadDir, name))!);
+        File.Copy(file, Path.Combine(payloadDir, name), true);
+        files[name] = FileHash(file);
+      }
+      payloads.Add(new HookPayload { Script = scriptRel, Assembly = Path.GetFileName(dll), Files = files });
+      if (Path.GetFileName(dll) == "RunAgentHook.dll") {
+        string boot = Path.Combine(directory, "bootstrap");
+        Directory.CreateDirectory(boot);
+        foreach (string file in Directory.GetFiles(cacheDir, "*", SearchOption.AllDirectories)) {
+          string name = Path.GetRelativePath(cacheDir, file);
+          if (name == "qualification.json") continue;
+          Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(boot, name))!);
+          File.Copy(file, Path.Combine(boot, name), true);
+        }
+      }
+    }
+    File.WriteAllText(Path.Combine(directory, "bundle.json"), ZJson.SerializeObject(new HookBundle {
+      Rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier,
+      Runtime = Environment.Version.ToString(),
+      Sources = sources,
+      Payloads = payloads,
+    }));
+  }
+
+  public static void ImportBundle(string directory, string repoRoot) {
+    repoRoot = Path.GetFullPath(repoRoot);
+    string rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
+    string pin = Path.Combine(repoRoot, "ci", "hook-bootstrap", rid + ".sha256");
+    var pinned = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true };
+    foreach (var argument in new[] { "-C", repoRoot, "show", "HEAD:ci/hook-bootstrap/" + rid + ".sha256" }) pinned.ArgumentList.Add(argument);
+    foreach (var key in pinned.Environment.Keys.Where(key => key.StartsWith("GIT_", StringComparison.Ordinal)).ToArray()) pinned.Environment.Remove(key);
+    using var readPin = Process.Start(pinned)!;
+    string trusted = readPin.StandardOutput.ReadToEnd().Trim();
+    readPin.StandardError.ReadToEnd();
+    readPin.WaitForExit();
+    if (readPin.ExitCode != 0 || !File.Exists(pin) || File.ReadAllText(pin).Trim() != trusted || trusted != CryptographyUtils.DirectorySha256(directory))
+      throw new InvalidOperationException("hook bundle does not match its trusted repository pin");
+    var bundle = ZJson.DeserializeObject<HookBundle>(File.ReadAllText(Path.Combine(directory, "bundle.json")))
+      ?? throw new InvalidOperationException("hook bundle manifest is missing");
+    if (bundle.Rid != System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier)
+      throw new InvalidOperationException("hook bundle RID does not match this host");
+    if (bundle.Runtime != Environment.Version.ToString())
+      throw new InvalidOperationException("hook bundle runtime does not match this host");
+    var scripts = BundleScripts(repoRoot).ToArray();
+    var expectedSources = scripts.SelectMany(script => Inputs(script) ?? throw new InvalidOperationException("unsupported bundle source"))
+      .Select(source => Path.GetRelativePath(repoRoot, source).Replace('\\', '/')).ToHashSet(StringComparer.Ordinal);
+    if (!expectedSources.SetEquals(bundle.Sources.Keys) || bundle.Payloads.Select(payload => payload.Script).Distinct(StringComparer.Ordinal).Count() != scripts.Length ||
+        !scripts.Select(script => Path.GetRelativePath(repoRoot, script).Replace('\\', '/')).ToHashSet(StringComparer.Ordinal).SetEquals(bundle.Payloads.Select(payload => payload.Script)))
+      throw new InvalidOperationException("hook bundle does not cover the canonical sources and tools");
+    foreach (var source in bundle.Sources) {
+      if (source.Key.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(source.Key))
+        throw new InvalidOperationException("hook bundle source path is not safe");
+      string full = Path.GetFullPath(Path.Combine(repoRoot, source.Key));
+      if (!full.StartsWith(repoRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) && full != repoRoot)
+        throw new InvalidOperationException("hook bundle source escapes the repository");
+      string hash = File.Exists(full) ? FileHash(full) : "missing";
+      if (!string.Equals(hash, source.Value, StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("hook bundle source does not match " + source.Key);
+    }
+    foreach (var payload in bundle.Payloads) {
+      if (payload.Script.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(payload.Script))
+        throw new InvalidOperationException("hook bundle script path is not safe");
+      string script = Path.GetFullPath(Path.Combine(repoRoot, payload.Script));
+      string fingerprint = Fingerprint(script) ?? throw new InvalidOperationException("hook bundle script is not installable");
+      string parent = Path.Combine(CacheRoot, Hash(Encoding.UTF8.GetBytes(script)));
+      string destination = Path.Combine(parent, fingerprint);
+      Directory.CreateDirectory(parent);
+      if (ReadReady(destination, fingerprint) != null) continue;
+      string staging = destination + ".importing-" + Guid.NewGuid().ToString("N");
+      Directory.CreateDirectory(staging);
+      string payloadDir = Path.Combine(directory, "payloads", Hash(Encoding.UTF8.GetBytes(payload.Script)));
+      var files = new Dictionary<string, string>(StringComparer.Ordinal);
+      foreach (var file in payload.Files) {
+        if (Path.IsPathRooted(file.Key) || file.Key.Contains('\\') || file.Key.Split('/').Any(part => part is ".." or "." or ""))
+          throw new InvalidOperationException("hook bundle file name is not safe");
+        string from = Path.Combine(payloadDir, file.Key);
+        string to = Path.Combine(staging, file.Key);
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        File.Copy(from, to);
+        if (!string.Equals(FileHash(to), file.Value, StringComparison.OrdinalIgnoreCase))
+          throw new InvalidOperationException("hook bundle file is corrupt");
+        files[file.Key] = FileHash(to);
+      }
+      File.WriteAllText(Path.Combine(staging, "qualification.json"), ZJson.SerializeObject(new Qualification {
+        Fingerprint = fingerprint, Assembly = payload.Assembly, Files = files,
+      }));
+      if (ReadReady(staging, fingerprint) == null) throw new InvalidOperationException("imported hook failed verification");
+      if (Directory.Exists(destination)) Directory.Move(destination, destination + ".replaced-" + Guid.NewGuid().ToString("N"));
+      Directory.Move(staging, destination);
+    }
+  }
+
+  static IEnumerable<string> BundleScripts(string repoRoot) {
+    var list = new List<string> { Path.Combine(repoRoot, "inzania-engine", "ci", "RunAgentHook.cs") };
+    void Add(string manifest, string prefix) {
+      if (!File.Exists(manifest)) return;
+      var doc = ZJson.DeserializeObject<HookManifestFile>(null, File.ReadAllText(manifest), new ZJsonSerializationOpts { AllowCommentsAndTrailingCommas = true });
+      foreach (var hook in doc?.Hooks ?? new List<HookManifestEntry>()) {
+        if (!string.IsNullOrWhiteSpace(hook.Script)) list.Add(Path.Combine(repoRoot, prefix, hook.Script));
+      }
+    }
+    Add(Path.Combine(repoRoot, "inzania-engine", "ci", "agent-hooks.json"), "inzania-engine");
+    Add(Path.Combine(repoRoot, "ci", "agent-hooks.json"), "");
+    foreach (var tool in new[] { "ci/RemoteDev.cs", "ci/PipelineSettings.cs", "ci/WorkerProcess.cs", "ci/PreCommit.cs", "inzania-engine/ci/install.cs", ".agents/skills/implement-all/Supervisor.cs" }) {
+      string source = Path.Combine(repoRoot, tool);
+      if (File.Exists(source)) list.Add(source);
+    }
+    return list.Distinct(StringComparer.Ordinal);
+  }
+
   sealed class Qualification {
     public string Fingerprint { get; set; } = "";
     public string Assembly { get; set; } = "";
     public Dictionary<string, string> Files { get; set; } = new(StringComparer.Ordinal);
+  }
+
+  sealed class HookBundle {
+    public string Rid { get; set; } = "";
+    public string Runtime { get; set; } = "";
+    public Dictionary<string, string> Sources { get; set; } = new(StringComparer.Ordinal);
+    public List<HookPayload> Payloads { get; set; } = new();
+  }
+
+  sealed class HookPayload {
+    public string Script { get; set; } = "";
+    public string Assembly { get; set; } = "";
+    public Dictionary<string, string> Files { get; set; } = new(StringComparer.Ordinal);
+  }
+
+  sealed class HookManifestFile {
+    public List<HookManifestEntry>? Hooks { get; set; }
+  }
+
+  sealed class HookManifestEntry {
+    public string? Script { get; set; }
   }
 }
 
