@@ -115,6 +115,9 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     var values = key.Properties.Select(p => entry.Property(p.Name).CurrentValue).ToArray();
     var table = StoreObjectIdentifier.Table(model.GetTableName()!, model.GetSchema());
     var sql = Db.GetService<ISqlGenerationHelper>();
+    // The configured MySQL provider retries transient failures. Its strategy must own the
+    // entire transaction, including fresh reads, rather than retrying an individual save.
+    return await Db.Database.CreateExecutionStrategy().ExecuteAsync(async () => {
     // SQLite's non-deferred serializable transaction takes its writer lock at BEGIN. MySQL
     // locks only the existing indexed row; READ COMMITTED keeps the following reads fresh.
     await using var transaction = await Db.Database.BeginTransactionAsync(
@@ -149,6 +152,7 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
       Db.ChangeTracker.Clear();
       throw;
     }
+    });
   }
 
 
