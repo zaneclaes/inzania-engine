@@ -123,24 +123,19 @@ public class ZEfCoreDataRepository<TDb> : DataRepositoryBase, IZDataRepository w
     await using var transaction = await Db.Database.BeginTransactionAsync(
       sqlite ? IsolationLevel.Serializable : IsolationLevel.ReadCommitted, ct);
     try {
-      using var command = Db.Database.GetDbConnection().CreateCommand();
-      command.Transaction = transaction.GetDbTransaction();
       var predicates = new List<string>();
       for (int i = 0; i < key.Properties.Count; i++) {
-        string name = "@atomic" + i;
-        predicates.Add(sql.DelimitIdentifier(key.Properties[i].GetColumnName(table)!) + " = " + name);
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = name;
-        parameter.Value = values[i] ?? DBNull.Value;
-        command.Parameters.Add(parameter);
+        predicates.Add(sql.DelimitIdentifier(key.Properties[i].GetColumnName(table)!) + " = {" + i + "}");
       }
-      command.CommandText = "SELECT " + sql.DelimitIdentifier(key.Properties[0].GetColumnName(table)!) +
-        " FROM " + sql.DelimitIdentifier(table.Name, table.Schema) + " WHERE " + string.Join(" AND ", predicates) +
+      string lockQuery = "SELECT * FROM " + sql.DelimitIdentifier(table.Name, table.Schema) +
+        " WHERE " + string.Join(" AND ", predicates) +
         (mysql ? " FOR UPDATE" : "");
-      if (await command.ExecuteScalarAsync(ct) == null)
-        throw new InvalidOperationException("Atomic mutation row no longer exists");
       Db.ChangeTracker.Clear();
-      var fresh = await Db.Set<TData>().FindAsync(values, ct) ??
+      // Keep the keyed locking read on EF's existing command/interceptor path. Materialize
+      // directly, without SQL composition around FOR UPDATE, and reuse that fresh tracked row.
+      var locked = await Db.Set<TData>().FromSqlRaw(lockQuery, values.Select(value => value ?? DBNull.Value).ToArray())
+        .ToListAsync(ct);
+      var fresh = locked.SingleOrDefault() ??
         throw new InvalidOperationException("Atomic mutation row no longer exists");
       Sanitize(Context);
       var result = await mutation(fresh);
