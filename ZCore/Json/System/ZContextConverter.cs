@@ -206,7 +206,8 @@ public class ZContextConverter : JsonConverter<object>, IHaveContext {
           }
         }
 
-        Context.Log.Verbose("[JSON] SET {key} = {val} ({prop}) o {r}", propName, val, prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
+        // Inputs can contain credentials even when their properties are output-ignored.
+        Context.Log.Verbose("[JSON] SET {key} ({prop}) token {r}", propName, prop == null || prop.IsIgnoredForFormat(_opts?.ApiFormat), tt);
       }
       if (prop != null) {
         if (prop.IsSettable) {
