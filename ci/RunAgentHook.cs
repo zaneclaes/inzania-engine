@@ -159,7 +159,10 @@ static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guar
     RedirectStandardOutput = true,
     RedirectStandardError = true,
   };
-  if (csharp && compiled == null) start.ArgumentList.Add("run");
+  if (csharp && compiled == null) {
+    start.ArgumentList.Add("run");
+    start.ArgumentList.Add("--disable-build-servers");
+  }
   start.ArgumentList.Add(compiled ?? guard);
   if (compiled == null) start.ArgumentList.Add("--");
   foreach (string arg in guardArgs) start.ArgumentList.Add(arg);
@@ -204,7 +207,16 @@ static class HookCache {
       ? inherited : local;
   }
   static int BuildMilliseconds => (int)Math.Clamp((Deadline - DateTime.UtcNow).TotalMilliseconds, 0, 120_000);
-  public static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => fixtureSource ?? path;
+  public static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") {
+    if (fixtureSource != null) return fixtureSource;
+    // A qualified bundle can move between agent checkouts. Its baked CallerFilePath
+    // still names the build host; resolve the source beside the current private cache.
+    for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory != null; directory = directory.Parent) {
+      string current = Path.Combine(directory.FullName, "ci", "RunAgentHook.cs");
+      if (File.Exists(current)) return current;
+    }
+    return path; // SDK-launched file apps live outside the engine's private cache.
+  }
   static string RepositoryRoot() {
     string engine = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(SourcePath())!, ".."));
     string consumer = Path.GetDirectoryName(engine)!;
@@ -459,6 +471,62 @@ static class HookCache {
     } finally {
       fixtureSource = previousSource;
       Directory.Delete(fixtures, recursive: true);
+    }
+    TestRelocatedAdapter();
+  }
+
+  static void TestRelocatedAdapter() {
+    string adapter = SourcePath();
+    string repository = RepositoryRoot();
+    var inputs = Inputs(adapter) ?? throw new InvalidOperationException("adapter relocation inputs unsupported");
+    string fixtures = Path.Combine(repository, ".scratch", "adapter-relocation-fixtures", Guid.NewGuid().ToString("N"));
+    string original = Path.Combine(fixtures, "original");
+    string relocated = Path.Combine(fixtures, "relocated");
+    string? previousSource = fixtureSource;
+    try {
+      foreach (string input in inputs.Where(File.Exists)) {
+        string target = Path.Combine(original, Path.GetRelativePath(repository, input));
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(input, target);
+      }
+      Directory.CreateDirectory(Path.Combine(original, ".git"));
+      fixtureSource = Path.Combine(original, Path.GetRelativePath(repository, adapter));
+      string executable = Resolve(fixtureSource) ?? throw new InvalidOperationException("adapter fixture did not compile");
+      string relativeExecutable = Path.GetRelativePath(original, executable);
+      string guard = "RelocationGuard.sh";
+      File.WriteAllText(Path.Combine(original, guard), "cat >/dev/null\nprintf 'RELOCATED_GUARD_DENIES\\n' >&2\nexit 2\n");
+      foreach (string file in Directory.GetFiles(original, "*", SearchOption.AllDirectories)) {
+        string target = Path.Combine(relocated, Path.GetRelativePath(original, file));
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(file, target);
+      }
+      Directory.CreateDirectory(Path.Combine(relocated, ".git"));
+      Directory.Delete(original, recursive: true);
+      fixtureSource = previousSource;
+      var start = new ProcessStartInfo("dotnet") {
+        WorkingDirectory = relocated, RedirectStandardInput = true,
+        RedirectStandardOutput = true, RedirectStandardError = true,
+      };
+      foreach (string argument in new[] { Path.Combine(relocated, relativeExecutable), "--guard", Path.Combine(relocated, guard) })
+        start.ArgumentList.Add(argument);
+      start.Environment["MSBuildSDKsPath"] = Path.Combine(fixtures, "absent-sdk");
+      using var process = Process.Start(start)!;
+      var stdout = process.StandardOutput.ReadToEndAsync();
+      var stderr = process.StandardError.ReadToEndAsync();
+      process.StandardInput.Close();
+      if (!process.WaitForExit(60000)) {
+        process.Kill(true);
+        process.WaitForExit();
+        throw new InvalidOperationException("relocated adapter fixture timed out");
+      }
+      string output = stdout.GetAwaiter().GetResult() + stderr.GetAwaiter().GetResult();
+      if (process.ExitCode != 2 || !output.Contains("RELOCATED_GUARD_DENIES", StringComparison.Ordinal) ||
+          output.Contains("AGENT_HOOK_UNAVAILABLE", StringComparison.Ordinal))
+        throw new InvalidOperationException("relocated adapter could not run without its original checkout or SDK: " + output);
+      Console.WriteLine("PASS relocated compiled adapter executes the real guard without original checkout or SDK");
+    } finally {
+      fixtureSource = previousSource;
+      if (Directory.Exists(fixtures)) Directory.Delete(fixtures, recursive: true);
     }
   }
   sealed class Qualification {

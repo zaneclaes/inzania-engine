@@ -175,7 +175,10 @@ Installs the complementary git hooks and shared agent hooks, then warms the hook
    Script keys and fingerprint input identities are normalized relative to the consuming Git
    repository (or standalone engine); configuration lookup stops there. Identical source/runtime
    produces identical relative manifest commands across worktrees, while cache storage remains
-   private to each worktree. Outside-root inputs require an explicit inventory. Regression checks
+   private to each worktree. A relocated compiled adapter resolves its source above its current
+   private bundle rather than using the checkout path baked into the assembly. Its source and
+   fingerprint checks still apply; the regression deletes the original checkout and runs the
+   real guard without an SDK. Outside-root inputs require an explicit inventory. Regression checks
    are `RunAgentHook.cs --self-test-cache-identity` (real compiled fixture caches) and
    `install.cs --self-test-hook-relocation` (all three production renderers' relocated `--check`).
 
