@@ -159,7 +159,10 @@ static (int Code, string Output) RunGuard(string guard, IEnumerable<string> guar
     RedirectStandardOutput = true,
     RedirectStandardError = true,
   };
-  if (csharp && compiled == null) start.ArgumentList.Add("run");
+  if (csharp && compiled == null) {
+    start.ArgumentList.Add("run");
+    start.ArgumentList.Add("--disable-build-servers");
+  }
   start.ArgumentList.Add(compiled ?? guard);
   if (compiled == null) start.ArgumentList.Add("--");
   foreach (string arg in guardArgs) start.ArgumentList.Add(arg);
