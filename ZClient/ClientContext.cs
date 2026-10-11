@@ -10,6 +10,7 @@ using IZ.Core.Auth.Args;
 using IZ.Core.Contexts;
 using IZ.Core.Data;
 using IZ.Core.Observability.Analytics;
+using IZ.Core.Observability.Logging;
 using IZ.Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 #region
@@ -30,7 +31,7 @@ public abstract class ClientContext : RootContext {
   public IIdentityStore IdentityStore => _sessionStore ??= this.GetRequiredService<IIdentityStore>();
   private IIdentityStore? _sessionStore;
 
-  protected ClientContext(ZApp app, IServiceProvider services) : base(app, services) {
+  protected ClientContext(ZApp app, IServiceProvider services, IZLogger? logger = null) : base(app, services, logger) {
     // Log.Information("[START] entrypoint...");
   }
   // private IZChildContext? _span;
@@ -86,8 +87,9 @@ public abstract class ClientContext : RootContext {
   }
 
   public async ZTask Startup(Installation install, IAnalyticsSink? sink = null) {
-    Log.Information("[START] {installId} starting v{version} after {ms}ms ...",
-      install.ClientId, install.SemVer, Uptime.TotalMilliseconds);
+    // The client id authenticates this installation's guest, so only its alias is logged.
+    Log.Information("[START] install {installAlias} starting v{version} after {ms}ms ...",
+      Installation.LogAlias(install.ClientId), install.SemVer, Uptime.TotalMilliseconds);
     Install = install;
     ClientApp.ClientId = install.ClientId;
     ClientApp.Version = install.SemVer;
@@ -100,7 +102,7 @@ public abstract class ClientContext : RootContext {
       await ZTask.WhenAll(GetStartupTasks().ToArray());
       Log.Information("[START] entering ready state after {ms}ms; breakdown: {tasks}", Uptime.TotalMilliseconds, _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       await ZTask.WhenAll(GetReadyTasks().ToArray());
-      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, CurrentIdentity?.UserSession?.IZUser, Uptime.TotalMilliseconds,
+      Log.Information("[START] v{version} ready for {user} after {ms}ms; breakdown: {tasks}", install.SemVer, Installation.LogLabel(CurrentIdentity?.UserSession?.IZUser), Uptime.TotalMilliseconds,
         _taskTimers.Keys.Select(t => $"{t}: {_taskTimers[t].ElapsedMilliseconds}ms"));
       IsStarted = true;
     } catch (Exception e) {

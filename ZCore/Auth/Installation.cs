@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Serialization;
 using IZ.Core.Data;
 using IZ.Core.Data.Attributes;
@@ -86,4 +88,27 @@ public class Installation : TransientObject {
 
   public string GetInstallIdForUserId(string userId) =>
     GetInstallIdForUserId(userId, ClientId);
+
+  /// <summary>
+  /// A client id's loggable identity: the first 8 bytes of its SHA-256 as 16 lowercase hex characters, or
+  /// "missing" when it is blank. The raw client id is a reusable credential: the server authenticates a request
+  /// carrying it as the installation's virtual guest (whose user id equals it), so it is never logged. This is the
+  /// same alias the smokescreen prints for an installation token, so the two can be compared.
+  /// </summary>
+  public static string LogAlias(string? clientId) {
+    if (string.IsNullOrWhiteSpace(clientId)) return "missing";
+    using var sha = SHA256.Create();
+    byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(clientId));
+    var alias = new StringBuilder(16);
+    for (int i = 0; i < 8; i++) alias.Append(hash[i].ToString("x2"));
+    return alias.ToString();
+  }
+
+  /// <summary>A user's loggable label. A virtual guest's id is its installation's client id (a credential) and its
+  /// username encodes that id, so a guest is named only by <see cref="LogAlias" />; a real account keeps its
+  /// ordinary description.</summary>
+  public static string LogLabel(IZUser? user) {
+    if (user == null) return "null";
+    return user.Role.IsVirtualUser() ? $"<User~{LogAlias(user.Id)} [{user.Role}] />" : user.ToString() ?? "unknown";
+  }
 }
